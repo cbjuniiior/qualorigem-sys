@@ -8,34 +8,35 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { SensorialRadarChart } from "@/components/SensorialRadarChart";
+import { productLotsApi } from "@/services/api";
+import type { ProductLot } from "@/services/api";
 
+// Interface para compatibilidade com dados do Supabase
 interface LoteData {
   id: string;
-  nome: string;
-  imagem: string;
-  variedade?: string;
-  safra: string;
-  quantidade: string;
-  unidade: string;
-  produtor: {
-    nome: string;
-    propriedade: {
-      nome: string;
-      altitude: number;
-      temperatura: number;
-      cidade: string;
-      estado: string;
-      descricao: string;
-    };
+  code: string;
+  name: string;
+  image_url: string | null;
+  variety?: string;
+  harvest_year: string;
+  quantity: number | null;
+  unit: string | null;
+  producers: {
+    id: string;
+    name: string;
+    property_name: string;
+    property_description: string | null;
+    city: string;
+    state: string;
+    altitude: number | null;
+    average_temperature: number | null;
   };
-  sensorial: {
-    fragrancia: number;
-    sabor: number;
-    finalizacao: number;
-    acidez: number;
-    corpo: number;
-    observacoes?: string;
-  };
+  fragrance_score: number | null;
+  flavor_score: number | null;
+  finish_score: number | null;
+  acidity_score: number | null;
+  body_score: number | null;
+  sensory_notes: string | null;
 }
 
 const LoteDetails = () => {
@@ -45,46 +46,27 @@ const LoteDetails = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulação de dados - em produção, buscaria do Supabase
-    const mockData: LoteData = {
-      id: codigo || "",
-      nome: "Café Especial Montanha Verde",
-      imagem: "/placeholder.svg",
-      variedade: "Bourbon Amarelo",
-      safra: "2024",
-      quantidade: "500",
-      unidade: "Kg",
-      produtor: {
-        nome: "João Silva Santos",
-        propriedade: {
-          nome: "Fazenda Alto da Serra",
-          altitude: 1200,
-          temperatura: 22.5,
-          cidade: "Campos do Jordão",
-          estado: "SP",
-          descricao: "Propriedade familiar com tradição de mais de 50 anos na produção de café especial, localizada na Serra da Mantiqueira.",
-        },
-      },
-      sensorial: {
-        fragrancia: 8.5,
-        sabor: 9.0,
-        finalizacao: 8.2,
-        acidez: 7.8,
-        corpo: 8.8,
-        observacoes: "Notas de chocolate e caramelo, com acidez cítrica equilibrada e corpo aveludado.",
-      },
+    const fetchLoteData = async () => {
+      if (!codigo) return;
+      
+      try {
+        const data = await productLotsApi.getByCode(codigo);
+        setLoteData(data);
+      } catch (error) {
+        console.error("Erro ao buscar dados do lote:", error);
+        toast.error("Erro ao carregar dados do lote");
+      } finally {
+        setLoading(false);
+      }
     };
 
-    setTimeout(() => {
-      setLoteData(mockData);
-      setLoading(false);
-    }, 1000);
+    fetchLoteData();
   }, [codigo]);
 
   const handleShare = async () => {
     try {
       await navigator.share({
-        title: `${loteData?.nome} - Lote ${codigo}`,
+        title: `${loteData?.name} - Lote ${codigo}`,
         text: `Conheça a origem e qualidade deste produto com Indicação Geográfica`,
         url: window.location.href,
       });
@@ -157,29 +139,29 @@ const LoteDetails = () => {
                     Lote #{codigo}
                   </Badge>
                   <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                    {loteData.nome}
+                    {loteData.name}
                   </h1>
                   <div className="space-y-3">
-                    {loteData.variedade && (
+                    {loteData.variety && (
                       <div className="flex items-center text-gray-600">
                         <Award className="h-5 w-5 mr-2 text-green-600" />
-                        <span>Variedade: {loteData.variedade}</span>
+                        <span>Variedade: {loteData.variety}</span>
                       </div>
                     )}
                     <div className="flex items-center text-gray-600">
                       <Calendar className="h-5 w-5 mr-2 text-green-600" />
-                      <span>Safra {loteData.safra}</span>
+                      <span>Safra {loteData.harvest_year}</span>
                     </div>
                     <div className="flex items-center text-gray-600">
                       <Weight className="h-5 w-5 mr-2 text-green-600" />
-                      <span>{loteData.quantidade} {loteData.unidade}</span>
+                      <span>{loteData.quantity} {loteData.unit}</span>
                     </div>
                   </div>
                 </div>
                 <div className="relative">
                   <img
-                    src={loteData.imagem}
-                    alt={loteData.nome}
+                    src={loteData.image_url || "/placeholder.svg"}
+                    alt={loteData.name}
                     className="w-full h-64 object-cover rounded-lg shadow-md"
                   />
                 </div>
@@ -198,8 +180,8 @@ const LoteDetails = () => {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">{loteData.produtor.nome}</h3>
-                  <p className="text-gray-600">{loteData.produtor.propriedade.nome}</p>
+                  <h3 className="font-semibold text-gray-900 mb-2">{loteData.producers.name}</h3>
+                  <p className="text-gray-600">{loteData.producers.property_name}</p>
                 </div>
 
                 <Separator />
@@ -208,26 +190,26 @@ const LoteDetails = () => {
                   <div className="text-center p-4 bg-green-50 rounded-lg">
                     <Mountain className="h-6 w-6 text-green-600 mx-auto mb-2" />
                     <div className="text-sm text-gray-600">Altitude</div>
-                    <div className="font-semibold text-gray-900">{loteData.produtor.propriedade.altitude}m</div>
+                    <div className="font-semibold text-gray-900">{loteData.producers.altitude}m</div>
                   </div>
                   <div className="text-center p-4 bg-emerald-50 rounded-lg">
                     <Thermometer className="h-6 w-6 text-emerald-600 mx-auto mb-2" />
                     <div className="text-sm text-gray-600">Temperatura Média</div>
-                    <div className="font-semibold text-gray-900">{loteData.produtor.propriedade.temperatura}°C</div>
+                    <div className="font-semibold text-gray-900">{loteData.producers.average_temperature}°C</div>
                   </div>
                 </div>
 
                 <div>
                   <div className="text-sm text-gray-600 mb-1">Localização</div>
                   <div className="font-medium text-gray-900">
-                    {loteData.produtor.propriedade.cidade}, {loteData.produtor.propriedade.estado}
+                    {loteData.producers.city}, {loteData.producers.state}
                   </div>
                 </div>
 
                 <div>
                   <div className="text-sm text-gray-600 mb-2">Sobre a Propriedade</div>
                   <p className="text-gray-700 text-sm leading-relaxed">
-                    {loteData.produtor.propriedade.descricao}
+                    {loteData.producers.property_description}
                   </p>
                 </div>
               </CardContent>
@@ -243,16 +225,22 @@ const LoteDetails = () => {
               </CardHeader>
               <CardContent>
                 <div className="mb-6">
-                  <SensorialRadarChart data={loteData.sensorial} />
+                  <SensorialRadarChart data={{
+                    fragrancia: loteData.fragrance_score || 0,
+                    sabor: loteData.flavor_score || 0,
+                    finalizacao: loteData.finish_score || 0,
+                    acidez: loteData.acidity_score || 0,
+                    corpo: loteData.body_score || 0,
+                  }} />
                 </div>
                 
-                {loteData.sensorial.observacoes && (
+                {loteData.sensory_notes && (
                   <>
                     <Separator className="my-4" />
                     <div>
                       <div className="text-sm text-gray-600 mb-2">Observações do Especialista</div>
                       <p className="text-gray-700 text-sm leading-relaxed italic">
-                        "{loteData.sensorial.observacoes}"
+                        "{loteData.sensory_notes}"
                       </p>
                     </div>
                   </>

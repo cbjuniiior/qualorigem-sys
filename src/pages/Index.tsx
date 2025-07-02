@@ -39,7 +39,12 @@ const Index = () => {
                 GeoTrace
               </h1>
             </div>
-            <Button variant="outline" size="sm" className="border-green-200 hover:bg-green-50">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="border-green-200 hover:bg-green-50"
+              onClick={() => navigate("/auth/login")}
+            >
               Acesso Produtor
             </Button>
           </div>

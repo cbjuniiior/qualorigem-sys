@@ -9,7 +9,136 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      producers: {
+        Row: {
+          id: string
+          name: string
+          document_number: string | null
+          phone: string | null
+          email: string | null
+          property_name: string
+          property_description: string | null
+          address: string | null
+          city: string
+          state: string
+          altitude: number | null
+          average_temperature: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          document_number?: string | null
+          phone?: string | null
+          email?: string | null
+          property_name: string
+          property_description?: string | null
+          address?: string | null
+          city: string
+          state: string
+          altitude?: number | null
+          average_temperature?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          document_number?: string | null
+          phone?: string | null
+          email?: string | null
+          property_name?: string
+          property_description?: string | null
+          address?: string | null
+          city?: string
+          state?: string
+          altitude?: number | null
+          average_temperature?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_lots_producer_id_fkey"
+            columns: ["id"]
+            isOneToOne: false
+            referencedRelation: "product_lots"
+            referencedColumns: ["producer_id"]
+          }
+        ]
+      }
+      product_lots: {
+        Row: {
+          id: string
+          code: string
+          name: string
+          category: string | null
+          variety: string | null
+          harvest_year: string | null
+          quantity: number | null
+          unit: string | null
+          image_url: string | null
+          producer_id: string
+          fragrance_score: number | null
+          flavor_score: number | null
+          finish_score: number | null
+          acidity_score: number | null
+          body_score: number | null
+          sensory_notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          code: string
+          name: string
+          category?: string | null
+          variety?: string | null
+          harvest_year?: string | null
+          quantity?: number | null
+          unit?: string | null
+          image_url?: string | null
+          producer_id: string
+          fragrance_score?: number | null
+          flavor_score?: number | null
+          finish_score?: number | null
+          acidity_score?: number | null
+          body_score?: number | null
+          sensory_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          code?: string
+          name?: string
+          category?: string | null
+          variety?: string | null
+          harvest_year?: string | null
+          quantity?: number | null
+          unit?: string | null
+          image_url?: string | null
+          producer_id?: string
+          fragrance_score?: number | null
+          flavor_score?: number | null
+          finish_score?: number | null
+          acidity_score?: number | null
+          body_score?: number | null
+          sensory_notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_lots_producer_id_fkey"
+            columns: ["producer_id"]
+            isOneToOne: false
+            referencedRelation: "producers"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -49,7 +178,7 @@ export type Tables<
         DefaultSchema["Views"])
     ? (DefaultSchema["Tables"] &
         DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
+      Row: infer R
       }
       ? R
       : never
@@ -72,7 +201,7 @@ export type TablesInsert<
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
+      Insert: infer I
       }
       ? I
       : never
@@ -95,7 +224,7 @@ export type TablesUpdate<
     : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
     ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
+      Update: infer U
       }
       ? U
       : never

@@ -1,73 +1,294 @@
-# Welcome to your Lovable project
+# 🌱 GeoTrace - Sistema de Rastreabilidade para Produtos com Indicação Geográfica
 
-## Project info
+## 📋 Sobre o Projeto
 
-**URL**: https://lovable.dev/projects/3ac76ada-e9b2-4702-872c-beb004167588
+O **GeoTrace** é um sistema completo de rastreabilidade para produtos com Indicação Geográfica, desenvolvido com tecnologias modernas para garantir transparência e confiança na cadeia produtiva.
 
-## How can I edit this code?
+### 🎯 Objetivos
+- **Rastreabilidade Completa**: Acompanhar produtos desde a origem até o consumidor final
+- **Transparência**: Informações detalhadas sobre produtores, lotes e processos
+- **QR Codes**: Sistema de códigos QR para acesso rápido às informações
+- **Dashboard Administrativo**: Gestão completa de produtores e lotes
+- **Painel do Produtor**: Interface específica para produtores gerenciarem seus lotes
 
-There are several ways of editing your application.
+## 🚀 Status do Projeto
 
-**Use Lovable**
+### ✅ **Fase 1: Banco de Dados e Autenticação** - CONCLUÍDA
+- Sistema de autenticação com Supabase
+- Banco de dados com tabelas de produtores e lotes
+- Políticas de segurança (RLS)
+- Tipos TypeScript completos
+- Serviços de API integrados
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/3ac76ada-e9b2-4702-872c-beb004167588) and start prompting.
+### ✅ **Fase 2: Dashboard Administrativo** - CONCLUÍDA
+- Dashboard principal com métricas
+- Gestão completa de produtores (CRUD)
+- Gestão completa de lotes (CRUD)
+- Sistema de relatórios e gráficos
+- Interface responsiva e moderna
 
-Changes made via Lovable will be committed automatically to this repo.
+### ✅ **Fase 3: Painel do Produtor** - CONCLUÍDA
+- Dashboard específico para produtores
+- Gestão de lotes próprios
+- Sistema de QR Codes
+- Métricas e análises individuais
+- Configurações de perfil
 
-**Use your preferred IDE**
+### 🔄 **Fase 4: Funcionalidades Avançadas** - EM DESENVOLVIMENTO
+- Sistema de notificações em tempo real
+- API pública para consulta
+- Integração com mapas
+- Relatórios avançados
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### 📋 **Fase 5: Polimento e Deploy** - PENDENTE
+- Testes automatizados
+- Otimizações de performance
+- Deploy em produção
+- Documentação completa
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🛠️ Tecnologias Utilizadas
 
-Follow these steps:
+### Frontend
+- **React 18** com TypeScript
+- **Vite** para build e desenvolvimento
+- **Tailwind CSS** para estilização
+- **shadcn/ui** para componentes
+- **React Router** para navegação
+- **React Hook Form** para formulários
+- **Zod** para validação
+- **Lucide React** para ícones
+- **Recharts** para gráficos
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Backend
+- **Supabase** para banco de dados e autenticação
+- **PostgreSQL** como banco de dados
+- **Row Level Security (RLS)** para segurança
+- **Storage** para upload de arquivos
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Ferramentas
+- **TypeScript** para tipagem estática
+- **ESLint** para linting
+- **Prettier** para formatação
+- **Git** para versionamento
 
-# Step 3: Install the necessary dependencies.
-npm i
+## 📁 Estrutura do Projeto
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```
+geo-trace-origin-link/
+├── src/
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── AdminLayout.tsx          # Layout do dashboard admin
+│   │   │   └── ProducerLayout.tsx       # Layout do painel produtor
+│   │   ├── ui/                          # Componentes shadcn/ui
+│   │   ├── ProtectedRoute.tsx           # Proteção de rotas
+│   │   └── SensorialRadarChart.tsx      # Gráfico radar sensorial
+│   ├── pages/
+│   │   ├── Index.tsx                    # Homepage pública
+│   │   ├── LoteDetails.tsx              # Detalhes do lote público
+│   │   ├── auth/
+│   │   │   ├── Login.tsx                # Página de login
+│   │   │   └── Register.tsx             # Página de cadastro
+│   │   ├── admin/                       # Páginas do admin
+│   │   │   ├── Dashboard.tsx            # Dashboard principal
+│   │   │   ├── Produtores.tsx           # Gestão de produtores
+│   │   │   ├── Lotes.tsx                # Gestão de lotes
+│   │   │   └── Relatorios.tsx           # Relatórios e métricas
+│   │   └── produtor/                    # Páginas do produtor
+│   │       ├── Dashboard.tsx            # Dashboard do produtor
+│   │       ├── Lotes.tsx                # Gestão de lotes próprios
+│   │       ├── QRCodes.tsx              # Sistema de QR codes
+│   │       ├── Metricas.tsx             # Métricas e análises
+│   │       └── Configuracoes.tsx        # Configurações do produtor
+│   ├── services/
+│   │   └── api.ts                       # Serviços de API
+│   ├── hooks/
+│   │   └── use-auth.tsx                 # Hook de autenticação
+│   ├── integrations/
+│   │   └── supabase/
+│   │       ├── client.ts                # Cliente Supabase
+│   │       └── types.ts                 # Tipos TypeScript
+│   ├── data/
+│   │   └── sample-data.ts               # Dados de exemplo
+│   └── scripts/
+│       └── seed-database.ts             # Script para popular banco
+├── supabase/
+│   ├── config.toml                      # Configuração Supabase
+│   └── migrations/
+│       └── 001_initial_schema.sql       # Schema inicial
+├── public/                              # Arquivos estáticos
+├── package.json                         # Dependências
+├── tailwind.config.ts                   # Configuração Tailwind
+├── vite.config.ts                       # Configuração Vite
+└── README.md                            # Documentação
+```
+
+## 🚀 Como Executar o Projeto
+
+### Pré-requisitos
+- Node.js 18+ e npm
+- Conta no Supabase
+
+### Instalação
+
+1. **Clone o repositório**
+```bash
+git clone <URL_DO_REPOSITORIO>
+cd geo-trace-origin-link
+```
+
+2. **Instale as dependências**
+```bash
+npm install
+```
+
+3. **Configure o Supabase**
+   - Crie um projeto no [Supabase](https://supabase.com)
+   - Configure as variáveis de ambiente (veja `.env.example`)
+   - Execute as migrações do banco de dados
+
+4. **Configure as variáveis de ambiente**
+```bash
+cp .env.example .env.local
+# Edite o arquivo .env.local com suas credenciais do Supabase
+```
+
+5. **Execute as migrações**
+```bash
+npx supabase db push
+```
+
+6. **Popule o banco com dados de exemplo**
+```bash
+npm run seed
+```
+
+7. **Inicie o servidor de desenvolvimento**
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+8. **Acesse o projeto**
+   - Abra [http://localhost:5173](http://localhost:5173)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 📱 Funcionalidades Principais
 
-**Use GitHub Codespaces**
+### 🌐 **Homepage Pública**
+- Busca por código de lote
+- Informações sobre o sistema
+- Design responsivo e moderno
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### 🔐 **Sistema de Autenticação**
+- Login e cadastro de usuários
+- Proteção de rotas
+- Gerenciamento de sessão
 
-## What technologies are used for this project?
+### 👨‍💼 **Dashboard Administrativo**
+- Visão geral do sistema
+- Gestão completa de produtores
+- Gestão completa de lotes
+- Relatórios e métricas
+- Gráficos interativos
 
-This project is built with:
+### 👨‍🌾 **Painel do Produtor**
+- Dashboard específico para produtores
+- Gestão de lotes próprios
+- Geração de QR Codes
+- Métricas individuais
+- Configurações de perfil
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### 📦 **Sistema de Lotes**
+- Códigos únicos para cada lote
+- Informações detalhadas do produto
+- Análise sensorial
+- Rastreabilidade completa
 
-## How can I deploy this project?
+### 🎯 **QR Codes**
+- Geração automática de QR codes
+- Links diretos para informações do lote
+- Download e impressão
+- Instruções de uso
 
-Simply open [Lovable](https://lovable.dev/projects/3ac76ada-e9b2-4702-872c-beb004167588) and click on Share -> Publish.
+## 🔧 Configuração do Supabase
 
-## Can I connect a custom domain to my Lovable project?
+### 1. Crie um projeto no Supabase
+- Acesse [supabase.com](https://supabase.com)
+- Crie uma nova conta ou faça login
+- Crie um novo projeto
 
-Yes, you can!
+### 2. Configure as variáveis de ambiente
+```env
+VITE_SUPABASE_URL=sua_url_do_supabase
+VITE_SUPABASE_ANON_KEY=sua_chave_anonima
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### 3. Execute as migrações
+```bash
+npx supabase db push
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+### 4. Configure as políticas RLS
+As políticas de segurança já estão incluídas no arquivo de migração.
+
+## 📊 Banco de Dados
+
+### Tabelas Principais
+
+#### `producers`
+- Informações dos produtores
+- Dados da propriedade
+- Localização e características
+
+#### `product_lots`
+- Informações dos lotes
+- Análise sensorial
+- Relacionamento com produtores
+
+### Políticas de Segurança (RLS)
+- Produtores só veem seus próprios lotes
+- Administradores têm acesso total
+- Dados públicos para consulta de lotes
+
+## 🎨 Design System
+
+O projeto utiliza o **shadcn/ui** como base de componentes, com:
+- Design consistente e moderno
+- Componentes acessíveis
+- Tema personalizado
+- Responsividade completa
+
+## 📈 Próximos Passos
+
+### Fase 4: Funcionalidades Avançadas
+- [ ] Sistema de notificações em tempo real
+- [ ] API pública para consulta de lotes
+- [ ] Integração com mapas e geolocalização
+- [ ] Relatórios avançados e exportação
+- [ ] Sistema de backup e recuperação
+
+### Fase 5: Polimento e Deploy
+- [ ] Testes automatizados
+- [ ] Otimizações de performance
+- [ ] Deploy em produção
+- [ ] Documentação completa da API
+- [ ] Monitoramento e analytics
+
+## 🤝 Contribuição
+
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
+3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Push para a branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+## 📄 Licença
+
+Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
+
+## 📞 Suporte
+
+Para suporte, entre em contato através do email ou abra uma issue no repositório.
+
+---
+
+**Desenvolvido com ❤️ para a rastreabilidade de produtos com Indicação Geográfica**
