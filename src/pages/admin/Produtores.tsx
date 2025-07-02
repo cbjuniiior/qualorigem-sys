@@ -21,9 +21,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import InputMask from "react-input-mask";
-import { useRef } from "react";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import axios from "axios";
+import { useForm, FormProvider } from "react-hook-form";
+import { uploadImageToSupabase } from "@/services/upload";
 
 interface Producer {
   id: string;
@@ -40,34 +42,6 @@ interface Producer {
   average_temperature: number | null;
   created_at: string;
 }
-
-// Definição do initialWizardData ANTES do WizardProducerForm
-const initialWizardData = {
-  name: "",
-  document_number: "",
-  phone: "",
-  email: "",
-  property_name: "",
-  property_description: "",
-  images: [],
-  cep: "",
-  address: "",
-  city: "",
-  state: "",
-  latitude: "",
-  longitude: "",
-  altitude: "",
-  average_temperature: "",
-};
-
-// Definição do steps ANTES do WizardProducerForm
-const steps = [
-  "Dados Pessoais",
-  "Propriedade",
-  "Localização",
-  "Outros Dados",
-  "Revisão"
-];
 
 const Produtores = () => {
   const [producers, setProducers] = useState<Producer[]>([]);
@@ -99,6 +73,8 @@ const Produtores = () => {
         ...data,
         altitude: data.altitude ? parseInt(data.altitude) : null,
         average_temperature: data.average_temperature ? parseFloat(data.average_temperature) : null,
+        latitude: data.latitude === "" ? null : data.latitude,
+        longitude: data.longitude === "" ? null : data.longitude,
       };
       await producersApi.create(producerData);
       toast.success("Produtor criado com sucesso!");
@@ -182,7 +158,7 @@ const Produtores = () => {
               <DialogHeader>
                 <DialogTitle>Criar Novo Produtor</DialogTitle>
               </DialogHeader>
-              <WizardProducerForm
+              <ProducerForm
                 initialData={undefined}
                 onSubmit={handleCreate}
                 onCancel={() => setIsCreateDialogOpen(false)}
@@ -237,7 +213,9 @@ const Produtores = () => {
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancelar</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => handleDelete(producer.id)}
+                            onClick={async () => {
+                              await handleDelete(producer.id);
+                            }}
                             className="bg-red-600 hover:bg-red-700"
                           >
                             Excluir
@@ -297,7 +275,7 @@ const Produtores = () => {
               <DialogHeader>
                 <DialogTitle>Editar Produtor</DialogTitle>
               </DialogHeader>
-              <WizardProducerForm
+              <ProducerForm
                 key={editingProducer.id}
                 initialData={editingProducer}
                 onSubmit={handleUpdate}
@@ -311,387 +289,358 @@ const Produtores = () => {
   );
 };
 
-// Wizard de etapas para cadastro/edição de produtor
-const WizardProducerForm = ({
-  initialData = initialWizardData,
-  onSubmit,
-  onCancel,
-}: {
-  initialData?: any;
-  onSubmit: (data: any) => void;
-  onCancel: () => void;
-}) => {
-  const [step, setStep] = useState(0);
-  const [formData, setFormData] = useState(() => ({
-    ...initialWizardData,
-    ...initialData,
-    images: initialData?.images || [],
-    cep: initialData?.cep || "",
-    latitude: initialData?.latitude || "",
-    longitude: initialData?.longitude || "",
-  }));
-  const [errors, setErrors] = useState<any>({});
+const steps = [
+  { title: "Sobre o Produtor", description: "Dados pessoais do produtor" },
+  { title: "Sobre a Propriedade", description: "Informações da propriedade" },
+  { title: "Localização", description: "Endereço e coordenadas" },
+];
 
-  // Máscaras
-  const handleMaskedChange = (field: string, value: string) => {
-    setFormData((prev: any) => ({ ...prev, [field]: value }));
+const defaultValues = {
+  name: "",
+  document_number: "",
+  email: "",
+  phone: "",
+  property_name: "",
+  property_description: "",
+  photos: [],
+  altitude: "",
+  average_temperature: "",
+  cep: "",
+  address: "",
+  city: "",
+  state: "",
+  use_coordinates: false,
+  latitude: "",
+  longitude: "",
+};
+
+const ProducerForm = ({ initialData, onSubmit, onCancel }: { initialData?: any; onSubmit: (data: any) => void; onCancel: () => void; }) => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [photoPreviews, setPhotoPreviews] = useState<any[]>([]);
+
+  const methods = useForm({
+    defaultValues: initialData || defaultValues,
+    mode: "onTouched",
+  });
+  const { register, handleSubmit, setValue, watch, trigger, formState: { errors } } = methods;
+
+  // Máscaras e handlers
+  const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const numbers = value.replace(/\D/g, "");
+    let masked = "";
+    if (numbers.length <= 11) {
+      masked = numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    } else {
+      masked = numbers.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, "$1.$2.$3/$4-$5");
+    }
+    setValue("document_number", masked);
   };
-
-  // Validação simples da etapa 1
-  const validateStep1 = () => {
-    const errs: any = {};
-    if (!formData.name) errs.name = "Nome obrigatório";
-    if (!formData.document_number) errs.document_number = "CPF/CNPJ obrigatório";
-    if (!formData.phone) errs.phone = "Telefone obrigatório";
-    if (!formData.email) errs.email = "E-mail obrigatório";
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const numbers = value.replace(/\D/g, "");
+    let masked = "";
+    if (numbers.length <= 10) {
+      masked = numbers.replace(/(\d{2})(\d{4})(\d{4})/, "($1) $2-$3");
+    } else {
+      masked = numbers.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3");
+    }
+    setValue("phone", masked);
   };
-
-  const nextStep = () => {
-    if (step === 0 && !validateStep1()) return;
-    setStep((s) => s + 1);
-  };
-  const prevStep = () => setStep((s) => Math.max(0, s - 1));
-
-  // Função para lidar com upload de imagens
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const newImages = files.map((file) => ({
-      file,
-      url: URL.createObjectURL(file),
-    }));
-    setFormData((prev: any) => ({
-      ...prev,
-      images: [...(prev.images || []), ...newImages],
-    }));
-  };
-
-  const handleRemoveImage = (idx: number) => {
-    setFormData((prev: any) => ({
-      ...prev,
-      images: prev.images.filter((_: any, i: number) => i !== idx),
-    }));
-  };
-
-  // Máscara de CEP
   const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const cep = e.target.value.replace(/\D/g, "");
-    setFormData((prev: any) => ({ ...prev, cep: e.target.value }));
+    const value = e.target.value;
+    const cep = value.replace(/\D/g, "");
+    const maskedCep = cep.replace(/(\d{5})(\d{3})/, "$1-$2");
+    setValue("cep", maskedCep);
     if (cep.length === 8) {
       try {
         const res = await axios.get(`https://viacep.com.br/ws/${cep}/json/`);
         if (!res.data.erro) {
-          setFormData((prev: any) => ({
-            ...prev,
-            address: res.data.logradouro || prev.address,
-            city: res.data.localidade || prev.city,
-            state: res.data.uf || prev.state,
-          }));
+          setValue("address", res.data.logradouro || "");
+          setValue("city", res.data.localidade || "");
+          setValue("state", res.data.uf || "");
+          toast.success("Endereço preenchido automaticamente!");
         }
-      } catch (err) {
-        // Não faz nada se erro
+      } catch {
+        toast.error("Erro ao buscar CEP");
       }
     }
   };
+  // Upload de fotos
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    for (const file of files) {
+      // Adiciona preview local imediatamente
+      setPhotoPreviews(prev => [...prev, { file, url: URL.createObjectURL(file), uploading: true }]);
+      try {
+        const url = await uploadImageToSupabase(file);
+        // Atualiza preview para mostrar que terminou o upload
+        setPhotoPreviews(prev => prev.map(p => p.file === file ? { ...p, url, uploading: false, uploaded: true } : p));
+        // Salva a URL real no campo do formulário
+        setValue("photos", [...(watch("photos") || []), url]);
+      } catch (err) {
+        setPhotoPreviews(prev => prev.filter(p => p.file !== file));
+        toast.error("Erro ao fazer upload da imagem");
+      }
+    }
+  };
+  const removePhoto = async (index: number) => {
+    const photo = photoPreviews[index];
+    setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+    setValue("photos", (watch("photos") || []).filter((_: any, i: number) => i !== index));
+    // Opcional: deletar do storage se já foi enviado
+    // if (photo.uploaded && photo.url) {
+    //   const path = photo.url.split('/propriedades/')[1];
+    //   await supabase.storage.from('propriedades').remove([`propriedades/${path}`]);
+    // }
+  };
 
-  // Etapa 1: Dados pessoais
-  const Step1 = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="name">Nome do Produtor *</Label>
-          <Input
-            id="name"
-            value={formData.name}
-            onChange={(e) => handleMaskedChange("name", e.target.value)}
-            placeholder="Nome completo"
-            required
-          />
-          {errors.name && <span className="text-xs text-red-500">{errors.name}</span>}
-        </div>
-        <div>
-          <Label htmlFor="document_number">CPF/CNPJ *</Label>
-          <InputMask
-            mask={formData.document_number.length > 14 ? "99.999.999/9999-99" : "999.999.999-99"}
-            value={formData.document_number}
-            onChange={(e) => handleMaskedChange("document_number", e.target.value)}
-          >
-            {(inputProps: any) => (
-              <Input
-                {...inputProps}
-                id="document_number"
-                placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                required
-              />
-            )}
-          </InputMask>
-          {errors.document_number && <span className="text-xs text-red-500">{errors.document_number}</span>}
-        </div>
-        <div>
-          <Label htmlFor="phone">Telefone *</Label>
-          <InputMask
-            mask={formData.phone.replace(/\D/g, "").length > 10 ? "(99) 99999-9999" : "(99) 9999-9999"}
-            value={formData.phone}
-            onChange={(e) => handleMaskedChange("phone", e.target.value)}
-          >
-            {(inputProps: any) => (
-              <Input
-                {...inputProps}
-                id="phone"
-                placeholder="(00) 00000-0000"
-                required
-              />
-            )}
-          </InputMask>
-          {errors.phone && <span className="text-xs text-red-500">{errors.phone}</span>}
-        </div>
-        <div>
-          <Label htmlFor="email">E-mail *</Label>
-          <Input
-            id="email"
-            type="email"
-            value={formData.email}
-            onChange={(e) => handleMaskedChange("email", e.target.value)}
-            placeholder="email@exemplo.com"
-            required
-          />
-          {errors.email && <span className="text-xs text-red-500">{errors.email}</span>}
-        </div>
-      </div>
-    </div>
-  );
+  // Validação por etapa
+  const validateStep = async () => {
+    let fields: string[] = [];
+    if (currentStep === 0) fields = ["name", "document_number", "email", "phone"];
+    if (currentStep === 1) fields = ["property_name", "altitude", "average_temperature"];
+    if (currentStep === 2) {
+      if (!watch("use_coordinates")) fields = ["cep", "city", "state"];
+      else fields = ["latitude", "longitude"];
+    }
+    return await trigger(fields);
+  };
 
-  // Etapa 2: Propriedade
-  const Step2 = () => (
-    <div className="space-y-6">
-      <div>
-        <Label htmlFor="property_name">Nome da Propriedade *</Label>
-        <Input
-          id="property_name"
-          value={formData.property_name}
-          onChange={(e) => setFormData((prev: any) => ({ ...prev, property_name: e.target.value }))}
-          placeholder="Nome da fazenda/sítio"
-          required
-        />
-      </div>
-      <div>
-        <Label htmlFor="property_description">Descrição da Propriedade</Label>
-        <Textarea
-          id="property_description"
-          value={formData.property_description}
-          onChange={(e) => setFormData((prev: any) => ({ ...prev, property_description: e.target.value }))}
-          placeholder="Descreva a propriedade, história, características..."
-          rows={3}
-        />
-      </div>
-      <div>
-        <Label>Imagens da Fazenda</Label>
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          className="block mt-2"
-          onChange={handleImageUpload}
-        />
-        {formData.images && formData.images.length > 0 && (
-          <div className="flex flex-wrap gap-4 mt-4">
-            {formData.images.map((img: any, idx: number) => (
-              <div key={idx} className="relative group w-28 h-28 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
-                <img
-                  src={img.url}
-                  alt={`Imagem ${idx + 1}`}
-                  className="object-cover w-full h-full"
-                />
-                <button
-                  type="button"
-                  onClick={() => handleRemoveImage(idx)}
-                  className="absolute top-1 right-1 bg-white/80 rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
-                  title="Remover imagem"
-                >
-                  <Trash2 className="h-4 w-4 text-red-600" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <p className="text-xs text-gray-500 mt-2">Você pode enviar até 5 imagens. Arraste para reordenar (em breve).</p>
-      </div>
-    </div>
-  );
+  const nextStep = async () => {
+    if (await validateStep()) setCurrentStep(s => Math.min(s + 1, steps.length - 1));
+  };
+  const prevStep = () => setCurrentStep(s => Math.max(s - 1, 0));
 
-  // Etapa 3: Localização
-  const Step3 = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="cep">CEP</Label>
-          <InputMask
-            mask="99999-999"
-            value={formData.cep}
-            onChange={handleCepChange}
-          >
-            {(inputProps: any) => (
-              <Input
-                {...inputProps}
-                id="cep"
-                placeholder="00000-000"
-              />
-            )}
-          </InputMask>
-        </div>
-        <div>
-          <Label htmlFor="address">Endereço</Label>
-          <Input
-            id="address"
-            value={formData.address}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, address: e.target.value }))}
-            placeholder="Endereço completo"
-          />
-        </div>
-        <div>
-          <Label htmlFor="city">Cidade</Label>
-          <Input
-            id="city"
-            value={formData.city}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, city: e.target.value }))}
-            placeholder="Nome da cidade"
-          />
-        </div>
-        <div>
-          <Label htmlFor="state">Estado</Label>
-          <Input
-            id="state"
-            value={formData.state}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, state: e.target.value }))}
-            placeholder="UF"
-          />
-        </div>
-        <div>
-          <Label htmlFor="latitude">Latitude</Label>
-          <Input
-            id="latitude"
-            value={formData.latitude}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, latitude: e.target.value }))}
-            placeholder="-23.123456"
-          />
-        </div>
-        <div>
-          <Label htmlFor="longitude">Longitude</Label>
-          <Input
-            id="longitude"
-            value={formData.longitude}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, longitude: e.target.value }))}
-            placeholder="-46.123456"
-          />
-        </div>
-      </div>
-      <p className="text-xs text-gray-500 mt-2">Ao digitar o CEP, cidade e estado serão preenchidos automaticamente.</p>
-    </div>
-  );
+  const onSubmitForm = async (data: any) => {
+    setLoading(true);
+    try {
+      await onSubmit(data);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Etapa 4: Outros Dados
-  const Step4 = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="altitude">Altitude (metros)</Label>
-          <Input
-            id="altitude"
-            type="number"
-            value={formData.altitude}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, altitude: e.target.value }))}
-            placeholder="1200"
-          />
-        </div>
-        <div>
-          <Label htmlFor="average_temperature">Temperatura Média (°C)</Label>
-          <Input
-            id="average_temperature"
-            type="number"
-            step="0.1"
-            value={formData.average_temperature}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, average_temperature: e.target.value }))}
-            placeholder="22.5"
-          />
-        </div>
-      </div>
-    </div>
-  );
-
-  // Etapa 5: Revisão
-  const Step5 = () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-800 mb-2">Revisar informações</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <h4 className="font-semibold text-gray-700 mb-1">Dados Pessoais</h4>
-          <p><b>Nome:</b> {formData.name}</p>
-          <p><b>CPF/CNPJ:</b> {formData.document_number}</p>
-          <p><b>Telefone:</b> {formData.phone}</p>
-          <p><b>E-mail:</b> {formData.email}</p>
-        </div>
-        <div>
-          <h4 className="font-semibold text-gray-700 mb-1">Propriedade</h4>
-          <p><b>Nome:</b> {formData.property_name}</p>
-          <p><b>Descrição:</b> {formData.property_description}</p>
-          <div className="flex flex-wrap gap-2 mt-2">
-            {formData.images && formData.images.length > 0 && formData.images.map((img: any, idx: number) => (
-              <img key={idx} src={img.url} alt="img" className="w-14 h-14 object-cover rounded border" />
-            ))}
-          </div>
-        </div>
-        <div>
-          <h4 className="font-semibold text-gray-700 mb-1">Localização</h4>
-          <p><b>CEP:</b> {formData.cep}</p>
-          <p><b>Endereço:</b> {formData.address}</p>
-          <p><b>Cidade:</b> {formData.city}</p>
-          <p><b>Estado:</b> {formData.state}</p>
-          <p><b>Latitude:</b> {formData.latitude}</p>
-          <p><b>Longitude:</b> {formData.longitude}</p>
-        </div>
-        <div>
-          <h4 className="font-semibold text-gray-700 mb-1">Outros Dados</h4>
-          <p><b>Altitude:</b> {formData.altitude} m</p>
-          <p><b>Temperatura Média:</b> {formData.average_temperature} °C</p>
-        </div>
-      </div>
-      <div className="text-sm text-gray-500 mt-4">Confira todos os dados antes de salvar. Se precisar, volte e ajuste as informações.</div>
-    </div>
-  );
-
-  // Barra de progresso
-  const ProgressBar = () => (
-    <div className="w-full flex items-center mb-6">
-      {steps.map((label, idx) => (
-        <div key={label} className="flex-1 flex items-center">
-          <div className={`rounded-full w-8 h-8 flex items-center justify-center font-bold text-white transition-all duration-300 ${step === idx ? "bg-green-600 scale-110" : idx < step ? "bg-green-400" : "bg-gray-300"}`}>{idx + 1}</div>
-          {idx < steps.length - 1 && <div className={`flex-1 h-1 ${step > idx ? "bg-green-400" : "bg-gray-200"}`}></div>}
-        </div>
-      ))}
-    </div>
-  );
-
+  // Renderização condicional por etapa (mantendo todos os campos montados)
   return (
-    <div className="space-y-4">
-      <ProgressBar />
-      {step === 0 && <Step1 />}
-      {step === 1 && <Step2 />}
-      {step === 2 && <Step3 />}
-      {step === 3 && <Step4 />}
-      {step === 4 && <Step5 />}
-      <div className="flex justify-between pt-6">
-        <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-        <div className="flex gap-2">
-          {step > 0 && <Button variant="secondary" onClick={prevStep}>Voltar</Button>}
-          {step === steps.length - 1 ? (
-            <Button onClick={() => onSubmit(formData)}>Salvar</Button>
+    <FormProvider {...methods}>
+      <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-6">
+        {/* Barra de progresso */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            {steps.map((step, idx) => (
+              <div key={idx} className="flex items-center">
+                <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-colors ${idx <= currentStep ? "bg-green-600 border-green-600 text-white" : "bg-white border-gray-300 text-gray-500"}`}>{idx < currentStep ? <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg> : <span className="text-sm font-medium">{idx + 1}</span>}</div>{idx < steps.length - 1 && <div className={`flex-1 h-0.5 mx-4 ${idx < currentStep ? "bg-green-600" : "bg-gray-300"}`} />}</div>
+            ))}
+          </div>
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-gray-900">{steps[currentStep].title}</h3>
+            <p className="text-sm text-gray-600">{steps[currentStep].description}</p>
+          </div>
+        </div>
+        {/* Etapa 1 */}
+        <div style={{ display: currentStep === 0 ? "block" : "none" }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="name">Nome do Produtor *</Label>
+              <Input id="name" {...register("name", { required: true })} placeholder="Nome completo" className={errors.name ? "border-red-500 focus:border-red-500" : ""} />
+              {errors.name && <span className="text-xs text-red-500">Campo obrigatório</span>}
+            </div>
+            <div>
+              <Label htmlFor="document_number">CPF/CNPJ *</Label>
+              <Input
+                id="document_number"
+                {...register("document_number", {
+                  required: true,
+                  validate: value => {
+                    const numbers = value.replace(/\D/g, "");
+                    return (
+                      numbers.length === 11 || numbers.length === 14 ||
+                      "CPF deve ter 11 dígitos ou CNPJ 14 dígitos"
+                    );
+                  },
+                })}
+                onChange={handleDocumentChange}
+                placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                className={errors.document_number ? "border-red-500 focus:border-red-500" : ""}
+              />
+              <p className="text-xs text-gray-500 mt-1">Exemplo: 123.456.789-00 ou 12.345.678/0001-00</p>
+              {typeof errors.document_number?.message === 'string' && (
+                <span className="text-xs text-red-500">{errors.document_number?.message || "Campo obrigatório"}</span>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="email">E-mail *</Label>
+              <Input
+                id="email"
+                type="email"
+                {...register("email", {
+                  required: true,
+                  pattern: {
+                    value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                    message: "E-mail inválido"
+                  }
+                })}
+                placeholder="email@exemplo.com"
+                className={errors.email ? "border-red-500 focus:border-red-500" : ""}
+              />
+              <p className="text-xs text-gray-500 mt-1">Exemplo: email@exemplo.com</p>
+              {typeof errors.email?.message === 'string' && (
+                <span className="text-xs text-red-500">{errors.email?.message || "Campo obrigatório"}</span>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="phone">Telefone *</Label>
+              <Input
+                id="phone"
+                {...register("phone", {
+                  required: true,
+                  validate: value => {
+                    const numbers = value.replace(/\D/g, "");
+                    return (
+                      (numbers.length === 10 || numbers.length === 11) ||
+                      "Telefone deve ter 10 ou 11 dígitos"
+                    );
+                  },
+                })}
+                onChange={handlePhoneChange}
+                placeholder="(00) 00000-0000"
+                className={errors.phone ? "border-red-500 focus:border-red-500" : ""}
+              />
+              <p className="text-xs text-gray-500 mt-1">Exemplo: (11) 91234-5678</p>
+              {typeof errors.phone?.message === 'string' && (
+                <span className="text-xs text-red-500">{errors.phone?.message || "Campo obrigatório"}</span>
+              )}
+            </div>
+          </div>
+        </div>
+        {/* Etapa 2 */}
+        <div style={{ display: currentStep === 1 ? "block" : "none" }}>
+          <div>
+            <Label htmlFor="property_name">Nome da Propriedade *</Label>
+            <Input id="property_name" {...register("property_name", { required: true })} placeholder="Nome da fazenda/sítio" className={errors.property_name ? "border-red-500 focus:border-red-500" : ""} />
+            {errors.property_name && <span className="text-xs text-red-500">Campo obrigatório</span>}
+          </div>
+          <div>
+            <Label htmlFor="property_description">Descrição da Propriedade</Label>
+            <Textarea id="property_description" {...register("property_description")} placeholder="Descreva a propriedade, história, características..." rows={3} />
+          </div>
+          <div>
+            <Label>Fotos da Propriedade</Label>
+            <input type="file" accept="image/*" multiple className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100" onChange={handlePhotoUpload} />
+            {photoPreviews.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                {photoPreviews.map((photo, idx) => (
+                  <div key={idx} className="relative group">
+                    {photo.uploading ? (
+                      <div className="w-full h-24 bg-gray-200 rounded-lg flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-t-4 border-b-4 border-green-500"></div>
+                      </div>
+                    ) : (
+                      <img src={photo.url} alt={`Foto ${idx + 1}`} className="w-full h-24 object-cover rounded-lg border" />
+                    )}
+                    <button type="button" onClick={() => removePhoto(idx)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="altitude">Altitude (metros) *</Label>
+              <Input id="altitude" type="number" {...register("altitude", { required: true })} placeholder="1200" className={errors.altitude ? "border-red-500 focus:border-red-500" : ""} />
+              {errors.altitude && <span className="text-xs text-red-500">Campo obrigatório</span>}
+            </div>
+            <div>
+              <Label htmlFor="average_temperature">Temperatura Média (°C) *</Label>
+              <Input id="average_temperature" type="number" step="0.1" {...register("average_temperature", { required: true })} placeholder="22.5" className={errors.average_temperature ? "border-red-500 focus:border-red-500" : ""} />
+              {errors.average_temperature && <span className="text-xs text-red-500">Campo obrigatório</span>}
+            </div>
+          </div>
+        </div>
+        {/* Etapa 3 */}
+        <div style={{ display: currentStep === 2 ? "block" : "none" }}>
+          <div className="flex items-center space-x-3 mb-6 p-4 bg-gray-50 rounded-lg">
+            <Switch id="use_coordinates" checked={watch("use_coordinates")} onCheckedChange={checked => setValue("use_coordinates", checked)} />
+            <div className="flex-1">
+              <Label htmlFor="use_coordinates" className="text-sm font-medium text-gray-900">Usar coordenadas geográficas</Label>
+              <p className="text-xs text-gray-600">Marque esta opção para propriedades sem endereço fixo no mapa</p>
+            </div>
+          </div>
+          {!watch("use_coordinates") ? (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="cep">CEP *</Label>
+                <Input
+                  id="cep"
+                  {...register("cep", {
+                    required: true,
+                    validate: value => {
+                      const numbers = value.replace(/\D/g, "");
+                      return (
+                        numbers.length === 8 ||
+                        "CEP deve ter 8 dígitos"
+                      );
+                    },
+                  })}
+                  onChange={handleCepChange}
+                  placeholder="00000-000"
+                  className={errors.cep ? "border-red-500 focus:border-red-500" : ""}
+                />
+                <p className="text-xs text-gray-500 mt-1">Exemplo: 12345-678</p>
+                {typeof errors.cep?.message === 'string' && (
+                  <span className="text-xs text-red-500">{errors.cep?.message || "Campo obrigatório"}</span>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="address">Endereço</Label>
+                <Input id="address" {...register("address")} placeholder="Endereço completo" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="city">Cidade *</Label>
+                  <Input id="city" {...register("city", { required: true })} placeholder="Nome da cidade" className={errors.city ? "border-red-500 focus:border-red-500" : ""} />
+                  {errors.city && <span className="text-xs text-red-500">Campo obrigatório</span>}
+                </div>
+                <div>
+                  <Label htmlFor="state">Estado *</Label>
+                  <Input id="state" {...register("state", { required: true })} placeholder="UF" className={errors.state ? "border-red-500 focus:border-red-500" : ""} />
+                  {errors.state && <span className="text-xs text-red-500">Campo obrigatório</span>}
+                </div>
+              </div>
+            </div>
           ) : (
-            <Button onClick={nextStep}>Avançar</Button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="latitude">Latitude *</Label>
+                <Input id="latitude" type="number" step="any" {...register("latitude", { required: true })} placeholder="-23.123456" className={errors.latitude ? "border-red-500 focus:border-red-500" : ""} />
+                {errors.latitude && <span className="text-xs text-red-500">Campo obrigatório</span>}
+                <p className="text-xs text-gray-500 mt-1">Ex: -23.123456</p>
+              </div>
+              <div>
+                <Label htmlFor="longitude">Longitude *</Label>
+                <Input id="longitude" type="number" step="any" {...register("longitude", { required: true })} placeholder="-46.123456" className={errors.longitude ? "border-red-500 focus:border-red-500" : ""} />
+                {errors.longitude && <span className="text-xs text-red-500">Campo obrigatório</span>}
+                <p className="text-xs text-gray-500 mt-1">Ex: -46.123456</p>
+              </div>
+            </div>
           )}
         </div>
-      </div>
-    </div>
+        {/* Botões de navegação */}
+        <div className="flex justify-between pt-6">
+          <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
+          <div className="flex space-x-2">
+            {currentStep > 0 && <Button type="button" variant="outline" onClick={prevStep}>Anterior</Button>}
+            {currentStep < steps.length - 1 ? (
+              <Button type="button" onClick={nextStep}>Próximo</Button>
+            ) : (
+              <Button type="submit" disabled={loading}>{loading ? "Salvando..." : "Salvar"}</Button>
+            )}
+          </div>
+        </div>
+      </form>
+    </FormProvider>
   );
 };
 
