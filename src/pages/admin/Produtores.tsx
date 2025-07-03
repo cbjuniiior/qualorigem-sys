@@ -37,6 +37,9 @@ import {
 import { Tooltip } from "@/components/ui/tooltip";
 import { useNavigate } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 interface Producer {
   id: string;
@@ -69,6 +72,8 @@ const Produtores = () => {
   const [mapCoords, setMapCoords] = useState<{ lat: string; lon: string } | null>(null);
   const [loadingMap, setLoadingMap] = useState(false);
   const navigate = useNavigate();
+  const [filterCity, setFilterCity] = useState("");
+  const [filterState, setFilterState] = useState("");
 
   useEffect(() => {
     fetchProducers();
@@ -116,7 +121,14 @@ const Produtores = () => {
     try {
       setLoading(true);
       const data = await producersApi.getAll();
-      setProducers(data);
+      // Garante que todos os produtores tenham o campo 'photos' (mesmo que vazio)
+      const normalized = (data as any[]).map((prod) => ({
+        ...prod,
+        photos: prod.photos ?? [],
+        latitude: prod.latitude ?? null,
+        longitude: prod.longitude ?? null,
+      }));
+      setProducers(normalized);
     } catch (error) {
       console.error("Erro ao buscar produtores:", error);
       toast.error("Erro ao carregar produtores");
@@ -177,11 +189,17 @@ const Produtores = () => {
     setEditingProducer(producer);
   };
 
-  const filteredProducers = producers.filter(producer =>
-    producer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    producer.property_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    producer.city.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredProducers = producers.filter((prod) => {
+    const matchesSearch = prod.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      prod.property_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      prod.city?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCity = filterCity ? prod.city === filterCity : true;
+    const matchesState = filterState ? prod.state === filterState : true;
+    return matchesSearch && matchesCity && matchesState;
+  });
+
+  const uniqueCities = Array.from(new Set(producers.map(p => p.city))).sort();
+  const uniqueStates = Array.from(new Set(producers.map(p => p.state))).sort();
 
   if (loading) {
     return (
@@ -198,325 +216,304 @@ const Produtores = () => {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto py-10 px-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-2">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Produtores</h1>
             <p className="text-gray-600">Gerencie os produtores cadastrados no sistema</p>
           </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="mt-4 sm:mt-0">
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Produtor
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Criar Novo Produtor</DialogTitle>
-              </DialogHeader>
-              <ProducerForm
-                initialData={undefined}
-                onSubmit={handleCreate}
-                onCancel={() => setIsCreateDialogOpen(false)}
-              />
-            </DialogContent>
-          </Dialog>
+          <button className="bg-green-700 hover:bg-green-800 text-white font-bold py-3 px-8 rounded-lg shadow flex items-center gap-2 text-base h-12 min-w-[180px] justify-center" onClick={() => setIsCreateDialogOpen(true)}>
+            <span className="text-xl">+</span> Novo Produtor
+          </button>
         </div>
-
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
+        <div className="flex flex-col md:flex-row md:items-center gap-4 w-full mb-6">
+          <input
+            type="text"
             placeholder="Buscar produtores..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
+            className="w-full md:w-96 h-12 px-4 border border-gray-200 rounded-lg shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20 text-lg bg-white"
           />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="border border-gray-200 rounded-lg px-4 h-12 bg-white shadow-sm flex items-center gap-2 text-base">
+                {filterCity || "Cidade"}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setFilterCity("")}>Todas</DropdownMenuItem>
+              {uniqueCities.map(city => (
+                <DropdownMenuItem key={city} onClick={() => setFilterCity(city)}>{city}</DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="border border-gray-200 rounded-lg px-4 h-12 bg-white shadow-sm flex items-center gap-2 text-base">
+                {filterState || "Estado"}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => setFilterState("")}>Todos</DropdownMenuItem>
+              {uniqueStates.map(state => (
+                <DropdownMenuItem key={state} onClick={() => setFilterState(state)}>{state}</DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <span className="ml-auto text-gray-500 text-base hidden md:inline">{filteredProducers.length} de {producers.length} produtores</span>
         </div>
-
-        {/* Producers Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProducers.map((producer) => (
-            <Card
-              key={producer.id}
-              className="cursor-pointer transition hover:shadow-lg"
-              onClick={() => navigate(`/admin/produtores/${producer.id}`)}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{producer.name}</CardTitle>
-                    <p className="text-sm text-gray-600 mt-1">{producer.property_name}</p>
+        <div className="mb-4 md:hidden text-gray-500 text-base">{filteredProducers.length} de {producers.length} produtores</div>
+        {/* Grid de cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-8">
+          {loading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-56 w-full rounded-2xl" />
+            ))
+          ) : filteredProducers.length === 0 ? (
+            <div className="col-span-full text-center text-gray-400 py-20 text-lg">Nenhum produtor encontrado.</div>
+          ) : (
+            filteredProducers.map(prod => (
+              <div
+                key={prod.id}
+                className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition p-7 flex flex-col gap-5 border border-gray-100 relative group min-h-[270px] w-full max-w-xl mx-auto cursor-pointer"
+                onClick={e => {
+                  // Evita navegação se clicar em ação rápida
+                  if ((e.target as HTMLElement).closest('.card-action')) return;
+                  navigate(`/admin/produtores/${prod.id}`);
+                }}
+              >
+                {/* Avatar/foto e ações */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-16 w-16 shadow border-2 border-primary/20">
+                      <AvatarImage src={prod.photos?.[0]} alt={prod.name} />
+                      <AvatarFallback className="text-xl font-bold bg-primary/10 text-primary">
+                        {prod.name.split(" ").map(n => n[0]).join("").slice(0,2)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="font-bold text-xl text-gray-900 flex items-center gap-2">
+                        {prod.name}
+                      </div>
+                      <div className="text-gray-500 text-base font-medium">{prod.property_name}</div>
+                    </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={e => { e.stopPropagation(); openEditDialog(producer); }}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={e => e.stopPropagation()}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Excluir Produtor</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Tem certeza que deseja excluir o produtor "{producer.name}"? 
-                            Esta ação não pode ser desfeita.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={async () => {
-                              await handleDelete(producer.id);
-                            }}
-                            className="bg-red-600 hover:bg-red-700"
-                          >
-                            Excluir
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                  {/* Ações rápidas */}
+                  <div className="flex gap-2 opacity-100 group-hover:opacity-100 transition-all">
+                    <button className="p-2 rounded-full hover:bg-gray-100 card-action" title="Editar" onClick={e => {e.stopPropagation(); openEditDialog(prod)}}>
+                      <Edit className="h-5 w-5 text-primary" />
+                    </button>
+                    <button className="p-2 rounded-full hover:bg-gray-100 card-action" title="Excluir" onClick={e => {e.stopPropagation(); handleDelete(prod.id)}}>
+                      <Trash2 className="h-5 w-5 text-red-500" />
+                    </button>
+                    <button className="p-2 rounded-full hover:bg-gray-100 card-action" title="Copiar email" onClick={e => {e.stopPropagation(); navigator.clipboard.writeText(prod.email); toast.success("Email copiado!")}}>
+                      <Copy className="h-5 w-5 text-gray-500" />
+                    </button>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center text-sm text-gray-600">
-                  <MapPin className="h-4 w-4 mr-2" />
-                  {producer.city}, {producer.state}
+                {/* Info principal */}
+                <div className="flex flex-col gap-2 text-gray-700 text-base mt-2">
+                  <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary/70" /> <span>{prod.city}, {prod.state}</span></div>
+                  <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-primary/70" /> <span>{prod.phone}</span></div>
+                  <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-primary/70" /> <span>{prod.email}</span></div>
                 </div>
-                {producer.phone && (
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Phone className="h-4 w-4 mr-2" />
-                    {producer.phone}
-                  </div>
-                )}
-                {producer.email && (
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Mail className="h-4 w-4 mr-2" />
-                    {producer.email}
-                  </div>
-                )}
-                <div className="flex space-x-2">
-                  {producer.altitude && (
-                    <Badge variant="outline" className="text-xs">
-                      <Mountain className="h-3 w-3 mr-1" />
-                      {producer.altitude}m
-                    </Badge>
-                  )}
-                  {producer.average_temperature && (
-                    <Badge variant="outline" className="text-xs">
-                      <Thermometer className="h-3 w-3 mr-1" />
-                      {producer.average_temperature}°C
-                    </Badge>
-                  )}
+                {/* Badges */}
+                <div className="flex gap-3 mt-3">
+                  {prod.altitude && <Badge variant="secondary" className="px-3 py-1 text-base font-medium bg-primary/10 text-primary border-0">{prod.altitude}m</Badge>}
+                  {prod.average_temperature && <Badge variant="secondary" className="px-3 py-1 text-base font-medium bg-primary/10 text-primary border-0">{prod.average_temperature}°C</Badge>}
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+            ))
+          )}
         </div>
+      </div>
 
-        {filteredProducers.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">Nenhum produtor encontrado.</p>
-          </div>
-        )}
-
-        {/* Modal de detalhes do produtor */}
-        <Dialog open={!!selectedProducer} onOpenChange={open => !open && setSelectedProducer(null)}>
-          <DialogContent className="max-w-6xl max-h-[98vh] overflow-y-auto p-0 rounded-3xl shadow-2xl border-0 bg-[#f7f8fa]">
-            {selectedProducer && (
-              <div className="flex flex-col gap-10 p-0 md:p-12">
-                {/* Topo: Carrossel e dados primários em duas colunas */}
-                <div className="flex flex-col md:flex-row gap-10">
-                  {/* Coluna esquerda: Carrossel/foto */}
-                  <div className="md:w-[44%] flex flex-col gap-6 items-center bg-white rounded-3xl p-8 md:shadow-sm md:border md:mt-6 md:mb-6 md:ml-2">
-                    {Array.isArray(selectedProducer.photos) && selectedProducer.photos.length > 0 ? (
-                      <div className="w-full bg-[#f3f4f6] rounded-2xl p-2 flex flex-col items-center">
-                        <Carousel className="relative group w-full">
-                          <CarouselContent>
-                            {selectedProducer.photos.map((url: string, idx: number) => (
-                              <CarouselItem key={idx} className="flex items-center justify-center">
-                                <img
-                                  src={url}
-                                  alt={`Foto ${idx + 1}`}
-                                  className="object-cover w-full h-80 md:h-[26rem] rounded-xl border bg-background transition-transform duration-200 group-hover:scale-[1.01] cursor-zoom-in shadow-sm"
-                                  onClick={() => window.open(url, '_blank')}
-                                />
-                              </CarouselItem>
-                            ))}
-                          </CarouselContent>
-                          <CarouselPrevious />
-                          <CarouselNext />
-                        </Carousel>
-                        {selectedProducer.photos.length > 1 && (
-                          <div className="flex gap-2 mt-3 justify-center">
-                            {selectedProducer.photos.map((url: string, idx: number) => (
+      {/* Modal de detalhes do produtor */}
+      <Dialog open={!!selectedProducer} onOpenChange={open => !open && setSelectedProducer(null)}>
+        <DialogContent className="max-w-6xl max-h-[98vh] overflow-y-auto p-0 rounded-3xl shadow-2xl border-0 bg-[#f7f8fa]">
+          {selectedProducer && (
+            <div className="flex flex-col gap-10 p-0 md:p-12">
+              {/* Topo: Carrossel e dados primários em duas colunas */}
+              <div className="flex flex-col md:flex-row gap-10">
+                {/* Coluna esquerda: Carrossel/foto */}
+                <div className="md:w-[44%] flex flex-col gap-6 items-center bg-white rounded-3xl p-8 md:shadow-sm md:border md:mt-6 md:mb-6 md:ml-2">
+                  {Array.isArray(selectedProducer.photos) && selectedProducer.photos.length > 0 ? (
+                    <div className="w-full bg-[#f3f4f6] rounded-2xl p-2 flex flex-col items-center">
+                      <Carousel className="relative group w-full">
+                        <CarouselContent>
+                          {selectedProducer.photos.map((url: string, idx: number) => (
+                            <CarouselItem key={idx} className="flex items-center justify-center">
                               <img
-                                key={idx}
                                 src={url}
-                                alt={`Miniatura ${idx + 1}`}
-                                className="object-cover w-12 h-12 rounded-xl border cursor-pointer opacity-80 hover:opacity-100 transition ring-2 ring-transparent hover:ring-primary"
-                                onClick={() => {
-                                  const embla = document.querySelector('[aria-roledescription="carousel"]')?.emblaApi;
-                                  if (embla) embla.scrollTo(idx);
-                                }}
+                                alt={`Foto ${idx + 1}`}
+                                className="object-cover w-full h-80 md:h-[26rem] rounded-xl border bg-background transition-transform duration-200 group-hover:scale-[1.01] cursor-zoom-in shadow-sm"
+                                onClick={() => window.open(url, '_blank')}
                               />
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="w-full aspect-square bg-[#f3f4f6] rounded-2xl flex items-center justify-center text-muted-foreground text-lg font-medium min-h-[320px]">
-                        Sem foto
-                      </div>
-                    )}
-                  </div>
-                  {/* Coluna direita: Dados primários + mapa */}
-                  <div className="md:w-[56%] flex flex-col gap-8 bg-white rounded-3xl p-8 md:shadow-sm md:border md:mt-6 md:mb-6 md:mr-2">
-                    {/* Header e ações */}
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div>
-                        <h2 className="text-3xl font-bold mb-1 flex items-center gap-2 text-gray-900">
-                          {selectedProducer.name}
-                        </h2>
-                        <p className="text-lg text-primary font-semibold mb-2">{selectedProducer.property_name}</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="icon" variant="outline" title="Editar produtor"><Edit className="w-5 h-5 text-blue-500" /></Button>
-                        <Button size="icon" variant="outline" title="Adicionar lote"><Plus className="w-5 h-5 text-green-500" /></Button>
-                        <Button size="icon" variant="ghost" title="Fechar" onClick={() => setSelectedProducer(null)}><span className="sr-only">Fechar</span><svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" /></svg></Button>
-                      </div>
-                    </div>
-                    {/* Descrição */}
-                    <p className="text-gray-500 text-base mb-4 whitespace-pre-line">{selectedProducer.property_description}</p>
-                    {/* Bloco de dados principais */}
-                    <div className="flex flex-col gap-4 bg-white rounded-2xl p-4 shadow-sm border">
-                      <div className="flex items-center gap-3 text-base">
-                        <MapPin className="h-6 w-6 text-purple-500" />
-                        <span className="text-gray-800">{selectedProducer.address && <>{selectedProducer.address}, </>}{selectedProducer.city}, {selectedProducer.state}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-base">
-                        <Phone className="h-6 w-6 text-green-500" />
-                        <span className="text-gray-800">{selectedProducer.phone}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-base">
-                        <Mail className="h-6 w-6 text-blue-500" />
-                        <span className="text-gray-800">{selectedProducer.email}</span>
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        {selectedProducer.altitude && (
-                          <Tooltip content="Altitude da propriedade">
-                            <Badge variant="outline" className="text-xs cursor-help bg-[#f3f4f6] text-gray-700"><Mountain className="h-4 w-4 mr-1 text-orange-500" />{selectedProducer.altitude}m</Badge>
-                          </Tooltip>
-                        )}
-                        {selectedProducer.average_temperature && (
-                          <Tooltip content="Temperatura média anual">
-                            <Badge variant="outline" className="text-xs cursor-help bg-[#f3f4f6] text-gray-700"><Thermometer className="h-4 w-4 mr-1 text-pink-500" />{selectedProducer.average_temperature}°C</Badge>
-                          </Tooltip>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-400 mt-2 select-all">
-                        ID: {selectedProducer.id}
-                        <Button size="icon" variant="ghost" className="p-1" onClick={() => {navigator.clipboard.writeText(selectedProducer.id)}} title="Copiar ID"><Copy className="w-4 h-4 text-gray-400" /></Button>
-                      </div>
-                    </div>
-                    {/* Bloco do mapa */}
-                    <div className="w-full">
-                      <div className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2"><MapPin className="w-4 h-4 text-purple-500" /> Localização da Fazenda</div>
-                      <div className="w-full h-56 rounded-2xl overflow-hidden border relative bg-[#f3f4f6]">
-                        {loadingMap ? (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">Carregando mapa...</div>
-                        ) : mapCoords ? (
-                          <>
-                            <iframe
-                              title="Mapa"
-                              width="100%"
-                              height="100%"
-                              frameBorder="0"
-                              style={{ border: 0 }}
-                              src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(mapCoords.lon) - 0.01}%2C${Number(mapCoords.lat) - 0.01}%2C${Number(mapCoords.lon) + 0.01}%2C${Number(mapCoords.lat) + 0.01}&layer=mapnik&marker=${mapCoords.lat},${mapCoords.lon}`}
-                              allowFullScreen
-                            ></iframe>
-                            <a
-                              href={`https://www.google.com/maps/search/?api=1&query=${mapCoords.lat},${mapCoords.lon}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="absolute bottom-2 right-2 bg-primary text-white px-3 py-1 rounded shadow text-xs font-medium transition hover:bg-primary/90"
-                            >
-                              Ver no Google Maps
-                            </a>
-                          </>
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400">Localização não disponível</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {/* Seção de Lotes: abaixo, ocupando toda a largura */}
-                <div className="w-full">
-                  <h3 className="text-xl font-bold mb-6 ml-2 text-gray-900">Lotes do Produtor</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {producerLots.length === 0 ? (
-                      <div className="col-span-2 text-center text-gray-400 py-12">Nenhum lote cadastrado.</div>
-                    ) : (
-                      producerLots.map((lote) => (
-                        <div key={lote.id} className="col-span-1 md:col-span-2 bg-white rounded-2xl p-6 shadow-sm border flex flex-col gap-2 w-full">
-                          <div className="flex items-center gap-3">
-                            {lote.image_url && <img src={lote.image_url} alt={lote.name} className="w-16 h-16 object-cover rounded-xl border" />}
-                            <div>
-                              <div className="font-semibold text-base text-gray-900">{lote.name}</div>
-                              <div className="text-xs text-gray-500">Código: {lote.code} | Safra: {lote.harvest_year}</div>
-                              <div className="text-xs text-gray-500">Categoria: {lote.category} | Variedade: {lote.variety}</div>
-                            </div>
-                          </div>
-                          <div className="flex flex-col md:items-end gap-1">
-                            <div className="flex gap-2 flex-wrap">
-                              <Badge variant="outline" className="text-xs bg-white text-gray-700 border-gray-200">{lote.quantity} {lote.unit}</Badge>
-                              <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">{lote.flavor_score?.toFixed(1) ?? "-"} Sabor</Badge>
-                              <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-700">{lote.fragrance_score?.toFixed(1) ?? "-"} Fragrância</Badge>
-                              <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">{lote.finish_score?.toFixed(1) ?? "-"} Finalização</Badge>
-                              <Badge variant="secondary" className="text-xs bg-pink-100 text-pink-700">{lote.acidity_score?.toFixed(1) ?? "-"} Acidez</Badge>
-                              <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">{lote.body_score?.toFixed(1) ?? "-"} Corpo</Badge>
-                            </div>
-                            <div className="text-xs text-gray-400">ID: {lote.id}</div>
-                          </div>
+                            </CarouselItem>
+                          ))}
+                        </CarouselContent>
+                        <CarouselPrevious />
+                        <CarouselNext />
+                      </Carousel>
+                      {selectedProducer.photos.length > 1 && (
+                        <div className="flex gap-2 mt-3 justify-center">
+                          {selectedProducer.photos.map((url: string, idx: number) => (
+                            <img
+                              key={idx}
+                              src={url}
+                              alt={`Miniatura ${idx + 1}`}
+                              className="object-cover w-12 h-12 rounded-xl border cursor-pointer opacity-80 hover:opacity-100 transition ring-2 ring-transparent hover:ring-primary"
+                              onClick={() => {
+                                const embla = document.querySelector('[aria-roledescription="carousel"]')?.emblaApi;
+                                if (embla) embla.scrollTo(idx);
+                              }}
+                            />
+                          ))}
                         </div>
-                      ))
-                    )}
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-full aspect-square bg-[#f3f4f6] rounded-2xl flex items-center justify-center text-muted-foreground text-lg font-medium min-h-[320px]">
+                      Sem foto
+                    </div>
+                  )}
+                </div>
+                {/* Coluna direita: Dados primários + mapa */}
+                <div className="md:w-[56%] flex flex-col gap-8 bg-white rounded-3xl p-8 md:shadow-sm md:border md:mt-6 md:mb-6 md:mr-2">
+                  {/* Header e ações */}
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div>
+                      <h2 className="text-3xl font-bold mb-1 flex items-center gap-2 text-gray-900">
+                        {selectedProducer.name}
+                      </h2>
+                      <p className="text-lg text-primary font-semibold mb-2">{selectedProducer.property_name}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="icon" variant="outline" title="Editar produtor"><Edit className="w-5 h-5 text-blue-500" /></Button>
+                      <Button size="icon" variant="outline" title="Adicionar lote"><Plus className="w-5 h-5 text-green-500" /></Button>
+                      <Button size="icon" variant="ghost" title="Fechar" onClick={() => setSelectedProducer(null)}><span className="sr-only">Fechar</span><svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" /></svg></Button>
+                    </div>
+                  </div>
+                  {/* Descrição */}
+                  <p className="text-gray-500 text-base mb-4 whitespace-pre-line">{selectedProducer.property_description}</p>
+                  {/* Bloco de dados principais */}
+                  <div className="flex flex-col gap-4 bg-white rounded-2xl p-4 shadow-sm border">
+                    <div className="flex items-center gap-3 text-base">
+                      <MapPin className="h-6 w-6 text-purple-500" />
+                      <span className="text-gray-800">{selectedProducer.address && <>{selectedProducer.address}, </>}{selectedProducer.city}, {selectedProducer.state}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-base">
+                      <Phone className="h-6 w-6 text-green-500" />
+                      <span className="text-gray-800">{selectedProducer.phone}</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-base">
+                      <Mail className="h-6 w-6 text-blue-500" />
+                      <span className="text-gray-800">{selectedProducer.email}</span>
+                    </div>
+                    <div className="flex gap-2 mt-2">
+                      {selectedProducer.altitude && (
+                        <Tooltip content="Altitude da propriedade">
+                          <Badge variant="outline" className="text-xs cursor-help bg-[#f3f4f6] text-gray-700"><Mountain className="h-4 w-4 mr-1 text-orange-500" />{selectedProducer.altitude}m</Badge>
+                        </Tooltip>
+                      )}
+                      {selectedProducer.average_temperature && (
+                        <Tooltip content="Temperatura média anual">
+                          <Badge variant="outline" className="text-xs cursor-help bg-[#f3f4f6] text-gray-700"><Thermometer className="h-4 w-4 mr-1 text-pink-500" />{selectedProducer.average_temperature}°C</Badge>
+                        </Tooltip>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-400 mt-2 select-all">
+                      ID: {selectedProducer.id}
+                      <Button size="icon" variant="ghost" className="p-1" onClick={() => {navigator.clipboard.writeText(selectedProducer.id)}} title="Copiar ID"><Copy className="w-4 h-4 text-gray-400" /></Button>
+                    </div>
+                  </div>
+                  {/* Bloco do mapa */}
+                  <div className="w-full">
+                    <div className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2"><MapPin className="w-4 h-4 text-purple-500" /> Localização da Fazenda</div>
+                    <div className="w-full h-56 rounded-2xl overflow-hidden border relative bg-[#f3f4f6]">
+                      {loadingMap ? (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">Carregando mapa...</div>
+                      ) : mapCoords ? (
+                        <>
+                          <iframe
+                            title="Mapa"
+                            width="100%"
+                            height="100%"
+                            frameBorder="0"
+                            style={{ border: 0 }}
+                            src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(mapCoords.lon) - 0.01}%2C${Number(mapCoords.lat) - 0.01}%2C${Number(mapCoords.lon) + 0.01}%2C${Number(mapCoords.lat) + 0.01}&layer=mapnik&marker=${mapCoords.lat},${mapCoords.lon}`}
+                            allowFullScreen
+                          ></iframe>
+                          <a
+                            href={`https://www.google.com/maps/search/?api=1&query=${mapCoords.lat},${mapCoords.lon}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="absolute bottom-2 right-2 bg-primary text-white px-3 py-1 rounded shadow text-xs font-medium transition hover:bg-primary/90"
+                          >
+                            Ver no Google Maps
+                          </a>
+                        </>
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">Localização não disponível</div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            )}
+              {/* Seção de Lotes: abaixo, ocupando toda a largura */}
+              <div className="w-full">
+                <h3 className="text-xl font-bold mb-6 ml-2 text-gray-900">Lotes do Produtor</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {producerLots.length === 0 ? (
+                    <div className="col-span-2 text-center text-gray-400 py-12">Nenhum lote cadastrado.</div>
+                  ) : (
+                    producerLots.map((lote) => (
+                      <div key={lote.id} className="col-span-1 md:col-span-2 bg-white rounded-2xl p-6 shadow-sm border flex flex-col gap-2 w-full">
+                        <div className="flex items-center gap-3">
+                          {lote.image_url && <img src={lote.image_url} alt={lote.name} className="w-16 h-16 object-cover rounded-xl border" />}
+                          <div>
+                            <div className="font-semibold text-base text-gray-900">{lote.name}</div>
+                            <div className="text-xs text-gray-500">Código: {lote.code} | Safra: {lote.harvest_year}</div>
+                            <div className="text-xs text-gray-500">Categoria: {lote.category} | Variedade: {lote.variety}</div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col md:items-end gap-1">
+                          <div className="flex gap-2 flex-wrap">
+                            <Badge variant="outline" className="text-xs bg-white text-gray-700 border-gray-200">{lote.quantity} {lote.unit}</Badge>
+                            <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">{lote.flavor_score?.toFixed(1) ?? "-"} Sabor</Badge>
+                            <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-700">{lote.fragrance_score?.toFixed(1) ?? "-"} Fragrância</Badge>
+                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">{lote.finish_score?.toFixed(1) ?? "-"} Finalização</Badge>
+                            <Badge variant="secondary" className="text-xs bg-pink-100 text-pink-700">{lote.acidity_score?.toFixed(1) ?? "-"} Acidez</Badge>
+                            <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">{lote.body_score?.toFixed(1) ?? "-"} Corpo</Badge>
+                          </div>
+                          <div className="text-xs text-gray-400">ID: {lote.id}</div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      {editingProducer && (
+        <Dialog open={!!editingProducer} onOpenChange={() => setEditingProducer(null)}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Editar Produtor</DialogTitle>
+            </DialogHeader>
+            <ProducerForm
+              key={editingProducer.id}
+              initialData={editingProducer}
+              onSubmit={handleUpdate}
+              onCancel={() => setEditingProducer(null)}
+            />
           </DialogContent>
         </Dialog>
-
-        {/* Edit Dialog */}
-        {editingProducer && (
-          <Dialog open={!!editingProducer} onOpenChange={() => setEditingProducer(null)}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Editar Produtor</DialogTitle>
-              </DialogHeader>
-              <ProducerForm
-                key={editingProducer.id}
-                initialData={editingProducer}
-                onSubmit={handleUpdate}
-                onCancel={() => setEditingProducer(null)}
-              />
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
+      )}
     </AdminLayout>
   );
 };

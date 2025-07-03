@@ -5,7 +5,7 @@ import { producersApi, productLotsApi } from "@/services/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { MapPin, Phone, Mail, Mountain, Thermometer, ArrowLeft, Edit, Copy } from "lucide-react";
+import { MapPin, Phone, Mail, Mountain, Thermometer, ArrowLeft, Edit, Copy, QrCode, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { ProducerForm } from "./Produtores";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -272,27 +272,60 @@ export default function ProducerDetails() {
             <div className="text-center text-gray-400 py-12">Nenhum lote cadastrado.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {lots.map((lote) => (
-                <Card key={lote.id} className="rounded-2xl p-6 shadow-sm border bg-white flex flex-col gap-2 hover:shadow-lg transition-all">
-                  <div className="flex items-center gap-4 mb-2">
-                    {lote.image_url && <img src={lote.image_url} alt={lote.name} className="w-16 h-16 object-cover rounded-xl border" />}
-                    <div>
-                      <div className="font-semibold text-lg text-gray-900">{lote.name}</div>
-                      <div className="text-xs text-gray-500">Código: {lote.code} | Safra: {lote.harvest_year}</div>
-                      <div className="text-xs text-gray-500">Categoria: {lote.category} | Variedade: {lote.variety}</div>
-                    </div>
+              {lots.map((lote) => {
+                const publicUrl = `${window.location.origin}/lote/${lote.code}`;
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl)}`;
+                return (
+                  <div key={lote.id} className="relative group">
+                    <Card
+                      className="rounded-2xl p-6 shadow-sm border bg-white flex flex-col gap-2 hover:shadow-lg transition-all cursor-pointer"
+                      onClick={() => navigate(`/lote/${lote.code}`)}
+                    >
+                      <div className="flex items-center gap-4 mb-2">
+                        {lote.image_url && <img src={lote.image_url} alt={lote.name} className="w-16 h-16 object-cover rounded-xl border" />}
+                        <div>
+                          <div className="font-semibold text-lg text-gray-900 flex items-center gap-2">
+                            {lote.name}
+                            <ExternalLink className="w-4 h-4 text-primary/70" />
+                          </div>
+                          <div className="text-xs text-gray-500">Código: {lote.code} | Safra: {lote.harvest_year}</div>
+                          <div className="text-xs text-gray-500">Categoria: {lote.category} | Variedade: {lote.variety}</div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mb-1">
+                        <Badge variant="outline" className="text-xs bg-white text-gray-700 border-gray-200">{lote.quantity} {lote.unit}</Badge>
+                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">{lote.flavor_score?.toFixed(1) ?? "-"} Sabor</Badge>
+                        <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-700">{lote.fragrance_score?.toFixed(1) ?? "-"} Fragrância</Badge>
+                        <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">{lote.finish_score?.toFixed(1) ?? "-"} Finalização</Badge>
+                        <Badge variant="secondary" className="text-xs bg-pink-100 text-pink-700">{lote.acidity_score?.toFixed(1) ?? "-"} Acidez</Badge>
+                        <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">{lote.body_score?.toFixed(1) ?? "-"} Corpo</Badge>
+                      </div>
+                      <div className="text-xs text-gray-400">ID: {lote.id}</div>
+                      {/* Ações rápidas no hover */}
+                      <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all z-10">
+                        <button
+                          className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action"
+                          title="Copiar URL pública"
+                          onClick={e => {e.stopPropagation(); navigator.clipboard.writeText(publicUrl); toast.success('URL copiada!')}}
+                        >
+                          <ExternalLink className="w-5 h-5 text-primary" />
+                        </button>
+                        <a
+                          href={qrUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          download={`qrcode-lote-${lote.code}.png`}
+                          className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action flex items-center justify-center"
+                          title="Baixar QRCode"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <QrCode className="w-5 h-5 text-green-700" />
+                        </a>
+                      </div>
+                    </Card>
                   </div>
-                  <div className="flex flex-wrap gap-2 mb-1">
-                    <Badge variant="outline" className="text-xs bg-white text-gray-700 border-gray-200">{lote.quantity} {lote.unit}</Badge>
-                    <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">{lote.flavor_score?.toFixed(1) ?? "-"} Sabor</Badge>
-                    <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-700">{lote.fragrance_score?.toFixed(1) ?? "-"} Fragrância</Badge>
-                    <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">{lote.finish_score?.toFixed(1) ?? "-"} Finalização</Badge>
-                    <Badge variant="secondary" className="text-xs bg-pink-100 text-pink-700">{lote.acidity_score?.toFixed(1) ?? "-"} Acidez</Badge>
-                    <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">{lote.body_score?.toFixed(1) ?? "-"} Corpo</Badge>
-                  </div>
-                  <div className="text-xs text-gray-400">ID: {lote.id}</div>
-                </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

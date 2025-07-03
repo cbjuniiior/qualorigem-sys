@@ -31,6 +31,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loginToastShown, setLoginToastShown] = useState(false);
 
   useEffect(() => {
     // Obter sessão inicial
@@ -57,10 +58,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUser(session?.user ?? null);
         setLoading(false);
 
-        if (event === "SIGNED_IN") {
+        if (event === "SIGNED_IN" && !loginToastShown) {
           toast.success("Login realizado com sucesso!");
+          setLoginToastShown(true);
         } else if (event === "SIGNED_OUT") {
           toast.success("Logout realizado com sucesso!");
+          setLoginToastShown(false);
         }
       }
     );
