@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,6 +19,7 @@ import { ProducerQRCodes } from "./pages/produtor/QRCodes";
 import { ProducerMetricas } from "./pages/produtor/Metricas";
 import { ProducerConfiguracoes } from "./pages/produtor/Configuracoes";
 import NotFound from "./pages/NotFound";
+import ProducerDetails from "./pages/admin/ProducerDetails";
 
 const queryClient = new QueryClient();
 
@@ -55,6 +55,11 @@ const App = () => (
             <Route path="/admin/relatorios" element={
               <ProtectedRoute>
                 <Relatorios />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/produtores/:id" element={
+              <ProtectedRoute>
+                <ProducerDetails />
               </ProtectedRoute>
             } />
             

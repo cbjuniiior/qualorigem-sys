@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Plus, 
   Search, 
@@ -9,7 +9,10 @@ import {
   Award,
   Package,
   Eye,
-  Filter
+  Filter,
+  Upload,
+  Image as ImageIcon,
+  QrCode
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Slider } from "@/components/ui/slider";
+import { QRCodeSVG } from "qrcode.react";
 
 interface ProductLot {
   id: string;
@@ -219,6 +223,21 @@ const Lotes = () => {
   });
 
   const categories = Array.from(new Set(lots.map(lot => lot.category).filter(Boolean)));
+
+  // Função para gerar código do produto
+  const generateProductCode = () => {
+    const year = new Date().getFullYear();
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    return `PROD-${year}-${rand}`;
+  };
+
+  // Código do produto gerado automaticamente (apenas uma vez)
+  useEffect(() => {
+    if (!formData.code) {
+      setFormData({ ...formData, code: generateProductCode() });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading) {
     return (
@@ -448,36 +467,52 @@ const LotForm = ({
     formData.body_score
   ) / 5;
 
+  // Upload único de imagem
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setFormData({ ...formData, image_url: ev.target?.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  const removeImage = () => setFormData({ ...formData, image_url: "" });
+
+  // URL para QRCode
+  const qrValue = `${window.location.origin}/produto/${formData.code}`;
+
   return (
-    <div className="space-y-6">
-      {/* Informações básicas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="code">Código do Lote *</Label>
-          <Input
-            id="code"
-            value={formData.code}
-            onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-            placeholder="CAFE001"
-            required
-          />
+    <div className="space-y-8 p-4 md:p-8 bg-[#f7f8fa] rounded-2xl shadow-md">
+      {/* Bloco: Dados principais */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white rounded-2xl p-6 shadow-sm border">
+        <div className="flex flex-col gap-4">
+          <Label htmlFor="code" className="font-semibold flex items-center gap-2"><QrCode className="w-5 h-5 text-blue-500" /> Código do Produto</Label>
+          <Input id="code" value={formData.code} disabled className="bg-gray-100 font-mono" />
+          <div className="flex flex-col gap-2 mt-2">
+            <Label className="font-semibold flex items-center gap-2"><ImageIcon className="w-5 h-5 text-green-500" /> Imagem do Produto</Label>
+            {formData.image_url ? (
+              <div className="relative w-40 h-40 rounded-xl overflow-hidden border bg-[#f3f4f6] flex items-center justify-center">
+                <img src={formData.image_url} alt="Produto" className="object-cover w-full h-full" />
+                <Button size="icon" variant="ghost" className="absolute top-2 right-2 bg-white/80" onClick={removeImage} title="Remover imagem"><svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" /></svg></Button>
+              </div>
+            ) : (
+              <Button type="button" variant="outline" className="w-40 h-40 flex flex-col items-center justify-center gap-2 border-dashed" onClick={() => fileInputRef.current?.click()}>
+                <Upload className="w-8 h-8 text-gray-400" />
+                <span className="text-xs text-gray-500">Clique para enviar</span>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+              </Button>
+            )}
+          </div>
         </div>
-        <div>
-          <Label htmlFor="name">Nome do Produto *</Label>
-          <Input
-            id="name"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Café Especial Montanha Verde"
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="category">Categoria</Label>
-          <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione a categoria" />
-            </SelectTrigger>
+        <div className="flex flex-col gap-4">
+          <Label htmlFor="name" className="font-semibold">Nome do Produto *</Label>
+          <Input id="name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="Nome do produto" required />
+          <Label htmlFor="category" className="font-semibold">Categoria</Label>
+          <Select value={formData.category} onValueChange={value => setFormData({ ...formData, category: value })}>
+            <SelectTrigger><SelectValue placeholder="Selecione a categoria" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Café">Café</SelectItem>
               <SelectItem value="Vinho">Vinho</SelectItem>
@@ -486,57 +521,29 @@ const LotForm = ({
               <SelectItem value="Outros">Outros</SelectItem>
             </SelectContent>
           </Select>
+          <Label htmlFor="variety" className="font-semibold">Variedade</Label>
+          <Input id="variety" value={formData.variety} onChange={e => setFormData({ ...formData, variety: e.target.value })} placeholder="Variedade do produto" />
+          <Label htmlFor="harvest_year" className="font-semibold">Safra</Label>
+          <Input id="harvest_year" value={formData.harvest_year} onChange={e => setFormData({ ...formData, harvest_year: e.target.value })} placeholder="2024" />
         </div>
-        <div>
-          <Label htmlFor="variety">Variedade</Label>
-          <Input
-            id="variety"
-            value={formData.variety}
-            onChange={(e) => setFormData({ ...formData, variety: e.target.value })}
-            placeholder="Bourbon Amarelo"
-          />
-        </div>
-        <div>
-          <Label htmlFor="harvest_year">Safra</Label>
-          <Input
-            id="harvest_year"
-            value={formData.harvest_year}
-            onChange={(e) => setFormData({ ...formData, harvest_year: e.target.value })}
-            placeholder="2024"
-          />
-        </div>
-        <div>
-          <Label htmlFor="producer_id">Produtor *</Label>
-          <Select value={formData.producer_id} onValueChange={(value) => setFormData({ ...formData, producer_id: value })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione o produtor" />
-            </SelectTrigger>
+      </div>
+      {/* Bloco: Produtor, quantidade, unidade, QRCode */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white rounded-2xl p-6 shadow-sm border">
+        <div className="flex flex-col gap-4">
+          <Label htmlFor="producer_id" className="font-semibold">Produtor *</Label>
+          <Select value={formData.producer_id} onValueChange={value => setFormData({ ...formData, producer_id: value })}>
+            <SelectTrigger><SelectValue placeholder="Selecione o produtor" /></SelectTrigger>
             <SelectContent>
               {producers.map((producer) => (
-                <SelectItem key={producer.id} value={producer.id}>
-                  {producer.name} - {producer.property_name}
-                </SelectItem>
+                <SelectItem key={producer.id} value={producer.id}>{producer.name} - {producer.property_name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div>
-          <Label htmlFor="quantity">Quantidade</Label>
-          <Input
-            id="quantity"
-            type="number"
-            step="0.01"
-            value={formData.quantity}
-            onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-            placeholder="500"
-          />
-        </div>
-        <div>
-          <Label htmlFor="unit">Unidade</Label>
-          <Select value={formData.unit} onValueChange={(value) => setFormData({ ...formData, unit: value })}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione a unidade" />
-            </SelectTrigger>
+          <Label htmlFor="quantity" className="font-semibold">Quantidade</Label>
+          <Input id="quantity" type="number" step="0.01" value={formData.quantity} onChange={e => setFormData({ ...formData, quantity: e.target.value })} placeholder="500" />
+          <Label htmlFor="unit" className="font-semibold">Unidade</Label>
+          <Select value={formData.unit} onValueChange={value => setFormData({ ...formData, unit: value })}>
+            <SelectTrigger><SelectValue placeholder="Selecione a unidade" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="Kg">Quilogramas (Kg)</SelectItem>
               <SelectItem value="L">Litros (L)</SelectItem>
@@ -546,110 +553,58 @@ const LotForm = ({
             </SelectContent>
           </Select>
         </div>
-        <div>
-          <Label htmlFor="image_url">URL da Imagem</Label>
-          <Input
-            id="image_url"
-            value={formData.image_url}
-            onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-            placeholder="https://exemplo.com/imagem.jpg"
-          />
+        <div className="flex flex-col gap-4 items-center justify-center">
+          <Label className="font-semibold flex items-center gap-2"><QrCode className="w-5 h-5 text-blue-500" /> QR Code do Produto</Label>
+          <div className="bg-white rounded-xl border p-4 flex flex-col items-center">
+            <QRCodeSVG value={qrValue} size={120} bgColor="#fff" fgColor="#222" />
+            <span className="text-xs text-gray-500 mt-2 break-all text-center">{qrValue}</span>
+          </div>
         </div>
       </div>
-
-      {/* Análise sensorial */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Análise Sensorial</h3>
-        
+      {/* Bloco: Análise sensorial */}
+      <div className="space-y-4 bg-white rounded-2xl p-6 shadow-sm border">
+        <h3 className="text-lg font-semibold mb-2">Análise Sensorial</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <div>
               <Label>Fragrância: {formData.fragrance_score}</Label>
-              <Slider
-                value={[formData.fragrance_score]}
-                onValueChange={([value]) => setFormData({ ...formData, fragrance_score: value })}
-                max={10}
-                min={0}
-                step={0.1}
-                className="mt-2"
-              />
+              <Slider value={[formData.fragrance_score]} onValueChange={([value]) => setFormData({ ...formData, fragrance_score: value })} max={10} min={0} step={0.1} className="mt-2" />
             </div>
             <div>
               <Label>Sabor: {formData.flavor_score}</Label>
-              <Slider
-                value={[formData.flavor_score]}
-                onValueChange={([value]) => setFormData({ ...formData, flavor_score: value })}
-                max={10}
-                min={0}
-                step={0.1}
-                className="mt-2"
-              />
+              <Slider value={[formData.flavor_score]} onValueChange={([value]) => setFormData({ ...formData, flavor_score: value })} max={10} min={0} step={0.1} className="mt-2" />
             </div>
             <div>
               <Label>Finalização: {formData.finish_score}</Label>
-              <Slider
-                value={[formData.finish_score]}
-                onValueChange={([value]) => setFormData({ ...formData, finish_score: value })}
-                max={10}
-                min={0}
-                step={0.1}
-                className="mt-2"
-              />
+              <Slider value={[formData.finish_score]} onValueChange={([value]) => setFormData({ ...formData, finish_score: value })} max={10} min={0} step={0.1} className="mt-2" />
             </div>
           </div>
           <div className="space-y-4">
             <div>
               <Label>Acidez: {formData.acidity_score}</Label>
-              <Slider
-                value={[formData.acidity_score]}
-                onValueChange={([value]) => setFormData({ ...formData, acidity_score: value })}
-                max={10}
-                min={0}
-                step={0.1}
-                className="mt-2"
-              />
+              <Slider value={[formData.acidity_score]} onValueChange={([value]) => setFormData({ ...formData, acidity_score: value })} max={10} min={0} step={0.1} className="mt-2" />
             </div>
             <div>
               <Label>Corpo: {formData.body_score}</Label>
-              <Slider
-                value={[formData.body_score]}
-                onValueChange={([value]) => setFormData({ ...formData, body_score: value })}
-                max={10}
-                min={0}
-                step={0.1}
-                className="mt-2"
-              />
+              <Slider value={[formData.body_score]} onValueChange={([value]) => setFormData({ ...formData, body_score: value })} max={10} min={0} step={0.1} className="mt-2" />
             </div>
             <div className="p-4 bg-green-50 rounded-lg">
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {averageScore.toFixed(1)}
-                </div>
+                <div className="text-2xl font-bold text-green-600">{averageScore.toFixed(1)}</div>
                 <div className="text-sm text-green-700">Nota Geral</div>
               </div>
             </div>
           </div>
         </div>
-
         <div>
-          <Label htmlFor="sensory_notes">Observações Sensoriais</Label>
-          <Textarea
-            id="sensory_notes"
-            value={formData.sensory_notes}
-            onChange={(e) => setFormData({ ...formData, sensory_notes: e.target.value })}
-            placeholder="Descreva as características sensoriais do produto..."
-            rows={3}
-          />
+          <Label htmlFor="sensory_notes" className="font-semibold">Observações Sensoriais</Label>
+          <Textarea id="sensory_notes" value={formData.sensory_notes} onChange={e => setFormData({ ...formData, sensory_notes: e.target.value })} placeholder="Descreva as características sensoriais do produto..." rows={3} />
         </div>
       </div>
-
-      <div className="flex justify-end space-x-2 pt-4">
-        <Button variant="outline" onClick={onCancel}>
-          Cancelar
-        </Button>
-        <Button onClick={onSubmit}>
-          Salvar
-        </Button>
+      {/* Botões de ação */}
+      <div className="flex justify-end gap-2 pt-4">
+        <Button variant="outline" onClick={onCancel}>Cancelar</Button>
+        <Button onClick={onSubmit}>Salvar</Button>
       </div>
     </div>
   );
