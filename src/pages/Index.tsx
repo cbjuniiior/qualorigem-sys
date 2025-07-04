@@ -1,7 +1,6 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, QrCode, Leaf, Mountain, Award } from "lucide-react";
+import { MagnifyingGlass, QrCode, Leaf, Mountains, Medal } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -85,7 +84,7 @@ const Index = () => {
                     size="sm"
                     className="absolute right-2 top-2 h-10 bg-green-600 hover:bg-green-700"
                   >
-                    <Search className="h-4 w-4" />
+                    <MagnifyingGlass className="h-4 w-4" />
                   </Button>
                 </div>
               </form>
@@ -109,7 +108,7 @@ const Index = () => {
             <Card className="border-green-100 hover:shadow-lg transition-shadow">
               <CardContent className="p-6 text-center">
                 <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Mountain className="h-6 w-6 text-green-600" />
+                  <Mountains className="h-6 w-6 text-green-600" />
                 </div>
                 <h4 className="font-semibold text-gray-900 mb-2">Origem Garantida</h4>
                 <p className="text-gray-600 text-sm">
@@ -121,7 +120,7 @@ const Index = () => {
             <Card className="border-green-100 hover:shadow-lg transition-shadow">
               <CardContent className="p-6 text-center">
                 <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Award className="h-6 w-6 text-emerald-600" />
+                  <Medal className="h-6 w-6 text-emerald-600" />
                 </div>
                 <h4 className="font-semibold text-gray-900 mb-2">Análise Sensorial</h4>
                 <p className="text-gray-600 text-sm">

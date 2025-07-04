@@ -1,18 +1,5 @@
 import { useState, useEffect } from "react";
-import { 
-  Settings, 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Save, 
-  Eye, 
-  EyeOff,
-  Bell,
-  Shield,
-  Palette,
-  Globe
-} from "lucide-react";
+import { Gear, User, Envelope, Phone, MapPin, FloppyDisk, Eye, EyeSlash, Bell, Shield, Palette, Globe } from "@phosphor-icons/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -311,7 +298,7 @@ export const ProducerConfiguracoes = () => {
                 {saving ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 ) : (
-                  <Save className="h-4 w-4 mr-2" />
+                  <FloppyDisk className="h-4 w-4 mr-2" />
                 )}
                 Salvar Perfil
               </Button>
@@ -443,7 +430,7 @@ export const ProducerConfiguracoes = () => {
                       onClick={() => setShowPassword(!showPassword)}
                     >
                       {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
+                        <EyeSlash className="h-4 w-4" />
                       ) : (
                         <Eye className="h-4 w-4" />
                       )}
@@ -486,7 +473,7 @@ export const ProducerConfiguracoes = () => {
                   {saving ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   ) : (
-                    <Save className="h-4 w-4 mr-2" />
+                    <FloppyDisk className="h-4 w-4 mr-2" />
                   )}
                   Salvar Configurações
                 </Button>

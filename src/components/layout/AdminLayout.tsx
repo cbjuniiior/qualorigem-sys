@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { 
-  LayoutDashboard, 
-  Users, 
-  Package, 
-  BarChart3, 
-  Settings, 
-  LogOut, 
-  Menu, 
+import {
+  Layout,
+  Users,
+  Package,
+  ChartBar,
+  Gear,
+  SignOut,
+  List,
   X,
   Leaf,
-  ChevronDown
-} from "lucide-react";
+  CaretDown
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
@@ -24,7 +24,7 @@ const navigation = [
   {
     name: "Dashboard",
     href: "/admin",
-    icon: LayoutDashboard,
+    icon: Layout,
   },
   {
     name: "Produtores",
@@ -39,12 +39,12 @@ const navigation = [
   {
     name: "Relatórios",
     href: "/admin/relatorios",
-    icon: BarChart3,
+    icon: ChartBar,
   },
   {
     name: "Configurações",
     href: "/admin/configuracoes",
-    icon: Settings,
+    icon: Gear,
   },
 ];
 
@@ -130,7 +130,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                     onClick={handleSignOut}
                     className="text-gray-400 hover:text-red-600"
                   >
-                    <LogOut className="h-4 w-4" />
+                    <SignOut className="h-4 w-4" />
                   </Button>
                 </div>
               </li>
@@ -205,7 +205,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                     onClick={handleSignOut}
                     className="text-gray-400 hover:text-red-600"
                   >
-                    <LogOut className="h-4 w-4" />
+                    <SignOut className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -223,7 +223,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
             size="sm"
             onClick={() => setSidebarOpen(true)}
           >
-            <Menu className="h-6 w-6" />
+            <List className="h-6 w-6" />
           </Button>
           <div className="flex-1 text-sm font-semibold leading-6 text-gray-900">
             GeoTrace Admin

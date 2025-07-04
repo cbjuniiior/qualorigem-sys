@@ -3,18 +3,18 @@ import { Link } from "react-router-dom";
 import { 
   Package, 
   Plus, 
-  Search, 
-  Filter, 
-  Edit, 
-  Trash2, 
+  MagnifyingGlass, 
+  Funnel, 
+  PencilSimple, 
+  Trash, 
   Eye,
   QrCode,
   Calendar,
   MapPin,
-  AlertCircle,
+  WarningCircle,
   CheckCircle,
   Clock
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,7 +90,7 @@ export const ProducerLotes = () => {
       case 'processando':
         return <Clock className="h-4 w-4" />;
       default:
-        return <AlertCircle className="h-4 w-4" />;
+        return <WarningCircle className="h-4 w-4" />;
     }
   };
 
@@ -136,7 +136,7 @@ export const ProducerLotes = () => {
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
                     placeholder="Buscar por código ou nome..."
                     value={searchTerm}
@@ -201,66 +201,83 @@ export const ProducerLotes = () => {
                 {filteredLotes.map((lote) => (
                   <div
                     key={lote.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                    className="flex flex-col md:flex-row items-center md:items-stretch justify-between gap-4 p-5 border rounded-2xl shadow-sm bg-white hover:shadow-lg transition-all"
                   >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                        <Package className="h-6 w-6 text-green-600" />
-                      </div>
-                      <div>
-                        <h4 className="font-medium text-gray-900">
-                          Lote {lote.code}
-                        </h4>
-                        <p className="text-sm text-gray-600">{lote.name}</p>
-                        <div className="flex items-center space-x-4 text-xs text-gray-500 mt-1">
-                          <div className="flex items-center space-x-1">
-                            <MapPin className="h-3 w-3" />
-                            <span>{lote.variety || 'N/A'}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <Calendar className="h-3 w-3" />
-                            <span>{lote.harvest_year || 'N/A'}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <span>Qtd: {lote.quantity || 0} {lote.unit || 'kg'}</span>
-                          </div>
-                        </div>
-                      </div>
+                    {/* Imagem do lote */}
+                    <div className="w-20 h-20 bg-gray-100 rounded-xl flex items-center justify-center overflow-hidden">
+                      {lote.image_url ? (
+                        <img src={lote.image_url} alt={lote.name} className="object-cover w-full h-full" />
+                      ) : (
+                        <Package className="h-10 w-10 text-gray-300" />
+                      )}
                     </div>
-                    
-                    <div className="flex items-center space-x-2">
-                      <Badge className={getStatusColor(lote.category || 'ativo')}>
-                        <div className="flex items-center space-x-1">
-                          {getStatusIcon(lote.category || 'ativo')}
-                          <span className="capitalize">{lote.category || 'ativo'}</span>
-                        </div>
-                      </Badge>
-                      
-                      <div className="flex space-x-1">
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link to={`/produtor/lotes/${lote.id}`}>
+                    {/* Conteúdo principal */}
+                    <div className="flex-1 flex flex-col justify-center min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-bold text-lg text-gray-900 truncate">{lote.name}</h4>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="rounded-full p-2 text-blue-600 hover:text-blue-700"
+                          asChild
+                          title="Ver Página Pública"
+                        >
+                          <Link to={`/lote/${lote.code}`} target="_blank" rel="noopener noreferrer">
                             <Eye className="h-4 w-4" />
                           </Link>
                         </Button>
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link to={`/produtor/lotes/${lote.id}/editar`}>
-                            <Edit className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link to={`/produtor/qrcodes/${lote.id}`}>
-                            <QrCode className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleDelete(lote.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
                       </div>
+                      <div className="text-xs text-gray-500 mt-1 truncate">
+                        Código: {lote.code} | Safra: {lote.harvest_year} | Categoria: {lote.category} {lote.variety && `| Variedade: ${lote.variety}`}
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <span className="bg-gray-100 text-gray-700 rounded-full px-3 py-1 text-xs font-semibold">
+                          {lote.quantity} {lote.unit}
+                        </span>
+                        {lote.flavor_score && (
+                          <span className="bg-green-100 text-green-700 rounded-full px-3 py-1 text-xs font-semibold">
+                            {lote.flavor_score.toFixed(1)} Sabor
+                          </span>
+                        )}
+                        {lote.fragrance_score && (
+                          <span className="bg-yellow-100 text-yellow-700 rounded-full px-3 py-1 text-xs font-semibold">
+                            {lote.fragrance_score.toFixed(1)} Fragrância
+                          </span>
+                        )}
+                        {lote.finish_score && (
+                          <span className="bg-blue-100 text-blue-700 rounded-full px-3 py-1 text-xs font-semibold">
+                            {lote.finish_score.toFixed(1)} Finalização
+                          </span>
+                        )}
+                        {lote.acidity_score && (
+                          <span className="bg-pink-100 text-pink-700 rounded-full px-3 py-1 text-xs font-semibold">
+                            {lote.acidity_score.toFixed(1)} Acidez
+                          </span>
+                        )}
+                        {lote.body_score && (
+                          <span className="bg-purple-100 text-purple-700 rounded-full px-3 py-1 text-xs font-semibold">
+                            {lote.body_score.toFixed(1)} Corpo
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Ações */}
+                    <div className="flex flex-col gap-2 items-end md:items-center justify-center">
+                      <Button variant="ghost" size="icon" className="rounded-full p-2" asChild title="Editar Lote">
+                        <Link to={`/produtor/lotes/${lote.id}/editar`}><PencilSimple className="h-4 w-4" /></Link>
+                      </Button>
+                      <Button variant="ghost" size="icon" className="rounded-full p-2" asChild title="QR Code do Lote">
+                        <Link to={`/produtor/qrcodes/${lote.id}`}><QrCode className="h-4 w-4" /></Link>
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="rounded-full p-2 text-red-600 hover:text-red-700 hover:bg-red-50" 
+                        onClick={() => handleDelete(lote.id)} 
+                        title="Excluir Lote"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}

@@ -1,16 +1,5 @@
 import { useState, useEffect } from "react";
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  MapPin, 
-  Phone, 
-  Mail,
-  Mountain,
-  Thermometer,
-  Copy
-} from "lucide-react";
+import { Plus, MagnifyingGlass, PencilSimple, Trash, MapPin, Phone, Envelope, Mountains, Thermometer, Copy } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -272,58 +261,69 @@ const Produtores = () => {
           ) : filteredProducers.length === 0 ? (
             <div className="col-span-full text-center text-gray-400 py-20 text-lg">Nenhum produtor encontrado.</div>
           ) : (
-            filteredProducers.map(prod => (
-              <div
-                key={prod.id}
-                className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition p-7 flex flex-col gap-5 border border-gray-100 relative group min-h-[270px] w-full max-w-xl mx-auto cursor-pointer"
-                onClick={e => {
-                  // Evita navegação se clicar em ação rápida
-                  if ((e.target as HTMLElement).closest('.card-action')) return;
-                  navigate(`/admin/produtores/${prod.id}`);
-                }}
-              >
-                {/* Avatar/foto e ações */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-4">
-                    <Avatar className="h-16 w-16 shadow border-2 border-primary/20">
-                      <AvatarImage src={prod.photos?.[0]} alt={prod.name} />
-                      <AvatarFallback className="text-xl font-bold bg-primary/10 text-primary">
-                        {prod.name.split(" ").map(n => n[0]).join("").slice(0,2)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="font-bold text-xl text-gray-900 flex items-center gap-2">
-                        {prod.name}
+            filteredProducers.map(prod => {
+              const foto = prod.photos?.[0];
+              return (
+                <div
+                  key={prod.id}
+                  className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all overflow-hidden flex flex-col cursor-pointer group border border-gray-100"
+                  onClick={e => {
+                    if ((e.target as HTMLElement).closest('.card-action')) return;
+                    navigate(`/admin/produtores/${prod.id}`);
+                  }}
+                  style={{ textDecoration: 'none' }}
+                >
+                  {/* Foto/banner do produtor com ações sobrepostas */}
+                  <div className="relative w-full h-40 bg-gray-100 flex items-center justify-center overflow-hidden">
+                    {foto ? (
+                      <img src={foto} alt={prod.name} className="object-cover w-full h-full" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-primary/30 bg-primary/5">
+                        {prod.name.split(' ').map(n => n[0]).join('').slice(0,2)}
                       </div>
-                      <div className="text-gray-500 text-base font-medium">{prod.property_name}</div>
+                    )}
+                    {/* Ações rápidas sobre a imagem */}
+                    <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
+                      <button className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action" title="Editar" onClick={e => {e.stopPropagation(); openEditDialog(prod)}}>
+                        <PencilSimple className="h-5 w-5 text-primary" />
+                      </button>
+                      <button className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action" title="Excluir" onClick={e => {e.stopPropagation(); handleDelete(prod.id)}}>
+                        <Trash className="h-5 w-5 text-red-500" />
+                      </button>
+                      <button className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action" title="Copiar email" onClick={e => {e.stopPropagation(); navigator.clipboard.writeText(prod.email); toast.success('Email copiado!')}}>
+                        <Copy className="h-5 w-5 text-gray-500" />
+                      </button>
                     </div>
                   </div>
-                  {/* Ações rápidas */}
-                  <div className="flex gap-2 opacity-100 group-hover:opacity-100 transition-all">
-                    <button className="p-2 rounded-full hover:bg-gray-100 card-action" title="Editar" onClick={e => {e.stopPropagation(); openEditDialog(prod)}}>
-                      <Edit className="h-5 w-5 text-primary" />
-                    </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 card-action" title="Excluir" onClick={e => {e.stopPropagation(); handleDelete(prod.id)}}>
-                      <Trash2 className="h-5 w-5 text-red-500" />
-                    </button>
-                    <button className="p-2 rounded-full hover:bg-gray-100 card-action" title="Copiar email" onClick={e => {e.stopPropagation(); navigator.clipboard.writeText(prod.email); toast.success("Email copiado!")}}>
-                      <Copy className="h-5 w-5 text-gray-500" />
-                    </button>
+                  {/* Conteúdo principal */}
+                  <div className="flex-1 flex flex-col gap-2 px-6 py-5">
+                    <div className="font-extrabold text-2xl text-gray-900 mb-1 truncate">{prod.name}</div>
+                    <div className="text-lg text-gray-500 mb-1 truncate">{prod.property_name}</div>
+                    {/* Informações principais */}
+                    <div className="flex flex-wrap gap-4 mt-2 text-gray-700 text-base">
+                      <span className="flex items-center gap-2"><MapPin className="h-5 w-5 text-primary/70" />{prod.city}, {prod.state}</span>
+                      <span className="flex items-center gap-2"><Phone className="h-5 w-5 text-primary/70" />{prod.phone}</span>
+                      <span className="flex items-center gap-2"><Envelope className="h-5 w-5 text-primary/70" />{prod.email}</span>
+                    </div>
+                    {/* Badges de altitude/temperatura */}
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {prod.altitude && (
+                        <span className="bg-blue-100 text-blue-700 rounded-full px-4 py-1 text-base font-semibold flex items-center gap-2">
+                          <Mountains className="h-5 w-5" />
+                          {prod.altitude}m
+                        </span>
+                      )}
+                      {prod.average_temperature && (
+                        <span className="bg-yellow-100 text-yellow-700 rounded-full px-4 py-1 text-base font-semibold flex items-center gap-2">
+                          <Thermometer className="h-5 w-5" />
+                          {prod.average_temperature}°C
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                {/* Info principal */}
-                <div className="flex flex-col gap-2 text-gray-700 text-base mt-2">
-                  <div className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary/70" /> <span>{prod.city}, {prod.state}</span></div>
-                  <div className="flex items-center gap-2"><Phone className="h-4 w-4 text-primary/70" /> <span>{prod.phone}</span></div>
-                  <div className="flex items-center gap-2"><Mail className="h-4 w-4 text-primary/70" /> <span>{prod.email}</span></div>
-                </div>
-                {/* Badges */}
-                <div className="flex gap-3 mt-3">
-                  {prod.altitude && <Badge variant="secondary" className="px-3 py-1 text-base font-medium bg-primary/10 text-primary border-0">{prod.altitude}m</Badge>}
-                  {prod.average_temperature && <Badge variant="secondary" className="px-3 py-1 text-base font-medium bg-primary/10 text-primary border-0">{prod.average_temperature}°C</Badge>}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>
@@ -389,7 +389,7 @@ const Produtores = () => {
                       <p className="text-lg text-primary font-semibold mb-2">{selectedProducer.property_name}</p>
                     </div>
                     <div className="flex gap-2">
-                      <Button size="icon" variant="outline" title="Editar produtor"><Edit className="w-5 h-5 text-blue-500" /></Button>
+                      <Button size="icon" variant="outline" title="Editar produtor"><PencilSimple className="w-5 h-5 text-blue-500" /></Button>
                       <Button size="icon" variant="outline" title="Adicionar lote"><Plus className="w-5 h-5 text-green-500" /></Button>
                       <Button size="icon" variant="ghost" title="Fechar" onClick={() => setSelectedProducer(null)}><span className="sr-only">Fechar</span><svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" /></svg></Button>
                     </div>
@@ -407,13 +407,13 @@ const Produtores = () => {
                       <span className="text-gray-800">{selectedProducer.phone}</span>
                     </div>
                     <div className="flex items-center gap-3 text-base">
-                      <Mail className="h-6 w-6 text-blue-500" />
+                      <Envelope className="h-6 w-6 text-blue-500" />
                       <span className="text-gray-800">{selectedProducer.email}</span>
                     </div>
                     <div className="flex gap-2 mt-2">
                       {selectedProducer.altitude && (
                         <Tooltip content="Altitude da propriedade">
-                          <Badge variant="outline" className="text-xs cursor-help bg-[#f3f4f6] text-gray-700"><Mountain className="h-4 w-4 mr-1 text-orange-500" />{selectedProducer.altitude}m</Badge>
+                          <Badge variant="outline" className="text-xs cursor-help bg-[#f3f4f6] text-gray-700"><Mountains className="h-4 w-4 mr-1 text-orange-500" />{selectedProducer.altitude}m</Badge>
                         </Tooltip>
                       )}
                       {selectedProducer.average_temperature && (
@@ -514,6 +514,19 @@ const Produtores = () => {
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Dialog de criação de produtor controlado por isCreateDialogOpen */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Novo Produtor</DialogTitle>
+          </DialogHeader>
+          <ProducerForm
+            onSubmit={handleCreate}
+            onCancel={() => setIsCreateDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 };

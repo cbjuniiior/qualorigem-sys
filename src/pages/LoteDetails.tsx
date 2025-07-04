@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { ArrowLeft, MapPin, Calendar, Weight, Thermometer, Mountain, Award, Share2, Copy, Tag, Leaf, QuoteIcon } from "lucide-react";
+import { ArrowLeft, MapPin, Calendar, Scales, Thermometer, Mountains, Medal, ShareNetwork, Copy, Tag, Leaf, Quotes } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +57,7 @@ const LoteDetails = () => {
       try {
         const data = await productLotsApi.getByCode(codigo);
         setLoteData(data);
+        productLotsApi.incrementViews(codigo).catch(() => {});
       } catch (error) {
         console.error("Erro ao buscar dados do lote:", error);
         toast.error("Erro ao carregar dados do lote");
@@ -193,7 +194,7 @@ const LoteDetails = () => {
                 onClick={handleShare}
                 className="flex items-center gap-2 text-gray-700 hover:text-green-700 border-gray-200 hover:border-green-300"
               >
-                <Share2 className="h-4 w-4" />
+                <ShareNetwork className="h-4 w-4" />
                 Compartilhar
               </Button>
               <Button
@@ -249,7 +250,7 @@ const LoteDetails = () => {
                 </div>
                 {/* Card Quantidade */}
                 <div className="flex flex-col items-center justify-center bg-green-50 rounded-2xl shadow p-6 w-full h-full">
-                  <Weight className="h-10 w-10 text-green-600 mb-2" />
+                  <Scales className="h-10 w-10 text-green-600 mb-2" />
                   <div className="text-lg font-bold text-gray-900">Quantidade</div>
                   <div className="text-base text-gray-700 mt-1">{loteData.quantity} {loteData.unit}</div>
                 </div>
@@ -266,7 +267,7 @@ const LoteDetails = () => {
             {/* Badges em linha */}
             <div className="flex flex-wrap gap-3 mb-4 items-center">
               <Badge variant="secondary" className="bg-purple-100 text-purple-700 flex items-center gap-1"><MapPin className="w-4 h-4 mr-1" />{producer?.city}, {producer?.state}</Badge>
-              {producer?.altitude && <Badge variant="secondary" className="bg-orange-100 text-orange-700 flex items-center gap-1"><Mountain className="w-4 h-4 mr-1" />{producer.altitude}m</Badge>}
+              {producer?.altitude && <Badge variant="secondary" className="bg-orange-100 text-orange-700 flex items-center gap-1"><Mountains className="w-4 h-4 mr-1" />{producer.altitude}m</Badge>}
               {producer?.average_temperature && <Badge variant="secondary" className="bg-pink-100 text-pink-700 flex items-center gap-1"><Thermometer className="w-4 h-4 mr-1" />{producer.average_temperature}°C</Badge>}
             </div>
             {/* Descrição */}
@@ -405,7 +406,7 @@ const LoteDetails = () => {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 w-full animate-fade-in mt-2">
             <div className="flex flex-col items-center bg-green-50 rounded-2xl p-4 shadow group hover:bg-green-100 transition">
-              <Award className="h-6 w-6 text-green-600 mb-1" />
+              <Medal className="h-6 w-6 text-green-600 mb-1" />
               <span className="text-sm text-gray-700" title="Fragrância">Fragrância</span>
               <span className="text-2xl font-bold text-green-700">{loteData?.fragrance_score?.toFixed(1) ?? '-'}</span>
             </div>
@@ -425,7 +426,7 @@ const LoteDetails = () => {
               <span className="text-2xl font-bold text-green-700">{loteData?.acidity_score?.toFixed(1) ?? '-'}</span>
             </div>
             <div className="flex flex-col items-center bg-green-50 rounded-2xl p-4 shadow group hover:bg-green-100 transition">
-              <Weight className="h-6 w-6 text-green-600 mb-1" />
+              <Scales className="h-6 w-6 text-green-600 mb-1" />
               <span className="text-sm text-gray-700" title="Corpo">Corpo</span>
               <span className="text-2xl font-bold text-green-700">{loteData?.body_score?.toFixed(1) ?? '-'}</span>
             </div>

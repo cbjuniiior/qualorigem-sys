@@ -2,14 +2,14 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { 
   QrCode, 
-  Download, 
+  DownloadSimple, 
   Printer, 
   Copy, 
   Package,
   Eye,
-  Search,
-  Filter
-} from "lucide-react";
+  MagnifyingGlass,
+  Funnel
+} from "@phosphor-icons/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,7 +116,7 @@ export const ProducerQRCodes = () => {
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <Input
                     placeholder="Buscar por código ou nome..."
                     value={searchTerm}
@@ -230,7 +230,7 @@ export const ProducerQRCodes = () => {
                           onClick={() => handleDownloadQR(lote.code, lote.name)}
                           className="flex-1"
                         >
-                          <Download className="h-3 w-3 mr-1" />
+                          <DownloadSimple className="h-3 w-3 mr-1" />
                           Baixar
                         </Button>
                         <Button 

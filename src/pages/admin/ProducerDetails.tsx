@@ -5,7 +5,7 @@ import { producersApi, productLotsApi } from "@/services/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { MapPin, Phone, Mail, Mountain, Thermometer, ArrowLeft, Edit, Copy, QrCode, ExternalLink } from "lucide-react";
+import { MapPin, Phone, Envelope, Mountains, Thermometer, ArrowLeft, PencilSimple, Copy, QrCode, ArrowSquareOut, Buildings, Globe, EnvelopeSimple, Compass, MapTrifold, Package } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { ProducerForm } from "./Produtores";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -35,6 +35,7 @@ interface Producer {
   photos: string[];
   latitude: string | null;
   longitude: string | null;
+  cep: string | null;
 }
 
 export default function ProducerDetails() {
@@ -127,11 +128,10 @@ export default function ProducerDetails() {
             </div>
           </DialogContent>
         </Dialog>
-        <div className="flex flex-col md:flex-row items-center gap-8 mb-10 animate-fade-in">
+        <div className="flex flex-col md:flex-row items-center gap-10 mb-12 animate-fade-in">
           {/* Carrossel de fotos com miniaturas e lightbox */}
-          <div className="mb-8 flex flex-col items-center">
-            {/* Carrossel principal */}
-            <div className="relative w-full max-w-xs aspect-square flex items-center justify-center rounded-3xl shadow-lg bg-white overflow-hidden">
+          <div className="flex flex-col items-center w-full md:w-auto">
+            <div className="relative w-56 h-56 md:w-64 md:h-64 rounded-3xl shadow-lg bg-white overflow-hidden flex items-center justify-center">
               <img
                 src={producer?.photos?.[carouselIndex]}
                 alt={`Foto ${carouselIndex + 1}`}
@@ -143,7 +143,7 @@ export default function ProducerDetails() {
               {producer?.photos?.length > 1 && (
                 <>
                   <button
-                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white/90 rounded-full p-2 shadow transition z-10"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white/90 rounded-full p-2 shadow transition z-10"
                     onClick={() => setCarouselIndex((prev) => prev === 0 ? producer.photos.length - 1 : prev - 1)}
                     aria-label="Anterior"
                   >
@@ -151,7 +151,7 @@ export default function ProducerDetails() {
                     <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" /></svg>
                   </button>
                   <button
-                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/70 hover:bg-white/90 rounded-full p-2 shadow transition z-10"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white/90 rounded-full p-2 shadow transition z-10"
                     onClick={() => setCarouselIndex((prev) => prev === producer.photos.length - 1 ? 0 : prev + 1)}
                     aria-label="Próxima"
                   >
@@ -168,7 +168,7 @@ export default function ProducerDetails() {
                   key={idx}
                   src={photo}
                   alt={`Miniatura ${idx + 1}`}
-                  className={`h-8 w-8 object-cover rounded-lg border-2 transition-all duration-200 cursor-pointer shadow-sm ${carouselIndex === idx ? 'border-primary ring-2 ring-primary' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                  className={`h-10 w-10 object-cover rounded-lg border-2 transition-all duration-200 cursor-pointer shadow-sm ${carouselIndex === idx ? 'border-primary ring-2 ring-primary' : 'border-transparent opacity-70 hover:opacity-100'}`}
                   onClick={() => setCarouselIndex(idx)}
                   loading="lazy"
                 />
@@ -199,28 +199,61 @@ export default function ProducerDetails() {
               </SlideshowLightbox>
             )}
           </div>
-          {/* Dados principais */}
-          <div className="flex-1 flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 leading-tight">{producer.name}</h1>
-              <Button size="icon" variant="ghost" onClick={() => navigate(-1)} title="Voltar">
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              <Button size="icon" variant="outline" onClick={() => setEditing(true)} title="Editar">
-                <Edit className="w-5 h-5" />
-              </Button>
-              <Button size="icon" variant="outline" onClick={() => {navigator.clipboard.writeText(producer.id); toast.success('ID copiado!')}} title="Copiar ID">
-                <Copy className="w-5 h-5" />
-              </Button>
+          {/* Dados principais do produtor */}
+          <div className="flex-1 flex flex-col gap-4 w-full md:w-auto">
+            <div className="flex items-center gap-4 flex-wrap">
+              <h1 className="text-4xl font-extrabold text-gray-900 leading-tight">{producer.name}</h1>
+              {/* Badge de total de visualizações de lotes */}
+              {lots.length > 0 && (
+                <span className="flex items-center gap-2 bg-gray-100 text-gray-600 rounded-full px-4 py-2 text-base font-semibold">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="font-bold">{lots.reduce((acc, lote) => acc + (lote.views ?? 0), 0)}</span>
+                  <span className="ml-1">Visualizações dos lotes</span>
+                </span>
+              )}
+              <div className="flex gap-2">
+                <Button size="icon" variant="ghost" onClick={() => navigate(-1)} title="Voltar" className="border border-gray-200">
+                  <ArrowLeft className="w-5 h-5" />
+                </Button>
+                <Button size="icon" variant="outline" onClick={() => setEditing(true)} title="Editar" className="border border-gray-200">
+                  <PencilSimple className="w-5 h-5" />
+                </Button>
+                <Button size="icon" variant="outline" onClick={() => {navigator.clipboard.writeText(producer.id); toast.success('ID copiado!')}} title="Copiar ID" className="border border-gray-200">
+                  <Copy className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
-            <div className="text-lg text-gray-700 font-semibold">{producer.property_name}</div>
-            <div className="text-gray-500 text-base">{producer.property_description}</div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              <Badge variant="secondary" className="bg-purple-100 text-purple-700"><MapPin className="w-4 h-4 mr-1" />{producer.city}, {producer.state}</Badge>
-              {producer.phone && <Badge variant="secondary" className="bg-green-100 text-green-700"><Phone className="w-4 h-4 mr-1" />{producer.phone}</Badge>}
-              {producer.email && <Badge variant="secondary" className="bg-blue-100 text-blue-700"><Mail className="w-4 h-4 mr-1" />{producer.email}</Badge>}
-              {producer.altitude && <Badge variant="secondary" className="bg-orange-100 text-orange-700"><Mountain className="w-4 h-4 mr-1" />{producer.altitude}m</Badge>}
-              {producer.average_temperature && <Badge variant="secondary" className="bg-pink-100 text-pink-700"><Thermometer className="w-4 h-4 mr-1" />{producer.average_temperature}°C</Badge>}
+            <div className="text-2xl font-semibold text-gray-700 mb-1">{producer.property_name}</div>
+            <div className="text-gray-500 text-base max-w-3xl leading-relaxed">
+              {producer.property_description && producer.property_description.length > 220
+                ? producer.property_description.slice(0, 220) + '...'
+                : producer.property_description}
+            </div>
+            {/* Badges de informações principais */}
+            <div className="flex flex-wrap gap-3 mt-2">
+              {producer.phone && (
+                <Badge variant="secondary" className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 text-base font-medium rounded-xl shadow-none">
+                  <Phone className="w-5 h-5" /> {producer.phone}
+                </Badge>
+              )}
+              {producer.email && (
+                <Badge variant="secondary" className="flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 text-base font-medium rounded-xl shadow-none">
+                  <Envelope className="w-5 h-5" /> {producer.email}
+                </Badge>
+              )}
+              {producer.altitude && (
+                <Badge variant="secondary" className="flex items-center gap-2 bg-orange-100 text-orange-700 px-4 py-2 text-base font-medium rounded-xl shadow-none">
+                  <Mountains className="w-5 h-5" /> {producer.altitude}m
+                </Badge>
+              )}
+              {producer.average_temperature && (
+                <Badge variant="secondary" className="flex items-center gap-2 bg-pink-100 text-pink-700 px-4 py-2 text-base font-medium rounded-xl shadow-none">
+                  <Thermometer className="w-5 h-5" /> {producer.average_temperature}°C
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -260,6 +293,20 @@ export default function ProducerDetails() {
                 </a>
               )}
             </div>
+            {/* Dados de endereço com ícones */}
+            <div className="px-6 pb-4 pt-4 text-gray-700 text-sm space-y-3">
+              {producer.address && (
+                <div className="flex items-center gap-3"><MapTrifold className="w-5 h-5 text-primary" /><span className="font-semibold">Endereço:</span> {producer.address}</div>
+              )}
+              <div className="flex items-center gap-3"><Buildings className="w-5 h-5 text-primary" /><span className="font-semibold">Cidade:</span> {producer.city}</div>
+              <div className="flex items-center gap-3"><Globe className="w-5 h-5 text-primary" /><span className="font-semibold">Estado:</span> {producer.state}</div>
+              {producer.cep && (
+                <div className="flex items-center gap-3"><EnvelopeSimple className="w-5 h-5 text-primary" /><span className="font-semibold">CEP:</span> {producer.cep}</div>
+              )}
+              {mapCoords && (
+                <div className="flex items-center gap-3 mt-2 text-xs text-gray-500"><Compass className="w-5 h-5 text-primary" /><span className="font-semibold">Coordenadas:</span> {mapCoords.lat}, {mapCoords.lon}</div>
+              )}
+            </div>
           </Card>
         </div>
         {/* Lotes do produtor */}
@@ -274,56 +321,93 @@ export default function ProducerDetails() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {lots.map((lote) => {
                 const publicUrl = `${window.location.origin}/lote/${lote.code}`;
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(publicUrl)}`;
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=${encodeURIComponent(publicUrl)}`;
                 return (
-                  <div key={lote.id} className="relative group">
-                    <Card
-                      className="rounded-2xl p-6 shadow-sm border bg-white flex flex-col gap-2 hover:shadow-lg transition-all cursor-pointer"
-                      onClick={() => navigate(`/lote/${lote.code}`)}
-                    >
-                      <div className="flex items-center gap-4 mb-2">
-                        {lote.image_url && <img src={lote.image_url} alt={lote.name} className="w-16 h-16 object-cover rounded-xl border" />}
-                        <div>
-                          <div className="font-semibold text-lg text-gray-900 flex items-center gap-2">
-                            {lote.name}
-                            <ExternalLink className="w-4 h-4 text-primary/70" />
+                  <a
+                    key={lote.id}
+                    href={publicUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block group"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <Card className="rounded-2xl shadow-md border bg-white overflow-hidden flex flex-col hover:shadow-xl transition-all cursor-pointer">
+                      {/* Imagem do lote com ações sobrepostas */}
+                      <div className="relative w-full h-44 bg-gray-100 flex items-center justify-center overflow-hidden">
+                        {lote.image_url ? (
+                          <img src={lote.image_url} alt={lote.name} className="object-cover w-full h-full" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Package className="w-12 h-12 text-gray-300" />
                           </div>
-                          <div className="text-xs text-gray-500">Código: {lote.code} | Safra: {lote.harvest_year}</div>
-                          <div className="text-xs text-gray-500">Categoria: {lote.category} | Variedade: {lote.variety}</div>
+                        )}
+                        {/* Botões de ação sobre a imagem */}
+                        <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
+                          <a
+                            href={publicUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border flex items-center justify-center"
+                            title="Abrir página pública do lote"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <ArrowSquareOut className="w-5 h-5 text-primary" />
+                          </a>
+                          <a
+                            href={qrUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            download={`qrcode-lote-${lote.code}.png`}
+                            className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border flex items-center justify-center"
+                            title="Baixar QRCode"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <QrCode className="w-5 h-5 text-green-700" />
+                          </a>
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-2 mb-1">
-                        <Badge variant="outline" className="text-xs bg-white text-gray-700 border-gray-200">{lote.quantity} {lote.unit}</Badge>
-                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">{lote.flavor_score?.toFixed(1) ?? "-"} Sabor</Badge>
-                        <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-700">{lote.fragrance_score?.toFixed(1) ?? "-"} Fragrância</Badge>
-                        <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">{lote.finish_score?.toFixed(1) ?? "-"} Finalização</Badge>
-                        <Badge variant="secondary" className="text-xs bg-pink-100 text-pink-700">{lote.acidity_score?.toFixed(1) ?? "-"} Acidez</Badge>
-                        <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">{lote.body_score?.toFixed(1) ?? "-"} Corpo</Badge>
-                      </div>
-                      <div className="text-xs text-gray-400">ID: {lote.id}</div>
-                      {/* Ações rápidas no hover */}
-                      <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all z-10">
-                        <button
-                          className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action"
-                          title="Copiar URL pública"
-                          onClick={e => {e.stopPropagation(); navigator.clipboard.writeText(publicUrl); toast.success('URL copiada!')}}
-                        >
-                          <ExternalLink className="w-5 h-5 text-primary" />
-                        </button>
-                        <a
-                          href={qrUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          download={`qrcode-lote-${lote.code}.png`}
-                          className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action flex items-center justify-center"
-                          title="Baixar QRCode"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <QrCode className="w-5 h-5 text-green-700" />
-                        </a>
+                      {/* Conteúdo principal */}
+                      <div className="flex-1 flex flex-col gap-2 px-6 py-5">
+                        <div className="font-extrabold text-2xl text-gray-900 mb-1 truncate">{lote.name}</div>
+                        <div className="text-sm text-gray-500 mb-1 truncate">
+                          Código: <span className="font-medium">{lote.code}</span> | Safra: {lote.harvest_year}
+                        </div>
+                        <div className="text-sm text-gray-500 mb-1 truncate">
+                          Categoria: {lote.category} {lote.variety && `| Variedade: ${lote.variety}`}
+                        </div>
+                        {/* Badge de visualizações */}
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="flex items-center gap-1 bg-gray-100 text-gray-600 rounded-full px-3 py-1 text-xs font-semibold">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4 h-4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            {lote.views ?? 0} visualizações
+                          </span>
+                        </div>
+                        {/* Badges sensoriais em barras */}
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <span className="bg-gray-100 text-gray-700 rounded-full px-4 py-1 text-sm font-semibold">{lote.quantity} {lote.unit}</span>
+                          {lote.flavor_score && (
+                            <span className="bg-green-100 text-green-700 rounded-full px-4 py-1 text-sm font-semibold">{lote.flavor_score.toFixed(1)} Sabor</span>
+                          )}
+                          {lote.fragrance_score && (
+                            <span className="bg-yellow-100 text-yellow-700 rounded-full px-4 py-1 text-sm font-semibold">{lote.fragrance_score.toFixed(1)} Fragrância</span>
+                          )}
+                          {lote.finish_score && (
+                            <span className="bg-blue-100 text-blue-700 rounded-full px-4 py-1 text-sm font-semibold">{lote.finish_score.toFixed(1)} Finalização</span>
+                          )}
+                          {lote.acidity_score && (
+                            <span className="bg-pink-100 text-pink-700 rounded-full px-4 py-1 text-sm font-semibold">{lote.acidity_score.toFixed(1)} Acidez</span>
+                          )}
+                          {lote.body_score && (
+                            <span className="bg-purple-100 text-purple-700 rounded-full px-4 py-1 text-sm font-semibold">{lote.body_score.toFixed(1)} Corpo</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-2">ID: {lote.id}</div>
                       </div>
                     </Card>
-                  </div>
+                  </a>
                 );
               })}
             </div>

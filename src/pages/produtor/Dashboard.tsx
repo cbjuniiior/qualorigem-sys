@@ -2,17 +2,17 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { 
   Package, 
-  TrendingUp, 
+  TrendUp, 
   Calendar, 
   MapPin, 
   Plus,
   Eye,
   QrCode,
-  BarChart3,
-  AlertCircle,
+  ChartBar,
+  WarningCircle,
   CheckCircle,
   Clock
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -87,7 +87,7 @@ export const ProducerDashboard = () => {
       case 'processando':
         return <Clock className="h-4 w-4" />;
       default:
-        return <AlertCircle className="h-4 w-4" />;
+        return <WarningCircle className="h-4 w-4" />;
     }
   };
 
@@ -140,7 +140,7 @@ export const ProducerDashboard = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Lotes Ativos</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <TrendUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.lotesAtivos}</div>
@@ -166,7 +166,7 @@ export const ProducerDashboard = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+              <ChartBar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">

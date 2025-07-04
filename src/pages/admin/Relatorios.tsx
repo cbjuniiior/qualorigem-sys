@@ -1,13 +1,5 @@
 import { useState, useEffect } from "react";
-import { 
-  BarChart3, 
-  TrendingUp, 
-  Users, 
-  Package, 
-  MapPin,
-  Calendar,
-  Download
-} from "lucide-react";
+import { ChartBar, TrendUp, Users, Package, MapPin, Calendar, DownloadSimple } from "@phosphor-icons/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -131,7 +123,7 @@ const Relatorios = () => {
             <p className="text-gray-600">Análises e métricas do sistema</p>
           </div>
           <Button onClick={exportReport} className="mt-4 sm:mt-0">
-            <Download className="h-4 w-4 mr-2" />
+            <DownloadSimple className="h-4 w-4 mr-2" />
             Exportar Relatório
           </Button>
         </div>
@@ -169,7 +161,7 @@ const Relatorios = () => {
               <CardTitle className="text-sm font-medium text-gray-600">
                 Categorias
               </CardTitle>
-              <BarChart3 className="h-4 w-4 text-gray-400" />
+              <ChartBar className="h-4 w-4 text-gray-400" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-gray-900">{reportData.categories.length}</div>
@@ -196,7 +188,7 @@ const Relatorios = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <BarChart3 className="h-5 w-5 mr-2 text-green-600" />
+                <ChartBar className="h-5 w-5 mr-2 text-green-600" />
                 Categorias por Volume
               </CardTitle>
             </CardHeader>
@@ -285,7 +277,7 @@ const Relatorios = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center">
-              <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
+              <TrendUp className="h-5 w-5 mr-2 text-green-600" />
               Crescimento Mensal
             </CardTitle>
           </CardHeader>

@@ -248,6 +248,12 @@ export const productLotsApi = {
     
     if (error) throw error;
     return data;
+  },
+
+  // Incrementar views do lote
+  async incrementViews(code: string) {
+    const { error } = await supabase.rpc('increment_lot_views', { lot_code: code });
+    if (error) throw error;
   }
 };
 

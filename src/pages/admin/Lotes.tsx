@@ -1,19 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { 
-  Plus, 
-  Search, 
-  Edit, 
-  Trash2, 
-  Calendar, 
-  MapPin, 
-  Award,
-  Package,
-  Eye,
-  Filter,
-  Upload,
-  Image as ImageIcon,
-  QrCode
-} from "lucide-react";
+import { Plus, MagnifyingGlass, PencilSimple, Trash, Calendar, MapPin, Medal, Package, Eye, Funnel, DownloadSimple, Image, QrCode, ArrowUpRight } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { productLotsApi, producersApi } from "@/services/api";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -63,6 +50,7 @@ interface Producer {
 }
 
 const Lotes = () => {
+  const navigate = useNavigate();
   const [lots, setLots] = useState<ProductLot[]>([]);
   const [producers, setProducers] = useState<Producer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -289,7 +277,7 @@ const Lotes = () => {
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
               placeholder="Buscar lotes..."
               value={searchTerm}
@@ -313,100 +301,99 @@ const Lotes = () => {
         </div>
 
         {/* Lots Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredLots.map((lot) => (
-            <Card key={lot.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{lot.name}</CardTitle>
-                    <p className="text-sm text-gray-600 mt-1">Código: {lot.code}</p>
+            <Card key={lot.id} className="group hover:shadow-2xl hover:-translate-y-1 transition-all rounded-2xl overflow-hidden border border-gray-100 bg-white flex flex-col">
+              {/* Imagem do lote */}
+              <div className="w-full h-40 bg-gray-100 flex items-center justify-center overflow-hidden">
+                {lot.image_url ? (
+                  <img src={lot.image_url} alt={lot.name} className="object-cover w-full h-full" />
+                ) : (
+                  <Image className="w-12 h-12 text-gray-300" />
+                )}
+              </div>
+              <CardHeader className="pb-2 pt-4 px-5 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-xl font-bold truncate">{lot.name}</CardTitle>
+                    <p className="text-xs text-gray-400 mt-1 truncate">Código: {lot.code}</p>
                   </div>
-                  <div className="flex space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => openEditDialog(lot)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Excluir Lote</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Tem certeza que deseja excluir o lote "{lot.name}"? 
-                            Esta ação não pode ser desfeita.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(lot.id)}
-                            className="bg-red-600 hover:bg-red-700"
-                          >
-                            Excluir
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
+                            <div className="flex gap-1">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="rounded-full p-2 text-blue-600 hover:text-blue-700" 
+              onClick={() => navigate(`/lote/${lot.code}`)} 
+              title="Ver Página Pública"
+            >
+              <ArrowUpRight className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="rounded-full p-2" onClick={() => openEditDialog(lot)} title="Editar">
+              <PencilSimple className="h-4 w-4" />
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full p-2 text-red-600 hover:text-red-700" title="Excluir">
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir Lote</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja excluir o lote "{lot.name}"? Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => handleDelete(lot.id)} className="bg-red-600 hover:bg-red-700">Excluir</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+                </div>
+                {/* Badges de categoria e variedade */}
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {lot.category && <Badge className="bg-blue-100 text-blue-700 rounded-full px-3 py-1 text-xs font-semibold">{lot.category}</Badge>}
+                  {lot.variety && <Badge className="bg-gray-100 text-gray-700 rounded-full px-3 py-1 text-xs font-semibold">{lot.variety}</Badge>}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="text-xs">
-                    {lot.category}
-                  </Badge>
-                  {lot.variety && (
-                    <Badge variant="secondary" className="text-xs">
-                      {lot.variety}
-                    </Badge>
-                  )}
+              <CardContent className="flex-1 flex flex-col gap-3 px-5 pb-5">
+                {/* Informações principais */}
+                <div className="flex flex-wrap gap-4 items-center text-sm text-gray-700 mt-2">
+                  <span className="flex items-center gap-1"><Package className="h-4 w-4" /> {lot.quantity} {lot.unit}</span>
+                  <span className="flex items-center gap-1"><Calendar className="h-4 w-4" /> Safra {lot.harvest_year}</span>
+                  <span className="flex items-center gap-1"><Medal className="h-4 w-4" /> {lot.producers.name}</span>
                 </div>
-                
-                <div className="flex items-center text-sm text-gray-600">
-                  <Package className="h-4 w-4 mr-2" />
-                  {lot.quantity} {lot.unit}
-                </div>
-                
-                <div className="flex items-center text-sm text-gray-600">
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Safra {lot.harvest_year}
-                </div>
-                
-                <div className="flex items-center text-sm text-gray-600">
-                  <MapPin className="h-4 w-4 mr-2" />
-                  {lot.producers.city}, {lot.producers.state}
-                </div>
-                
-                <div className="flex items-center text-sm text-gray-600">
-                  <Award className="h-4 w-4 mr-2" />
-                  Produtor: {lot.producers.name}
-                </div>
-
-                {/* Scores */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="flex justify-between">
-                    <span>Fragrância:</span>
-                    <span className="font-medium">{lot.fragrance_score?.toFixed(1)}</span>
+                {/* Notas sensoriais */}
+                <div className="flex flex-col gap-1 mt-2">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="w-20">Fragrância</span>
+                    <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                      <div className="bg-purple-400 h-2 rounded-full" style={{ width: `${(lot.fragrance_score ?? 0) * 10}%` }} />
+                    </div>
+                    <span className="font-bold ml-2">{lot.fragrance_score?.toFixed(1) ?? '-'}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Sabor:</span>
-                    <span className="font-medium">{lot.flavor_score?.toFixed(1)}</span>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="w-20">Sabor</span>
+                    <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                      <div className="bg-green-400 h-2 rounded-full" style={{ width: `${(lot.flavor_score ?? 0) * 10}%` }} />
+                    </div>
+                    <span className="font-bold ml-2">{lot.flavor_score?.toFixed(1) ?? '-'}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Finalização:</span>
-                    <span className="font-medium">{lot.finish_score?.toFixed(1)}</span>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="w-20">Finalização</span>
+                    <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                      <div className="bg-yellow-400 h-2 rounded-full" style={{ width: `${(lot.finish_score ?? 0) * 10}%` }} />
+                    </div>
+                    <span className="font-bold ml-2">{lot.finish_score?.toFixed(1) ?? '-'}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Acidez:</span>
-                    <span className="font-medium">{lot.acidity_score?.toFixed(1)}</span>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="w-20">Acidez</span>
+                    <div className="flex-1 bg-gray-100 rounded-full h-2 overflow-hidden">
+                      <div className="bg-pink-400 h-2 rounded-full" style={{ width: `${(lot.acidity_score ?? 0) * 10}%` }} />
+                    </div>
+                    <span className="font-bold ml-2">{lot.acidity_score?.toFixed(1) ?? '-'}</span>
                   </div>
                 </div>
               </CardContent>
@@ -485,14 +472,14 @@ const LotForm = ({
   const qrValue = `${window.location.origin}/produto/${formData.code}`;
 
   return (
-    <div className="space-y-8 p-4 md:p-8 bg-[#f7f8fa] rounded-2xl shadow-md">
+    <div className="space-y-8 p-4 md:p-6">
       {/* Bloco: Dados principais */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white rounded-2xl p-6 shadow-sm border">
         <div className="flex flex-col gap-4">
           <Label htmlFor="code" className="font-semibold flex items-center gap-2"><QrCode className="w-5 h-5 text-blue-500" /> Código do Produto</Label>
           <Input id="code" value={formData.code} disabled className="bg-gray-100 font-mono" />
           <div className="flex flex-col gap-2 mt-2">
-            <Label className="font-semibold flex items-center gap-2"><ImageIcon className="w-5 h-5 text-green-500" /> Imagem do Produto</Label>
+            <Label className="font-semibold flex items-center gap-2"><Image className="w-5 h-5 text-green-500" /> Imagem do Produto</Label>
             {formData.image_url ? (
               <div className="relative w-40 h-40 rounded-xl overflow-hidden border bg-[#f3f4f6] flex items-center justify-center">
                 <img src={formData.image_url} alt="Produto" className="object-cover w-full h-full" />
@@ -500,7 +487,7 @@ const LotForm = ({
               </div>
             ) : (
               <Button type="button" variant="outline" className="w-40 h-40 flex flex-col items-center justify-center gap-2 border-dashed" onClick={() => fileInputRef.current?.click()}>
-                <Upload className="w-8 h-8 text-gray-400" />
+                <DownloadSimple className="w-8 h-8 text-gray-400" />
                 <span className="text-xs text-gray-500">Clique para enviar</span>
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
               </Button>
@@ -610,4 +597,5 @@ const LotForm = ({
   );
 };
 
+export { LotForm };
 export default Lotes; 

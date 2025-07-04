@@ -1,14 +1,5 @@
 import { useState, useEffect } from "react";
-import { 
-  BarChart3, 
-  TrendingUp, 
-  Calendar, 
-  Package,
-  MapPin,
-  DollarSign,
-  Users,
-  Activity
-} from "lucide-react";
+import { ChartBar, TrendUp, Calendar, Package, MapPin, CurrencyDollar, Users, Pulse } from "@phosphor-icons/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -134,7 +125,7 @@ export const ProducerMetricas = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Lotes Ativos</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
+              <Pulse className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.lotesAtivos}</div>
@@ -147,7 +138,7 @@ export const ProducerMetricas = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Lotes Vendidos</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <TrendUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.lotesVendidos}</div>
@@ -160,7 +151,7 @@ export const ProducerMetricas = () => {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Quantidade Total</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <CurrencyDollar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">

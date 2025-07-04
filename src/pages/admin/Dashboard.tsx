@@ -1,19 +1,23 @@
 import { useState, useEffect } from "react";
-import { 
-  Users, 
-  Package, 
-  TrendingUp, 
+import {
+  Users,
+  Package,
+  TrendUp,
   Eye,
   Calendar,
   MapPin,
-  Award,
-  BarChart3
-} from "lucide-react";
+  Medal,
+  ChartBar
+} from "@phosphor-icons/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { producersApi, productLotsApi } from "@/services/api";
 import { toast } from "sonner";
+import { ProducerForm } from "./Produtores";
+import { useRef } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { LotForm } from "./Lotes";
 
 interface DashboardStats {
   totalProducers: number;
@@ -32,6 +36,26 @@ const Dashboard = () => {
     recentLots: [],
   });
   const [loading, setLoading] = useState(true);
+  const [showProducerModal, setShowProducerModal] = useState(false);
+  const [showLotModal, setShowLotModal] = useState(false);
+  const [lotFormData, setLotFormData] = useState({
+    code: "",
+    name: "",
+    category: "",
+    variety: "",
+    harvest_year: "",
+    quantity: "",
+    unit: "",
+    image_url: "",
+    producer_id: "",
+    fragrance_score: 5,
+    flavor_score: 5,
+    finish_score: 5,
+    acidity_score: 5,
+    body_score: 5,
+    sensory_notes: "",
+  });
+  const [lotProducers, setLotProducers] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -56,8 +80,8 @@ const Dashboard = () => {
           .sort((a, b) => b.count - a.count)
           .slice(0, 5);
 
-        // Simular visualizações (em produção viria do analytics)
-        const totalViews = lots.reduce((sum, lot) => sum + (Math.floor(Math.random() * 100) + 10), 0);
+        // Visualizações reais
+        const totalViews = lots.reduce((sum, lot) => sum + (lot.views ?? 0), 0);
 
         setStats({
           totalProducers: producers.length,
@@ -76,6 +100,53 @@ const Dashboard = () => {
 
     fetchDashboardData();
   }, []);
+
+  useEffect(() => {
+    if (showLotModal) {
+      producersApi.getAll().then(setLotProducers);
+      if (!lotFormData.code) {
+        const year = new Date().getFullYear();
+        const rand = Math.floor(1000 + Math.random() * 9000);
+        setLotFormData((prev) => ({ ...prev, code: `PROD-${year}-${rand}` }));
+      }
+    }
+  }, [showLotModal]);
+
+  const handleLotCreate = async () => {
+    try {
+      const lotData = {
+        ...lotFormData,
+        quantity: lotFormData.quantity ? parseFloat(lotFormData.quantity) : null,
+        fragrance_score: lotFormData.fragrance_score,
+        flavor_score: lotFormData.flavor_score,
+        finish_score: lotFormData.finish_score,
+        acidity_score: lotFormData.acidity_score,
+        body_score: lotFormData.body_score,
+      };
+      await productLotsApi.create(lotData);
+      toast.success("Lote criado com sucesso!");
+      setShowLotModal(false);
+      setLotFormData({
+        code: "",
+        name: "",
+        category: "",
+        variety: "",
+        harvest_year: "",
+        quantity: "",
+        unit: "",
+        image_url: "",
+        producer_id: "",
+        fragrance_score: 5,
+        flavor_score: 5,
+        finish_score: 5,
+        acidity_score: 5,
+        body_score: 5,
+        sensory_notes: "",
+      });
+    } catch (error) {
+      toast.error("Erro ao criar lote");
+    }
+  };
 
   const StatCard = ({ 
     title, 
@@ -104,7 +175,7 @@ const Dashboard = () => {
         )}
         {trend && (
           <div className="flex items-center mt-2">
-            <TrendingUp 
+            <TrendUp 
               className={`h-3 w-3 mr-1 ${
                 trend.isPositive ? "text-green-500" : "text-red-500"
               }`} 
@@ -168,7 +239,7 @@ const Dashboard = () => {
           <StatCard
             title="Categorias"
             value={stats.topCategories.length}
-            icon={Award}
+            icon={Medal}
             description="Tipos de produtos"
           />
         </div>
@@ -178,7 +249,7 @@ const Dashboard = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Award className="h-5 w-5 mr-2 text-green-600" />
+                <Medal className="h-5 w-5 mr-2 text-green-600" />
                 Categorias Mais Populares
               </CardTitle>
             </CardHeader>
@@ -255,18 +326,18 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors text-center">
+              <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors text-center" onClick={() => setShowProducerModal(true)}>
                 <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                 <div className="font-medium text-gray-900">Adicionar Produtor</div>
                 <div className="text-sm text-gray-500">Cadastrar novo produtor</div>
               </button>
-              <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors text-center">
+              <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors text-center" onClick={() => setShowLotModal(true)}>
                 <Package className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                 <div className="font-medium text-gray-900">Criar Lote</div>
                 <div className="text-sm text-gray-500">Registrar novo lote</div>
               </button>
-              <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors text-center">
-                <BarChart3 className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+              <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors text-center" onClick={() => window.location.href='/admin/relatorios'}>
+                <ChartBar className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                 <div className="font-medium text-gray-900">Ver Relatórios</div>
                 <div className="text-sm text-gray-500">Análises e métricas</div>
               </button>
@@ -274,6 +345,29 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+      {/* Dialogs para formulários */}
+      <Dialog open={showProducerModal} onOpenChange={setShowProducerModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Novo Produtor</DialogTitle>
+          </DialogHeader>
+          <ProducerForm onSubmit={() => setShowProducerModal(false)} onCancel={() => setShowProducerModal(false)} />
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showLotModal} onOpenChange={setShowLotModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-2">
+          <DialogHeader>
+            <DialogTitle className="mt-4 px-6">Novo Lote</DialogTitle>
+          </DialogHeader>
+          <LotForm
+            formData={lotFormData}
+            setFormData={setLotFormData}
+            producers={lotProducers}
+            onSubmit={handleLotCreate}
+            onCancel={() => setShowLotModal(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 };
