@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeSlash, Leaf, ArrowLeft } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,19 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const { signIn, loading } = useAuth();
+  const { signIn, loading, user } = useAuth();
   const navigate = useNavigate();
+
+  // Debug: verificar estado da autenticação
+  console.log("Login component - loading:", loading, "user:", user);
+
+  // Redirecionar se já estiver logado
+  useEffect(() => {
+    if (!loading && user) {
+      console.log("Usuário já logado, redirecionando...");
+      navigate("/admin");
+    }
+  }, [loading, user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

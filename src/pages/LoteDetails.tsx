@@ -1,14 +1,15 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { ArrowLeft, MapPin, Calendar, Scales, Thermometer, Mountains, Medal, ShareNetwork, Copy, Tag, Leaf, Quotes } from "@phosphor-icons/react";
+import { useState, useEffect, useRef } from "react";
+import { ArrowLeft, MapPin, Calendar, Scales, Thermometer, Mountains, Medal, ShareNetwork, Copy, Tag, Leaf, Quotes, Package, Percent } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { SensorialRadarChart } from "@/components/SensorialRadarChart";
-import { productLotsApi, producersApi } from "@/services/api";
-import type { ProductLot } from "@/services/api";
+import { VideoPopup } from "@/components/VideoPopup";
+import { productLotsApi, producersApi, systemConfigApi } from "@/services/api";
+import type { ProductLot, LotComponent } from "@/services/api";
 import { SlideshowLightbox } from 'lightbox.js-react';
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from "@/components/ui/radar-chart";
 
@@ -22,6 +23,8 @@ interface LoteData {
   harvest_year: string;
   quantity: number | null;
   unit: string | null;
+  lot_observations?: string | null;
+  components?: LotComponent[];
   producers: {
     id: string;
     name: string;
@@ -49,6 +52,9 @@ const LoteDetails = () => {
   const [mapCoords, setMapCoords] = useState<{ lat: string; lon: string } | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [videoPopupOpen, setVideoPopupOpen] = useState(false);
+  const [videoConfig, setVideoConfig] = useState({ enabled: true, show_after_seconds: 3 });
+  const productDetailsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchLoteData = async () => {
@@ -58,6 +64,23 @@ const LoteDetails = () => {
         const data = await productLotsApi.getByCode(codigo);
         setLoteData(data);
         productLotsApi.incrementViews(codigo).catch(() => {});
+        
+        // Carregar configurações do vídeo
+        try {
+          const config = await systemConfigApi.getVideoConfig();
+          setVideoConfig(config);
+          
+          // Mostrar popup de vídeo se habilitado (com delay para evitar problemas)
+          if (config.enabled) {
+            setTimeout(() => {
+              setVideoPopupOpen(true);
+            }, 1000);
+          }
+        } catch (error) {
+          console.error("Erro ao carregar configurações do vídeo:", error);
+          // Fallback: mostrar vídeo mesmo com erro nas configurações
+          setVideoPopupOpen(true);
+        }
       } catch (error) {
         console.error("Erro ao buscar dados do lote:", error);
         toast.error("Erro ao carregar dados do lote");
@@ -109,6 +132,19 @@ const LoteDetails = () => {
     }
   };
 
+  const handleSkipToContent = () => {
+    setVideoPopupOpen(false);
+    // Scroll suave para os detalhes do produto
+    setTimeout(() => {
+      if (productDetailsRef.current) {
+        productDetailsRef.current.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
+    }, 100);
+  };
+
   // Definir sensorialData e notaGeral antes do return
   const sensorialData = {
     fragrancia: loteData?.fragrance_score ?? 0,
@@ -153,6 +189,13 @@ const LoteDetails = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+      {/* Video Popup */}
+      <VideoPopup
+        isOpen={videoPopupOpen}
+        onClose={() => setVideoPopupOpen(false)}
+        onSkipToContent={handleSkipToContent}
+        showAfterSeconds={videoConfig.show_after_seconds}
+      />
       {/* Hero com imagem de fundo desfocada e overlay */}
       <div className="relative w-full h-96 overflow-hidden">
         {/* Imagem de fundo desfocada */}
@@ -215,6 +258,9 @@ const LoteDetails = () => {
       </div>
       
       <div className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* Referência para scroll */}
+        <div ref={productDetailsRef}></div>
+        
         {/* Box de dados do produto/lote - 100% largura */}
         <Card className="border-green-100 shadow-lg mb-10 w-full">
           <CardContent className="p-8 w-full">
@@ -258,6 +304,76 @@ const LoteDetails = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Seção de Observações do Lote */}
+        {loteData?.lot_observations && (
+          <Card className="border-green-100 shadow-lg mb-10 w-full">
+            <CardContent className="p-8 w-full">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+                <Quotes className="h-6 w-6 text-green-600 mr-2" />
+                Observações sobre o Lote
+              </h2>
+              <p className="text-gray-700 text-lg leading-relaxed whitespace-pre-line">
+                {loteData.lot_observations}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Seção de Componentes do Blend */}
+        {loteData?.components && loteData.components.length > 0 && (
+          <Card className="border-green-100 shadow-lg mb-10 w-full">
+            <CardContent className="p-8 w-full">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                <Package className="h-6 w-6 text-green-600 mr-2" />
+                Composição do Blend
+              </h2>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {loteData.components.map((component, index) => (
+                  <div key={component.id} className="bg-green-50 rounded-xl p-6 border border-green-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-gray-900">{component.component_name}</h3>
+                      {component.component_percentage && (
+                        <Badge variant="secondary" className="bg-green-100 text-green-800">
+                          <Percent className="h-3 w-3 mr-1" />
+                          {component.component_percentage}%
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2 text-sm text-gray-600">
+                      {component.component_variety && (
+                        <div>
+                          <span className="font-medium">Variedade:</span> {component.component_variety}
+                        </div>
+                      )}
+                      {component.component_quantity && component.component_unit && (
+                        <div>
+                          <span className="font-medium">Quantidade:</span> {component.component_quantity} {component.component_unit}
+                        </div>
+                      )}
+                      {component.component_origin && (
+                        <div>
+                          <span className="font-medium">Origem:</span> {component.component_origin}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Resumo do blend */}
+              <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <h4 className="font-semibold text-blue-900 mb-2">Resumo da Composição</h4>
+                <p className="text-blue-800 text-sm">
+                  Este produto é um blend especial composto por {loteData.components.length} componente(s) cuidadosamente selecionado(s), 
+                  cada um contribuindo com suas características únicas para criar um perfil sensorial excepcional.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Box sobre a fazenda - 100% largura, inclui carrossel de imagens */}
         <Card className="border-green-100 shadow-lg mb-10 w-full">
           <CardContent className="p-8 w-full">

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Supabase</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>Teste de Conexão Supabase</h1>
+    <div id="status">Testando...</div>
+    <div id="error"></div>
+
+    <script>
+        const SUPABASE_URL = "https://giomnnxpgjrpwyjrkkwr.supabase.co";
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdpb21ubnhwZ2pycHd5anJra3dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0MTg1MzUsImV4cCI6MjA2Njk5NDUzNX0.L0WG0KW0keg2IwdraGVOmNxokIaZXNWrdCKty79bYv4";
+
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        async function testConnection() {
+            try {
+                const { data, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    document.getElementById('status').innerHTML = '❌ Erro na conexão: ' + error.message;
+                    document.getElementById('error').innerHTML = JSON.stringify(error, null, 2);
+                } else {
+                    document.getElementById('status').innerHTML = '✅ Conexão com Supabase funcionando!';
+                    console.log('Sessão:', data);
+                }
+            } catch (err) {
+                document.getElementById('status').innerHTML = '❌ Erro: ' + err.message;
+                document.getElementById('error').innerHTML = JSON.stringify(err, null, 2);
+            }
+        }
+
+        testConnection();
+    </script>
+</body>
+</html>

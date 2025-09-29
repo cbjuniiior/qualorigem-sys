@@ -36,39 +36,67 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   });
 
   useEffect(() => {
+    let isMounted = true;
+    
+    // Timeout de segurança para garantir que o loading não fique infinito
+    const timeoutId = setTimeout(() => {
+      if (isMounted) {
+        console.log("Timeout atingido, definindo loading como false");
+        setLoading(false);
+      }
+    }, 5000); // 5 segundos
+
     // Obter sessão inicial
     const getInitialSession = async () => {
       try {
-        const user = await authApi.getCurrentUser();
-        setUser(user);
-        // Para obter a sessão completa, precisamos usar o cliente Supabase diretamente
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
+        // Primeiro, verificar se há uma sessão existente
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Erro ao obter sessão:", error);
+        } else {
+          console.log("Sessão obtida:", session?.user?.email || "Nenhuma sessão");
+          if (isMounted) {
+            setSession(session);
+            setUser(session?.user ?? null);
+          }
+        }
       } catch (error) {
         console.error("Erro ao obter sessão inicial:", error);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          clearTimeout(timeoutId);
+          setLoading(false);
+        }
       }
     };
 
     getInitialSession();
 
     // Escutar mudanças de autenticação
-    const { data: { subscription } } = authApi.onAuthStateChange(
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+        console.log("Auth state changed:", event, session?.user?.email);
+        if (isMounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+          clearTimeout(timeoutId);
 
-        if (event === "SIGNED_OUT") {
-          toast.success("Logout realizado com sucesso!");
-          setLoginToastShown(false);
-          localStorage.removeItem("loginToastShown");
+          if (event === "SIGNED_OUT") {
+            toast.success("Logout realizado com sucesso!");
+            setLoginToastShown(false);
+            localStorage.removeItem("loginToastShown");
+          }
         }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {

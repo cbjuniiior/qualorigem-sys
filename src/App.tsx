@@ -20,6 +20,7 @@ import { ProducerMetricas } from "./pages/produtor/Metricas";
 import { ProducerConfiguracoes } from "./pages/produtor/Configuracoes";
 import NotFound from "./pages/NotFound";
 import ProducerDetails from "./pages/admin/ProducerDetails";
+import Configuracoes from "./pages/admin/Configuracoes";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,11 @@ const App = () => (
             <Route path="/admin/produtores/:id" element={
               <ProtectedRoute>
                 <ProducerDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/configuracoes" element={
+              <ProtectedRoute>
+                <Configuracoes />
               </ProtectedRoute>
             } />
             

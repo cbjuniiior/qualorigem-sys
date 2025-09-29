@@ -343,27 +343,33 @@ export default function ProducerDetails() {
                         )}
                         {/* Botões de ação sobre a imagem */}
                         <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
-                          <a
-                            href={publicUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
                             className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border flex items-center justify-center"
                             title="Abrir página pública do lote"
-                            onClick={e => e.stopPropagation()}
+                            onClick={e => {
+                              e.stopPropagation();
+                              window.open(publicUrl, '_blank', 'noopener,noreferrer');
+                            }}
                           >
                             <ArrowSquareOut className="w-5 h-5 text-primary" />
-                          </a>
-                          <a
-                            href={qrUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            download={`qrcode-lote-${lote.code}.png`}
+                          </button>
+                          <button
                             className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border flex items-center justify-center"
                             title="Baixar QRCode"
-                            onClick={e => e.stopPropagation()}
+                            onClick={e => {
+                              e.stopPropagation();
+                              const link = document.createElement('a');
+                              link.href = qrUrl;
+                              link.download = `qrcode-lote-${lote.code}.png`;
+                              link.target = '_blank';
+                              link.rel = 'noopener noreferrer';
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            }}
                           >
                             <QrCode className="w-5 h-5 text-green-700" />
-                          </a>
+                          </button>
                         </div>
                       </div>
                       {/* Conteúdo principal */}
