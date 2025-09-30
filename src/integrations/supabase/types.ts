@@ -144,6 +144,8 @@ export type Database = {
           updated_at: string | null
           variety: string | null
           views: number
+          youtube_video_url: string | null
+          video_delay_seconds: number | null
         }
         Insert: {
           acidity_score?: number | null
@@ -166,6 +168,8 @@ export type Database = {
           updated_at?: string | null
           variety?: string | null
           views?: number
+          youtube_video_url?: string | null
+          video_delay_seconds?: number | null
         }
         Update: {
           acidity_score?: number | null
@@ -188,6 +192,8 @@ export type Database = {
           updated_at?: string | null
           variety?: string | null
           views?: number
+          youtube_video_url?: string | null
+          video_delay_seconds?: number | null
         }
         Relationships: [
           {

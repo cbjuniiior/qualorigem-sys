@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { producersApi, productLotsApi } from "@/services/api";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ProducerForm } from "./Produtores";
 import { useRef } from "react";
@@ -104,11 +105,24 @@ const Dashboard = () => {
   useEffect(() => {
     if (showLotModal) {
       producersApi.getAll().then(setLotProducers);
-      if (!lotFormData.code) {
-        const year = new Date().getFullYear();
-        const rand = Math.floor(1000 + Math.random() * 9000);
-        setLotFormData((prev) => ({ ...prev, code: `PROD-${year}-${rand}` }));
-      }
+      const generateCode = async () => {
+        if (!lotFormData.code) {
+          try {
+            // Chamar função do Supabase para gerar código único
+            const { data, error } = await supabase.rpc('generate_unique_lot_code');
+            if (error) throw error;
+            setLotFormData((prev) => ({ ...prev, code: data }));
+          } catch (error) {
+            console.error('Erro ao gerar código único:', error);
+            // Fallback: usar timestamp + random para garantir unicidade
+            const year = new Date().getFullYear();
+            const timestamp = Date.now().toString().slice(-6);
+            const rand = Math.floor(1000 + Math.random() * 9000);
+            setLotFormData((prev) => ({ ...prev, code: `PROD-${year}-${timestamp}-${rand}` }));
+          }
+        }
+      };
+      generateCode();
     }
   }, [showLotModal]);
 

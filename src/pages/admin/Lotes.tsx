@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { productLotsApi, producersApi } from "@/services/api";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -77,6 +78,8 @@ const Lotes = () => {
     body_score: 5,
     sensory_notes: "",
     lot_observations: "",
+    youtube_video_url: "",
+    video_delay_seconds: 10,
     components: [] as Array<{
       id: string;
       component_name: string;
@@ -118,6 +121,17 @@ const Lotes = () => {
 
   const handleCreate = async () => {
     try {
+      // Validações obrigatórias
+      if (!formData.image_url) {
+        toast.error("Foto do lote é obrigatória!");
+        return;
+      }
+      
+      if (!formData.name || !formData.category || !formData.producer_id) {
+        toast.error("Preencha todos os campos obrigatórios!");
+        return;
+      }
+
       const lotData = {
         ...formData,
         quantity: formData.quantity ? parseFloat(formData.quantity) : null,
@@ -138,7 +152,12 @@ const Lotes = () => {
         await Promise.all(
           components.map(component => 
             productLotsApi.createComponent({
-              ...component,
+              component_name: component.component_name,
+              component_variety: component.component_variety,
+              component_percentage: component.component_percentage,
+              component_quantity: component.component_quantity,
+              component_unit: component.component_unit,
+              component_origin: component.component_origin,
               lot_id: newLot.id
             })
           )
@@ -149,9 +168,21 @@ const Lotes = () => {
       setIsCreateDialogOpen(false);
       resetForm();
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao criar lote:", error);
-      toast.error("Erro ao criar lote");
+      
+      // Se for erro de código duplicado, regenerar código e tentar novamente
+      if (error?.code === '23505' && error?.message?.includes('product_lots_code_key')) {
+        try {
+          const newCode = await generateProductCode();
+          setFormData({ ...formData, code: newCode });
+          toast.error("Código duplicado detectado. Novo código gerado automaticamente. Tente novamente.");
+        } catch (regenerateError) {
+          toast.error("Erro ao gerar novo código. Tente novamente.");
+        }
+      } else {
+        toast.error("Erro ao criar lote");
+      }
     }
   };
 
@@ -184,7 +215,12 @@ const Lotes = () => {
           await Promise.all(
             components.map(component => 
               productLotsApi.createComponent({
-                ...component,
+                component_name: component.component_name,
+                component_variety: component.component_variety,
+                component_percentage: component.component_percentage,
+                component_quantity: component.component_quantity,
+                component_unit: component.component_unit,
+                component_origin: component.component_origin,
                 lot_id: editingLot.id
               })
             )
@@ -204,12 +240,25 @@ const Lotes = () => {
 
   const handleDelete = async (id: string) => {
     try {
+      // Primeiro, deletar componentes do blend se existirem
+      await productLotsApi.deleteComponentsByLot(id);
+      
+      // Depois deletar o lote principal
       await productLotsApi.delete(id);
+      
       toast.success("Lote excluído com sucesso!");
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao excluir lote:", error);
-      toast.error("Erro ao excluir lote");
+      
+      // Tratamento específico de erros
+      if (error?.code === '42501') {
+        toast.error("Sem permissão para excluir este lote");
+      } else if (error?.code === '23503') {
+        toast.error("Não é possível excluir: lote possui dependências");
+      } else {
+        toast.error("Erro ao excluir lote: " + (error?.message || "Erro desconhecido"));
+      }
     }
   };
 
@@ -231,6 +280,8 @@ const Lotes = () => {
       body_score: 5,
       sensory_notes: "",
       lot_observations: "",
+      youtube_video_url: "",
+      video_delay_seconds: 10,
       components: [],
     });
     setIsBlendMode(false);
@@ -257,6 +308,8 @@ const Lotes = () => {
       body_score: lot.body_score || 5,
       sensory_notes: lot.sensory_notes || "",
       lot_observations: (lot as any).lot_observations || "",
+      youtube_video_url: (lot as any).youtube_video_url || "",
+      video_delay_seconds: (lot as any).video_delay_seconds || 10,
       components: components,
     });
     // Ativar modo blend se já existem componentes
@@ -276,18 +329,32 @@ const Lotes = () => {
 
   const categories = Array.from(new Set(lots.map(lot => lot.category).filter(Boolean)));
 
-  // Função para gerar código do produto
-  const generateProductCode = () => {
-    const year = new Date().getFullYear();
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    return `PROD-${year}-${rand}`;
+  // Função para gerar código do produto único
+  const generateProductCode = async () => {
+    try {
+      // Chamar função do Supabase para gerar código único
+      const { data, error } = await supabase.rpc('generate_unique_lot_code');
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Erro ao gerar código único:', error);
+      // Fallback: usar timestamp + random para garantir unicidade
+      const year = new Date().getFullYear();
+      const timestamp = Date.now().toString().slice(-6);
+      const rand = Math.floor(1000 + Math.random() * 9000);
+      return `PROD-${year}-${timestamp}-${rand}`;
+    }
   };
 
   // Código do produto gerado automaticamente (apenas uma vez)
   useEffect(() => {
-    if (!formData.code) {
-      setFormData({ ...formData, code: generateProductCode() });
-    }
+    const generateCode = async () => {
+      if (!formData.code) {
+        const newCode = await generateProductCode();
+        setFormData({ ...formData, code: newCode });
+      }
+    };
+    generateCode();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -549,9 +616,24 @@ const LotForm = ({
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validar tipo de arquivo
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error("Tipo de arquivo não suportado. Use JPG, PNG ou GIF.");
+        return;
+      }
+      
+      // Validar tamanho (máx. 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB
+      if (file.size > maxSize) {
+        toast.error("Arquivo muito grande. Tamanho máximo: 5MB.");
+        return;
+      }
+      
       const reader = new FileReader();
       reader.onload = (ev) => {
         setFormData({ ...formData, image_url: ev.target?.result });
+        toast.success("Foto carregada com sucesso!");
       };
       reader.readAsDataURL(file);
     }
@@ -811,6 +893,74 @@ const LotForm = ({
                     className="border-gray-200 focus:border-green-500 focus:ring-green-500"
                   />
                 </div>
+                
+                <div>
+                  <Label htmlFor="image" className="font-semibold text-gray-700 mb-2 block">
+                    Foto do Lote *
+                  </Label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-400 transition-colors">
+                    {formData.image_url ? (
+                      <div className="space-y-3">
+                        <img 
+                          src={formData.image_url} 
+                          alt="Preview" 
+                          className="mx-auto h-32 w-32 object-cover rounded-lg"
+                        />
+                        <div className="flex gap-2 justify-center">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            Trocar Foto
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            onClick={removeImage}
+                          >
+                            Remover
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <Image className="w-12 h-12 text-gray-400 mx-auto" />
+                        <div>
+                          <p className="text-sm text-gray-600">
+                            Clique para adicionar uma foto do lote
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            JPG, PNG ou GIF (máx. 5MB)
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="bg-blue-600 hover:bg-blue-700"
+                        >
+                          Selecionar Foto
+                        </Button>
+                      </div>
+                    )}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      required
+                    />
+                  </div>
+                  {!formData.image_url && (
+                    <p className="text-red-500 text-xs mt-1">
+                      * Foto do lote é obrigatória
+                    </p>
+                  )}
+                </div>
               </div>
               
               <div className="flex flex-col items-center justify-center">
@@ -997,6 +1147,42 @@ const LotForm = ({
                   💡 Estas observações aparecerão na página pública do lote para consumidores
                 </p>
               </div>
+              
+              <div className="mt-6">
+                <Label htmlFor="youtube_video_url" className="font-semibold text-gray-700 mb-2 block">
+                  Link do Vídeo do YouTube (Opcional)
+                </Label>
+                <Input 
+                  id="youtube_video_url" 
+                  value={formData.youtube_video_url} 
+                  onChange={e => setFormData({ ...formData, youtube_video_url: e.target.value })} 
+                  placeholder="https://www.youtube.com/watch?v=..." 
+                  className="border-gray-200 focus:border-orange-500 focus:ring-orange-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  🎥 Se informado, o vídeo será exibido na primeira seção da página pública
+                </p>
+              </div>
+              
+              {formData.youtube_video_url && (
+                <div className="mt-4">
+                  <Label htmlFor="video_delay_seconds" className="font-semibold text-gray-700 mb-2 block">
+                    Delay para Mostrar Informações (segundos)
+                  </Label>
+                  <Input 
+                    id="video_delay_seconds" 
+                    type="number"
+                    min="5"
+                    max="60"
+                    value={formData.video_delay_seconds} 
+                    onChange={e => setFormData({ ...formData, video_delay_seconds: parseInt(e.target.value) || 10 })} 
+                    className="border-gray-200 focus:border-orange-500 focus:ring-orange-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    ⏱️ Tempo em segundos antes de mostrar o botão "Ver informações do lote"
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1016,7 +1202,7 @@ const LotForm = ({
                     size="sm"
                     onClick={() => {
                       const newComponent = {
-                        id: Date.now().toString(),
+                        id: crypto.randomUUID(),
                         component_name: "",
                         component_variety: "",
                         component_percentage: 0,
