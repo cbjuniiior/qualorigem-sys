@@ -541,6 +541,33 @@ const LoteDetails = () => {
                     
                       {/* Detalhes do componente */}
                       <div className="space-y-2 sm:space-y-3">
+                        {component.producer_id && (component as any).producers && (
+                          <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-white rounded-lg border border-gray-100">
+                            <Leaf className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
+                            <div>
+                              <div className="text-xs text-gray-500 uppercase tracking-wide">Produtor</div>
+                              <div className="font-semibold text-gray-900 text-sm sm:text-base">{(component as any).producers.name} — {(component as any).producers.property_name}</div>
+                            </div>
+                          </div>
+                        )}
+                        {component.association_id && (component as any).associations && (
+                          <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-white rounded-lg border border-gray-100">
+                            <Medal className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
+                            <div>
+                              <div className="text-xs text-gray-500 uppercase tracking-wide">Associação/Cooperativa</div>
+                              <div className="font-semibold text-gray-900 text-sm sm:text-base">{(component as any).associations.name}</div>
+                            </div>
+                          </div>
+                        )}
+                        {component.component_harvest_year && (
+                          <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-white rounded-lg border border-gray-100">
+                            <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
+                            <div>
+                              <div className="text-xs text-gray-500 uppercase tracking-wide">Safra do Componente</div>
+                              <div className="font-semibold text-gray-900 text-sm sm:text-base">{component.component_harvest_year}</div>
+                            </div>
+                          </div>
+                        )}
                       {component.component_variety && (
                           <div className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-white rounded-lg border border-gray-100">
                             <Tag className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />

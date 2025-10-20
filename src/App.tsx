@@ -13,6 +13,7 @@ import Dashboard from "./pages/admin/Dashboard";
 import Produtores from "./pages/admin/Produtores";
 import Lotes from "./pages/admin/Lotes";
 import Relatorios from "./pages/admin/Relatorios";
+import Associacoes from "./pages/admin/Associacoes";
 import { ProducerDashboard } from "./pages/produtor/Dashboard";
 import { ProducerLotes } from "./pages/produtor/Lotes";
 import { ProducerQRCodes } from "./pages/produtor/QRCodes";
@@ -56,6 +57,11 @@ const App = () => (
             <Route path="/admin/relatorios" element={
               <ProtectedRoute>
                 <Relatorios />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/associacoes" element={
+              <ProtectedRoute>
+                <Associacoes />
               </ProtectedRoute>
             } />
             <Route path="/admin/produtores/:id" element={

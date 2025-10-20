@@ -20,6 +20,10 @@ export type Database = {
           created_at: string | null
           id: string
           lot_id: string | null
+          // novos campos para suporte a multi-produtor no blend
+          producer_id: string | null
+          component_harvest_year: string | null
+          association_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -32,6 +36,10 @@ export type Database = {
           created_at?: string | null
           id?: string
           lot_id?: string | null
+          // novos campos
+          producer_id?: string | null
+          component_harvest_year?: string | null
+          association_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -44,6 +52,10 @@ export type Database = {
           created_at?: string | null
           id?: string
           lot_id?: string | null
+          // novos campos
+          producer_id?: string | null
+          component_harvest_year?: string | null
+          association_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -54,6 +66,95 @@ export type Database = {
             referencedRelation: "product_lots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lot_components_producer_id_fkey"
+            columns: ["producer_id"]
+            isOneToOne: false
+            referencedRelation: "producers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lot_components_association_id_fkey"
+            columns: ["association_id"]
+            isOneToOne: false
+            referencedRelation: "associations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      associations: {
+        Row: {
+          id: string
+          name: string
+          type: string | null
+          city: string | null
+          state: string | null
+          description: string | null
+          contact_info: Json | null
+          logo_url: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          type?: string | null
+          city?: string | null
+          state?: string | null
+          description?: string | null
+          contact_info?: Json | null
+          logo_url?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          type?: string | null
+          city?: string | null
+          state?: string | null
+          description?: string | null
+          contact_info?: Json | null
+          logo_url?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      producers_associations: {
+        Row: {
+          producer_id: string
+          association_id: string
+          role: string | null
+          since: string | null
+        }
+        Insert: {
+          producer_id: string
+          association_id: string
+          role?: string | null
+          since?: string | null
+        }
+        Update: {
+          producer_id?: string
+          association_id?: string
+          role?: string | null
+          since?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "producers_associations_producer_id_fkey"
+            columns: ["producer_id"]
+            isOneToOne: false
+            referencedRelation: "producers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producers_associations_association_id_fkey"
+            columns: ["association_id"]
+            isOneToOne: false
+            referencedRelation: "associations"
+            referencedColumns: ["id"]
+          }
         ]
       }
       producers: {

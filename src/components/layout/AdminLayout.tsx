@@ -37,6 +37,11 @@ const navigation = [
     icon: Package,
   },
   {
+    name: "Associações",
+    href: "/admin/associacoes",
+    icon: Users,
+  },
+  {
     name: "Relatórios",
     href: "/admin/relatorios",
     icon: ChartBar,

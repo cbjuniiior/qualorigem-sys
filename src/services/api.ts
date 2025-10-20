@@ -7,18 +7,21 @@ export type ProductLot = Tables<"product_lots">;
 export type LotComponent = Tables<"lot_components">;
 export type SealControl = Tables<"seal_controls">;
 export type SystemConfiguration = Tables<"system_configurations">;
+export type Association = Tables<"associations">;
 
 export type ProducerInsert = TablesInsert<"producers">;
 export type ProductLotInsert = TablesInsert<"product_lots">;
 export type LotComponentInsert = TablesInsert<"lot_components">;
 export type SealControlInsert = TablesInsert<"seal_controls">;
 export type SystemConfigurationInsert = TablesInsert<"system_configurations">;
+export type AssociationInsert = TablesInsert<"associations">;
 
 export type ProducerUpdate = TablesUpdate<"producers">;
 export type ProductLotUpdate = TablesUpdate<"product_lots">;
 export type LotComponentUpdate = TablesUpdate<"lot_components">;
 export type SealControlUpdate = TablesUpdate<"seal_controls">;
 export type SystemConfigurationUpdate = TablesUpdate<"system_configurations">;
+export type AssociationUpdate = TablesUpdate<"associations">;
 
 // Serviços para Produtores
 export const producersApi = {
@@ -128,10 +131,14 @@ export const productLotsApi = {
     
     if (error) throw error;
     
-    // Buscar componentes do blend se existirem
+    // Buscar componentes do blend incluindo produtor e associação, se existirem
     const { data: components } = await supabase
       .from("lot_components")
-      .select("*")
+      .select(`
+        *,
+        producers:producers(*),
+        associations:associations(*)
+      `)
       .eq("lot_id", data.id)
       .order("created_at");
     
@@ -589,3 +596,103 @@ export const systemConfigApi = {
     return config?.config_value || { enabled: true, auto_play: true, show_after_seconds: 3 };
   }
 }; 
+
+// Serviços para Associações/Cooperativas
+export const associationsApi = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from("associations")
+      .select("*")
+      .order("name");
+    if (error) throw error;
+    return data;
+  },
+  // Retorna a contagem de produtores vinculados a uma associação
+  async getProducerCount(associationId: string) {
+    const { count, error } = await supabase
+      .from("producers_associations")
+      .select("producer_id", { count: "exact", head: true })
+      .eq("association_id", associationId);
+    if (error) throw error;
+    return count || 0;
+  },
+  // Lista produtores vinculados a uma associação
+  async getProducers(associationId: string) {
+    const { data, error } = await supabase
+      .from("producers_associations")
+      .select(
+        `
+        producers:producers (
+          id,
+          name,
+          property_name,
+          city,
+          state
+        )
+      `
+      )
+      .eq("association_id", associationId)
+      .order("since", { ascending: false });
+    if (error) throw error;
+    // data é uma lista de linhas com campo aninhado producers
+    return (data || []).map((row: any) => row.producers).filter(Boolean);
+  },
+  async create(association: AssociationInsert) {
+    const { data, error } = await supabase
+      .from("associations")
+      .insert(association)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async update(id: string, updates: AssociationUpdate) {
+    const { data, error } = await supabase
+      .from("associations")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // Lista associações de um produtor
+  async getByProducer(producerId: string) {
+    const { data, error } = await supabase
+      .from("producers_associations")
+      .select(`
+        associations (
+          id,
+          name,
+          type,
+          city,
+          state,
+          description,
+          contact_info,
+          logo_url
+        )
+      `)
+      .eq("producer_id", producerId);
+    if (error) throw error;
+    return data?.map((item: any) => item.associations) || [];
+  },
+  // Adiciona produtor a uma associação
+  async addProducerToAssociation(producerId: string, associationId: string) {
+    const { data, error } = await supabase
+      .from("producers_associations")
+      .insert({ producer_id: producerId, association_id: associationId })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // Remove produtor de uma associação
+  async removeProducerFromAssociation(producerId: string, associationId: string) {
+    const { error } = await supabase
+      .from("producers_associations")
+      .delete()
+      .eq("producer_id", producerId)
+      .eq("association_id", associationId);
+    if (error) throw error;
+  },
+};

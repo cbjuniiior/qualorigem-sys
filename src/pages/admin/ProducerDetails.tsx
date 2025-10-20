@@ -1,11 +1,11 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { producersApi, productLotsApi } from "@/services/api";
+import { producersApi, productLotsApi, associationsApi } from "@/services/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { MapPin, Phone, Envelope, Mountains, Thermometer, ArrowLeft, PencilSimple, Copy, QrCode, ArrowSquareOut, Buildings, Globe, EnvelopeSimple, Compass, MapTrifold, Package } from "@phosphor-icons/react";
+import { Card, CardContent } from "@/components/ui/card";
+import { MapPin, Phone, Envelope, Mountains, Thermometer, ArrowLeft, PencilSimple, Copy, QrCode, ArrowSquareOut, Buildings, Globe, EnvelopeSimple, Compass, MapTrifold, Package, Users, Plus, X } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { ProducerForm } from "./Produtores";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,6 +17,7 @@ import {
   CarouselNext,
 } from "@/components/ui/carousel";
 import { SlideshowLightbox } from 'lightbox.js-react';
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Producer {
   id: string;
@@ -43,10 +44,13 @@ export default function ProducerDetails() {
   const navigate = useNavigate();
   const [producer, setProducer] = useState<Producer | null>(null);
   const [lots, setLots] = useState<any[]>([]);
+  const [associations, setAssociations] = useState<any[]>([]);
+  const [allAssociations, setAllAssociations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMap, setLoadingMap] = useState(false);
   const [mapCoords, setMapCoords] = useState<{ lat: string; lon: string } | null>(null);
   const [editing, setEditing] = useState(false);
+  const [editingAssociations, setEditingAssociations] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [carouselIndex, setCarouselIndex] = useState(0);
@@ -54,9 +58,17 @@ export default function ProducerDetails() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    producersApi.getById(id)
-      .then(setProducer)
-      .catch(() => toast.error("Erro ao carregar produtor"))
+    Promise.all([
+      producersApi.getById(id),
+      associationsApi.getByProducer(id),
+      associationsApi.getAll()
+    ])
+      .then(([producerData, associationsData, allAssociationsData]) => {
+        setProducer(producerData);
+        setAssociations(associationsData);
+        setAllAssociations(allAssociationsData);
+      })
+      .catch(() => toast.error("Erro ao carregar dados do produtor"))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -100,6 +112,29 @@ export default function ProducerDetails() {
     }
   };
 
+  const handleAssociationToggle = async (associationId: string, isChecked: boolean) => {
+    if (!producer) return;
+    
+    try {
+      if (isChecked) {
+        await associationsApi.addProducerToAssociation(producer.id, associationId);
+        // Atualiza a lista local
+        const association = allAssociations.find(a => a.id === associationId);
+        if (association) {
+          setAssociations(prev => [...prev, association]);
+        }
+        toast.success("Produtor adicionado à associação!");
+      } else {
+        await associationsApi.removeProducerFromAssociation(producer.id, associationId);
+        // Atualiza a lista local
+        setAssociations(prev => prev.filter(a => a.id !== associationId));
+        toast.success("Produtor removido da associação!");
+      }
+    } catch (error) {
+      toast.error("Erro ao atualizar associações");
+    }
+  };
+
   if (loading || !producer) {
     return (
       <AdminLayout>
@@ -125,6 +160,65 @@ export default function ProducerDetails() {
                 onSubmit={handleUpdate}
                 onCancel={() => setEditing(false)}
               />
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de edição de associações */}
+        <Dialog open={editingAssociations} onOpenChange={setEditingAssociations}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Users className="w-5 h-5 text-primary" />
+                Gerenciar Associações
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="text-sm text-gray-600">
+                Selecione as associações das quais este produtor faz parte:
+              </div>
+              <div className="grid grid-cols-1 gap-3 max-h-80 overflow-y-auto">
+                {allAssociations.map((association) => {
+                  const isAssociated = associations.some(a => a.id === association.id);
+                  return (
+                    <div key={association.id} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                      <Checkbox
+                        id={association.id}
+                        checked={isAssociated}
+                        onCheckedChange={(checked) => handleAssociationToggle(association.id, checked as boolean)}
+                      />
+                      <div className="flex items-center gap-3 flex-1">
+                        {association.logo_url && (
+                          <img 
+                            src={association.logo_url} 
+                            alt="Logo" 
+                            className="w-8 h-8 object-contain rounded border bg-white"
+                          />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <label htmlFor={association.id} className="font-medium text-gray-900 cursor-pointer text-sm">
+                            {association.name}
+                          </label>
+                          <div className="text-xs text-gray-500">
+                            {association.type} • {association.city}, {association.state}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {allAssociations.length === 0 && (
+                <div className="text-center text-gray-500 py-6">
+                  <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                  <p className="text-sm">Nenhuma associação cadastrada no sistema.</p>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end pt-3">
+              <Button size="sm" onClick={() => setEditingAssociations(false)}>
+                Fechar
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -221,6 +315,9 @@ export default function ProducerDetails() {
                 <Button size="icon" variant="outline" onClick={() => setEditing(true)} title="Editar" className="border border-gray-200">
                   <PencilSimple className="w-5 h-5" />
                 </Button>
+                <Button size="icon" variant="outline" onClick={() => setEditingAssociations(true)} title="Editar Associações" className="border border-gray-200">
+                  <Users className="w-5 h-5" />
+                </Button>
                 <Button size="icon" variant="outline" onClick={() => {navigator.clipboard.writeText(producer.id); toast.success('ID copiado!')}} title="Copiar ID" className="border border-gray-200">
                   <Copy className="w-5 h-5" />
                 </Button>
@@ -257,6 +354,91 @@ export default function ProducerDetails() {
             </div>
           </div>
         </div>
+
+        {/* Seção de Associações */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              Associações
+            </h2>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => setEditingAssociations(true)}
+              className="flex items-center gap-1 text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Gerenciar
+            </Button>
+          </div>
+          {associations.length === 0 ? (
+            <div className="text-center text-gray-400 py-8 bg-gray-50 rounded-lg">
+              <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+              <p className="text-sm text-gray-500">Nenhuma associação vinculada</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {associations.map((association) => (
+                <Card key={association.id} className="group hover:shadow-md transition-shadow border border-gray-100">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      {association.logo_url ? (
+                        <div className="w-12 h-12 border border-gray-200 rounded-lg overflow-hidden flex-shrink-0 bg-white">
+                          <img src={association.logo_url} alt="Logo" className="w-full h-full object-contain" />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 border border-gray-200 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-50">
+                          <Users className="w-6 h-6 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-gray-900 truncate">{association.name}</h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge 
+                            variant="secondary" 
+                            className={`text-xs ${
+                              association.type === 'Cooperativa' 
+                                ? 'bg-blue-50 text-blue-600' 
+                                : association.type === 'Associação'
+                                ? 'bg-green-50 text-green-600'
+                                : 'bg-gray-50 text-gray-600'
+                            }`}
+                          >
+                            {association.type}
+                          </Badge>
+                          <span className="text-xs text-gray-500 flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {association.city}, {association.state}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    {association.description && (
+                      <div className="text-xs text-gray-600 mb-3 line-clamp-2">
+                        {association.description}
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400">ID: {association.id.slice(0, 8)}...</span>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-xs text-primary hover:text-primary/80 h-6 px-2"
+                        onClick={() => {
+                          toast.info("Funcionalidade de detalhes em desenvolvimento");
+                        }}
+                      >
+                        Ver detalhes
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Cards de dados e mapa */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12 animate-fade-in-up">
           <Card className="col-span-2 p-6 rounded-3xl shadow-md border bg-white flex flex-col gap-4">

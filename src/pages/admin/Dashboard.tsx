@@ -355,6 +355,11 @@ const Dashboard = () => {
                 <div className="font-medium text-gray-900">Ver Relatórios</div>
                 <div className="text-sm text-gray-500">Análises e métricas</div>
               </button>
+              <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors text-center" onClick={() => window.location.href='/admin/associacoes'}>
+                <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                <div className="font-medium text-gray-900">Associações</div>
+                <div className="text-sm text-gray-500">Gerenciar entidades</div>
+              </button>
             </div>
           </CardContent>
         </Card>

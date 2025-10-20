@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { associationsApi } from "@/services/api";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Slider } from "@/components/ui/slider";
 import { QRCodeSVG } from "qrcode.react";
@@ -54,6 +55,7 @@ const Lotes = () => {
   const navigate = useNavigate();
   const [lots, setLots] = useState<ProductLot[]>([]);
   const [producers, setProducers] = useState<Producer[]>([]);
+  const [associations, setAssociations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("todas");
@@ -88,6 +90,9 @@ const Lotes = () => {
       component_quantity: number;
       component_unit: string;
       component_origin: string;
+      producer_id?: string;
+      component_harvest_year?: string;
+      association_id?: string;
     }>,
   });
 
@@ -105,12 +110,14 @@ const Lotes = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [lotsData, producersData] = await Promise.all([
+      const [lotsData, producersData, associationsData] = await Promise.all([
         productLotsApi.getAll(),
         producersApi.getAll(),
+        associationsApi.getAll(),
       ]);
       setLots(lotsData);
       setProducers(producersData);
+      setAssociations(associationsData || []);
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
       toast.error("Erro ao carregar dados");
@@ -150,7 +157,7 @@ const Lotes = () => {
       // Criar componentes do blend se existirem
       if (components && components.length > 0) {
         await Promise.all(
-          components.map(component => 
+            components.map(component => 
             productLotsApi.createComponent({
               component_name: component.component_name,
               component_variety: component.component_variety,
@@ -158,6 +165,9 @@ const Lotes = () => {
               component_quantity: component.component_quantity,
               component_unit: component.component_unit,
               component_origin: component.component_origin,
+                producer_id: component.producer_id || null,
+                component_harvest_year: component.component_harvest_year || null,
+                association_id: component.association_id || null,
               lot_id: newLot.id
             })
           )
@@ -221,6 +231,9 @@ const Lotes = () => {
                 component_quantity: component.component_quantity,
                 component_unit: component.component_unit,
                 component_origin: component.component_origin,
+                producer_id: component.producer_id || null,
+                component_harvest_year: component.component_harvest_year || null,
+                association_id: component.association_id || null,
                 lot_id: editingLot.id
               })
             )
@@ -1289,6 +1302,30 @@ const LotForm = ({
                               className="border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                             />
                           </div>
+                          <div>
+                            <Label htmlFor={`component_producer_${index}`} className="font-semibold text-gray-700 mb-2 block">
+                              Produtor do Componente
+                            </Label>
+                            <Select
+                              value={component.producer_id || ""}
+                              onValueChange={value => {
+                                const newComponents = [...formData.components];
+                                newComponents[index].producer_id = value || undefined;
+                                setFormData({ ...formData, components: newComponents });
+                              }}
+                            >
+                              <SelectTrigger className="border-gray-200 focus:border-blue-500 focus:ring-blue-500">
+                                <SelectValue placeholder="Selecione o produtor" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {producers.map((p) => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    {p.name} — {p.property_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                           
                           <div>
                             <Label htmlFor={`component_variety_${index}`} className="font-semibold text-gray-700 mb-2 block">
@@ -1303,6 +1340,23 @@ const LotForm = ({
                                 setFormData({ ...formData, components: newComponents });
                               }}
                               placeholder="Ex: Bourbon"
+                              className="border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                            />
+                          </div>
+
+                          <div>
+                            <Label htmlFor={`component_harvest_year_${index}`} className="font-semibold text-gray-700 mb-2 block">
+                              Safra do Componente
+                            </Label>
+                            <Input
+                              id={`component_harvest_year_${index}`}
+                              value={component.component_harvest_year || ""}
+                              onChange={e => {
+                                const newComponents = [...formData.components];
+                                newComponents[index].component_harvest_year = e.target.value;
+                                setFormData({ ...formData, components: newComponents });
+                              }}
+                              placeholder="2024"
                               className="border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                             />
                           </div>
@@ -1388,6 +1442,30 @@ const LotForm = ({
                               placeholder="Ex: Região de origem"
                               className="border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                             />
+                          </div>
+                          <div>
+                            <Label htmlFor={`component_association_${index}`} className="font-semibold text-gray-700 mb-2 block">
+                              Associação/Cooperativa
+                            </Label>
+                            <Select
+                              value={component.association_id || ""}
+                              onValueChange={value => {
+                                const newComponents = [...formData.components];
+                                newComponents[index].association_id = value || undefined;
+                                setFormData({ ...formData, components: newComponents });
+                              }}
+                            >
+                              <SelectTrigger className="border-gray-200 focus:border-blue-500 focus:ring-blue-500">
+                                <SelectValue placeholder="Opcional" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {associations.map((a) => (
+                                  <SelectItem key={a.id} value={a.id}>
+                                    {a.name} {a.city ? `— ${a.city}/${a.state}` : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
                       </div>

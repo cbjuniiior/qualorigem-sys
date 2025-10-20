@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { Plus, MagnifyingGlass, PencilSimple, Trash, MapPin, Phone, Envelope, Mountains, Thermometer, Copy } from "@phosphor-icons/react";
+import { Plus, MagnifyingGlass, PencilSimple, Trash, MapPin, Phone, Envelope, Mountains, Thermometer, Copy, Users } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { producersApi, productLotsApi } from "@/services/api";
+import { producersApi, productLotsApi, associationsApi } from "@/services/api";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -29,6 +29,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Producer {
   id: string;
@@ -535,6 +536,7 @@ const steps = [
   { title: "Sobre o Produtor", description: "Dados pessoais do produtor" },
   { title: "Sobre a Propriedade", description: "Informações da propriedade" },
   { title: "Localização", description: "Endereço e coordenadas" },
+  { title: "Associações", description: "Cooperativas e associações" },
 ];
 
 const defaultValues = {
@@ -554,6 +556,7 @@ const defaultValues = {
   use_coordinates: false,
   latitude: "",
   longitude: "",
+  associations: [],
 };
 
 const ProducerForm = ({ initialData, onSubmit, onCancel }: { initialData?: any; onSubmit: (data: any) => void; onCancel: () => void; }) => {
@@ -565,12 +568,37 @@ const ProducerForm = ({ initialData, onSubmit, onCancel }: { initialData?: any; 
     return [];
   });
   const [tab, setTab] = useState("dados");
+  const [allAssociations, setAllAssociations] = useState<any[]>([]);
+  const [loadingAssociations, setLoadingAssociations] = useState(false);
 
   const methods = useForm({
     defaultValues: initialData || defaultValues,
     mode: "onTouched",
   });
   const { register, handleSubmit, setValue, watch, trigger, formState: { errors } } = methods;
+
+  // Carregar associações disponíveis
+  useEffect(() => {
+    const loadAssociations = async () => {
+      setLoadingAssociations(true);
+      try {
+        const associations = await associationsApi.getAll();
+        setAllAssociations(associations);
+        
+        // Se estiver editando, carregar associações do produtor
+        if (initialData?.id) {
+          const producerAssociations = await associationsApi.getByProducer(initialData.id);
+          setValue("associations", producerAssociations.map(a => a.id));
+        }
+      } catch (error) {
+        console.error("Erro ao carregar associações:", error);
+      } finally {
+        setLoadingAssociations(false);
+      }
+    };
+    
+    loadAssociations();
+  }, [initialData?.id, setValue]);
 
   // Máscaras e handlers
   const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -664,18 +692,55 @@ const ProducerForm = ({ initialData, onSubmit, onCancel }: { initialData?: any; 
       if (!watch("use_coordinates")) fields = ["cep", "city", "state"];
       else fields = ["latitude", "longitude"];
     }
+    if (tab === "associacoes") fields = []; // Associações são opcionais
     return await trigger(fields);
   };
 
   const nextStep = async () => {
-    if (await validateStep()) setTab(s => s === "dados" ? "propriedade" : s === "propriedade" ? "localizacao" : "dados");
+    if (await validateStep()) {
+      if (tab === "dados") setTab("propriedade");
+      else if (tab === "propriedade") setTab("localizacao");
+      else if (tab === "localizacao") setTab("associacoes");
+      else setTab("dados");
+    }
   };
-  const prevStep = () => setTab(s => s === "dados" ? "dados" : s === "propriedade" ? "dados" : "propriedade");
+  
+  const prevStep = () => {
+    if (tab === "associacoes") setTab("localizacao");
+    else if (tab === "localizacao") setTab("propriedade");
+    else if (tab === "propriedade") setTab("dados");
+    else setTab("dados");
+  };
 
   const onSubmitForm = async (data: any) => {
     setLoading(true);
     try {
-      await onSubmit(data);
+      // Separar associações dos dados do produtor
+      const { associations, ...producerData } = data;
+      
+      // Primeiro, salvar/atualizar o produtor
+      const result = await onSubmit(producerData);
+      
+      // Se estiver editando e temos um ID, gerenciar associações
+      if (initialData?.id && result) {
+        const currentAssociations = await associationsApi.getByProducer(initialData.id);
+        const currentAssociationIds = currentAssociations.map(a => a.id);
+        const newAssociationIds = associations || [];
+        
+        // Remover associações que não estão mais selecionadas
+        for (const associationId of currentAssociationIds) {
+          if (!newAssociationIds.includes(associationId)) {
+            await associationsApi.removeProducerFromAssociation(initialData.id, associationId);
+          }
+        }
+        
+        // Adicionar novas associações
+        for (const associationId of newAssociationIds) {
+          if (!currentAssociationIds.includes(associationId)) {
+            await associationsApi.addProducerToAssociation(initialData.id, associationId);
+          }
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -690,6 +755,7 @@ const ProducerForm = ({ initialData, onSubmit, onCancel }: { initialData?: any; 
             <TabsTrigger value="dados">Dados Pessoais</TabsTrigger>
             <TabsTrigger value="propriedade">Propriedade</TabsTrigger>
             <TabsTrigger value="localizacao">Localização</TabsTrigger>
+            <TabsTrigger value="associacoes">Associações</TabsTrigger>
           </TabsList>
           <TabsContent value="dados">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -881,6 +947,83 @@ const ProducerForm = ({ initialData, onSubmit, onCancel }: { initialData?: any; 
                 </div>
               </div>
             )}
+          </TabsContent>
+          <TabsContent value="associacoes">
+            <div className="space-y-4">
+              <div>
+                <Label className="text-base font-medium text-gray-900 mb-2 block">
+                  Associações/Cooperativas
+                </Label>
+                <p className="text-sm text-gray-600 mb-4">
+                  Selecione as associações ou cooperativas das quais este produtor faz parte:
+                </p>
+              </div>
+              
+              {loadingAssociations ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <span className="ml-2 text-gray-600">Carregando associações...</span>
+                </div>
+              ) : allAssociations.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p className="text-lg font-medium">Nenhuma associação cadastrada</p>
+                  <p className="text-sm">Cadastre associações no sistema para vinculá-las aos produtores</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
+                  {allAssociations.map((association) => {
+                    const isSelected = watch("associations")?.includes(association.id) || false;
+                    return (
+                      <div key={association.id} className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                        <Checkbox
+                          id={association.id}
+                          checked={isSelected}
+                          onCheckedChange={(checked) => {
+                            const currentAssociations = watch("associations") || [];
+                            if (checked) {
+                              setValue("associations", [...currentAssociations, association.id]);
+                            } else {
+                              setValue("associations", currentAssociations.filter(id => id !== association.id));
+                            }
+                          }}
+                        />
+                        <div className="flex items-center gap-3 flex-1">
+                          {association.logo_url && (
+                            <img 
+                              src={association.logo_url} 
+                              alt="Logo" 
+                              className="w-10 h-10 object-contain rounded-lg border bg-white"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <label htmlFor={association.id} className="font-medium text-gray-900 cursor-pointer block">
+                              {association.name}
+                            </label>
+                            <div className="text-sm text-gray-500">
+                              {association.type} • {association.city}, {association.state}
+                            </div>
+                            {association.description && (
+                              <div className="text-xs text-gray-400 mt-1 line-clamp-1">
+                                {association.description}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              
+              {watch("associations")?.length > 0 && (
+                <div className="mt-4 p-3 bg-green-50 rounded-lg">
+                  <p className="text-sm text-green-700 font-medium">
+                    {watch("associations").length} associação(ões) selecionada(s)
+                  </p>
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
         {/* Botões de ação */}
