@@ -1,4 +1,4 @@
-import { ArrowUpRight, PencilSimple, Trash, Calendar, MapPin, Medal, Package, Eye, Users, Stack } from "@phosphor-icons/react";
+import { ArrowUpRight, PencilSimple, Trash, Calendar, MapPin, Medal, Package, Eye, Users, User, Stack, Tag } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,67 +6,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { LotDetailsModal } from "./LotDetailsModal";
-
-interface ProductLot {
-  id: string;
-  code: string;
-  name: string;
-  category: string | null;
-  variety: string | null;
-  harvest_year: string | null;
-  quantity: number | null;
-  unit: string | null;
-  image_url: string | null;
-  producer_id: string | null; // Pode ser null para blends
-  fragrance_score: number | null;
-  flavor_score: number | null;
-  finish_score: number | null;
-  acidity_score: number | null;
-  body_score: number | null;
-  sensory_notes: string | null;
-  created_at: string;
-  producers: {
-    id: string;
-    name: string;
-    property_name: string;
-    city: string;
-    state: string;
-  } | null; // Pode ser null para blends
-  components?: Array<{
-    id: string;
-    component_name: string;
-    component_percentage: number;
-    producers: {
-      id: string;
-      name: string;
-      property_name: string;
-      city: string;
-      state: string;
-    } | null;
-    associations: {
-      id: string;
-      name: string;
-      type: string;
-    } | null;
-  }>;
-  lot_components?: Array<{
-    id: string;
-    component_name: string;
-    component_percentage: number;
-    producers: {
-      id: string;
-      name: string;
-      property_name: string;
-      city: string;
-      state: string;
-    } | null;
-    associations: {
-      id: string;
-      name: string;
-      type: string;
-    } | null;
-  }>;
-}
+import { ProductLot } from "@/types/lot";
 
 interface LotCardProps {
   lot: ProductLot;
@@ -96,32 +36,43 @@ export const LotCard = ({ lot, onEdit, onDelete }: LotCardProps) => {
     associations: c.associations
   })));
   
-  // Calcular nota média arredondada
-  const averageScore = Math.round(
-    ((lot.fragrance_score ?? 0) + (lot.flavor_score ?? 0) + (lot.finish_score ?? 0) + (lot.acidity_score ?? 0)) / 4
-  );
 
   return (
     <>
-      <Card className="group hover:shadow-lg hover:-translate-y-1 transition-all duration-300 rounded-xl overflow-hidden border-0 bg-white shadow-sm flex flex-col h-full">
+      <Card className="group hover:shadow-lg transition-all duration-300 rounded-lg overflow-hidden border-0 bg-white shadow-sm flex flex-col h-full">
         {/* Imagem do lote - clicável para abrir detalhes */}
         <div 
-          className="relative w-full h-48 bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer"
+          className="relative w-full h-32 bg-gray-50 flex items-center justify-center overflow-hidden cursor-pointer"
           onClick={() => setIsDetailsOpen(true)}
         >
           {lot.image_url ? (
             <img src={lot.image_url} alt={lot.name} className="object-cover w-full h-full" />
           ) : (
-            <Package className="w-16 h-16 text-gray-300" />
+            <Package className="w-12 h-12 text-gray-300" />
           )}
           {/* Overlay sutil */}
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-5 transition-opacity duration-300" />
+          
+          {/* Badge de Blend ou Individual no canto superior esquerdo da imagem */}
+          <div className="absolute left-2 top-2">
+            {isBlend ? (
+              <Badge className="bg-blue-600 text-white text-xs font-medium">
+                <Stack className="w-3 h-3 mr-1" />
+                Blend
+              </Badge>
+            ) : (
+              <Badge className="bg-green-600 text-white text-xs font-medium">
+                <Medal className="w-3 h-3 mr-1" />
+                Individual
+              </Badge>
+            )}
+          </div>
         </div>
       
-        <CardHeader className="pb-3 pt-4 px-4 flex-1">
-          <div className="flex items-start justify-between gap-3">
+        <CardHeader className="pb-3 pt-5 px-5 flex-1">
+          <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <CardTitle className="text-lg font-semibold text-gray-900 truncate mb-1">
+              <CardTitle className="text-base font-semibold text-gray-900 truncate mb-1">
                 {lot.name}
               </CardTitle>
               <p className="text-xs text-gray-500 truncate">
@@ -134,37 +85,37 @@ export const LotCard = ({ lot, onEdit, onDelete }: LotCardProps) => {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-8 w-8 p-0 text-gray-500 hover:text-blue-600 hover:bg-blue-50" 
+                className="h-7 w-7 p-0 text-gray-500 hover:text-blue-600 hover:bg-blue-50" 
                 onClick={(e) => {
                   e.stopPropagation();
                   navigate(`/lote/${lot.code}`);
                 }} 
                 title="Ver Página Pública"
               >
-                <ArrowUpRight className="h-4 w-4" />
+                <ArrowUpRight className="h-3 w-3" />
               </Button>
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-8 w-8 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-100" 
+                className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-100" 
                 onClick={(e) => {
                   e.stopPropagation();
                   onEdit(lot);
                 }} 
                 title="Editar"
               >
-                <PencilSimple className="h-4 w-4" />
+                <PencilSimple className="h-3 w-3" />
               </Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="h-8 w-8 p-0 text-gray-500 hover:text-red-600 hover:bg-red-50" 
+                    className="h-7 w-7 p-0 text-gray-500 hover:text-red-600 hover:bg-red-50" 
                     title="Excluir"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <Trash className="h-4 w-4" />
+                    <Trash className="h-3 w-3" />
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -189,13 +140,7 @@ export const LotCard = ({ lot, onEdit, onDelete }: LotCardProps) => {
           </div>
           
           {/* Badges de categoria e variedade */}
-          <div className="flex flex-wrap gap-2 mt-3">
-            {isBlend && (
-              <Badge className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-xs font-medium">
-                <Stack className="w-3 h-3 mr-1" />
-                Blend
-              </Badge>
-            )}
+          <div className="flex flex-wrap gap-1.5 mt-2">
             {lot.category && (
               <Badge variant="secondary" className="text-xs">
                 {lot.category}
@@ -209,32 +154,57 @@ export const LotCard = ({ lot, onEdit, onDelete }: LotCardProps) => {
           </div>
         </CardHeader>
         
-        <CardContent className="flex-1 flex flex-col gap-4 px-4 pb-4">
-          {/* Informações principais */}
-          <div className="space-y-2 text-sm text-gray-600">
+        <CardContent className="flex-1 flex flex-col justify-between px-5 pb-5">
+          {/* Informações principais - Layout compacto */}
+          <div className="space-y-1.5 text-xs text-gray-600">
+            {/* Quantidade de Matéria Prima */}
             <div className="flex items-center gap-2">
               <Package className="h-4 w-4 text-gray-400" />
               <span>{lot.quantity} {lot.unit}</span>
             </div>
+            
+            {/* Número de Selos */}
+            {lot.seals_quantity && lot.quantity && (
+              <div className="flex items-center gap-2">
+                <Tag className="h-4 w-4 text-blue-600" />
+                <span>
+                  {(() => {
+                    const packageSize = lot.quantity / lot.seals_quantity;
+                    const roundedSize = Math.round(packageSize * 100) / 100;
+                    
+                    // Se a unidade for Kg e o tamanho for menor que 1, converter para gramas
+                    if (lot.unit === 'Kg' && roundedSize < 1) {
+                      const grams = Math.round(roundedSize * 1000);
+                      return `${lot.seals_quantity} Selos em embalagens de ${grams}g`;
+                    }
+                    
+                    return `${lot.seals_quantity} Selos em embalagens de ${roundedSize}${lot.unit}`;
+                  })()}
+                </span>
+              </div>
+            )}
+            
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-gray-400" />
               <span>Safra {lot.harvest_year}</span>
             </div>
-            
-            {/* Produtor único ou múltiplos produtores para blend */}
+          </div>
+          
+          {/* Produtor único ou múltiplos produtores para blend */}
+          <div className="mt-auto">
             {isBlend ? (
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-gray-400" />
-                  <span className="text-xs font-medium text-gray-500">
-                    {blendComponents.length} Componente{blendComponents.length !== 1 ? 's' : ''}
+                  <span className="text-xs text-gray-600">
+                    {blendComponents.length} Produtor{blendComponents.length !== 1 ? 'es' : ''}
                   </span>
                 </div>
-                <div className="ml-6 space-y-1">
+                <div className="ml-5 space-y-0.5">
                   {blendComponents.slice(0, 2).map((component, index) => (
-                    <div key={component.id} className="flex items-center gap-2 text-xs">
-                      <div className="w-1.5 h-1.5 bg-blue-400 rounded-full"></div>
-                      <span className="truncate">
+                    <div key={component.id} className="flex items-center gap-1.5">
+                      <div className="w-1 h-1 bg-blue-400 rounded-full"></div>
+                      <span className="truncate text-xs text-gray-600">
                         {component.producers?.name || 'Produtor não informado'} 
                         <span className="text-gray-400 ml-1">({component.component_percentage}%)</span>
                       </span>
@@ -249,74 +219,10 @@ export const LotCard = ({ lot, onEdit, onDelete }: LotCardProps) => {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <Medal className="h-4 w-4 text-gray-400" />
-                <span className="truncate">{lot.producers?.name || 'Produtor não informado'}</span>
+                <User className="h-4 w-4 text-gray-400" />
+                <span className="truncate text-xs text-gray-600">{lot.producers?.name || 'Produtor não informado'}</span>
               </div>
             )}
-          </div>
-          
-          {/* Análise sensorial - design minimalista */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-500">Análise Sensorial</span>
-              <span className="text-gray-400 font-medium">
-                {averageScore}/10
-              </span>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500">Fragrância</span>
-                  <span className="font-medium">{Math.round(lot.fragrance_score ?? 0)}</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-1.5">
-                  <div 
-                    className="bg-purple-400 h-1.5 rounded-full transition-all duration-500" 
-                    style={{ width: `${(lot.fragrance_score ?? 0) * 10}%` }} 
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500">Sabor</span>
-                  <span className="font-medium">{Math.round(lot.flavor_score ?? 0)}</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-1.5">
-                  <div 
-                    className="bg-green-400 h-1.5 rounded-full transition-all duration-500" 
-                    style={{ width: `${(lot.flavor_score ?? 0) * 10}%` }} 
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500">Finalização</span>
-                  <span className="font-medium">{Math.round(lot.finish_score ?? 0)}</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-1.5">
-                  <div 
-                    className="bg-yellow-400 h-1.5 rounded-full transition-all duration-500" 
-                    style={{ width: `${(lot.finish_score ?? 0) * 10}%` }} 
-                  />
-                </div>
-              </div>
-              
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-500">Acidez</span>
-                  <span className="font-medium">{Math.round(lot.acidity_score ?? 0)}</span>
-                </div>
-                <div className="w-full bg-gray-100 rounded-full h-1.5">
-                  <div 
-                    className="bg-pink-400 h-1.5 rounded-full transition-all duration-500" 
-                    style={{ width: `${(lot.acidity_score ?? 0) * 10}%` }} 
-                  />
-                </div>
-              </div>
-            </div>
           </div>
         </CardContent>
       </Card>

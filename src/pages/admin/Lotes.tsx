@@ -10,50 +10,8 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LotForm } from "@/components/lots/LotForm";
 import { LotCard } from "@/components/lots/LotCard";
+import { ProductLot } from "@/types/lot";
 
-interface ProductLot {
-  id: string;
-  code: string;
-  name: string;
-  category: string | null;
-  variety: string | null;
-  harvest_year: string | null;
-  quantity: number | null;
-  unit: string | null;
-  image_url: string | null;
-  producer_id: string | null; // Pode ser null para blends
-  fragrance_score: number | null;
-  flavor_score: number | null;
-  finish_score: number | null;
-  acidity_score: number | null;
-  body_score: number | null;
-  sensory_notes: string | null;
-  created_at: string;
-  producers: {
-    id: string;
-    name: string;
-    property_name: string;
-    city: string;
-    state: string;
-  } | null; // Pode ser null para blends
-  components?: Array<{
-    id: string;
-    component_name: string;
-    component_percentage: number;
-    producers: {
-      id: string;
-      name: string;
-      property_name: string;
-      city: string;
-      state: string;
-    } | null;
-    associations: {
-      id: string;
-      name: string;
-      type: string;
-    } | null;
-  }>;
-}
 
 interface Producer {
   id: string;
@@ -82,6 +40,7 @@ const Lotes = () => {
     harvest_year: "",
     quantity: "",
     unit: "",
+    seals_quantity: "",
     image_url: "",
     producer_id: "",
     fragrance_score: 5,
@@ -199,6 +158,7 @@ const Lotes = () => {
       const lotData = {
         ...formData,
         quantity: formData.quantity ? parseFloat(formData.quantity) : null,
+        seals_quantity: formData.seals_quantity ? parseInt(formData.seals_quantity) : null,
         fragrance_score: formData.fragrance_score || null,
         flavor_score: formData.flavor_score || null,
         finish_score: formData.finish_score || null,
@@ -284,6 +244,7 @@ const Lotes = () => {
       const lotData = {
         ...formData,
         quantity: formData.quantity ? parseFloat(formData.quantity) : null,
+        seals_quantity: formData.seals_quantity ? parseInt(formData.seals_quantity) : null,
         fragrance_score: formData.fragrance_score,
         flavor_score: formData.flavor_score,
         finish_score: formData.finish_score,
@@ -294,7 +255,34 @@ const Lotes = () => {
       // Remove components do lotData principal
       const { components, ...lotDataWithoutComponents } = lotData;
       
-      await productLotsApi.update(editingLot.id, lotDataWithoutComponents);
+      // Remover campos que não existem na tabela
+      const cleanLotData = {
+        code: lotDataWithoutComponents.code,
+        name: lotDataWithoutComponents.name,
+        category: lotDataWithoutComponents.category,
+        variety: lotDataWithoutComponents.variety,
+        harvest_year: lotDataWithoutComponents.harvest_year,
+        quantity: lotDataWithoutComponents.quantity,
+        unit: lotDataWithoutComponents.unit,
+        seals_quantity: lotDataWithoutComponents.seals_quantity,
+        image_url: lotDataWithoutComponents.image_url,
+        producer_id: lotDataWithoutComponents.producer_id,
+        fragrance_score: lotDataWithoutComponents.fragrance_score,
+        flavor_score: lotDataWithoutComponents.flavor_score,
+        finish_score: lotDataWithoutComponents.finish_score,
+        acidity_score: lotDataWithoutComponents.acidity_score,
+        body_score: lotDataWithoutComponents.body_score,
+        sensory_notes: lotDataWithoutComponents.sensory_notes,
+        lot_observations: lotDataWithoutComponents.lot_observations,
+        youtube_video_url: lotDataWithoutComponents.youtube_video_url,
+        video_delay_seconds: lotDataWithoutComponents.video_delay_seconds,
+      };
+      
+      // Debug: verificar exatamente o que está sendo enviado
+      console.log("Dados sendo enviados para atualização:", cleanLotData);
+      console.log("Campos do formData:", Object.keys(formData));
+      
+      await productLotsApi.update(editingLot.id, cleanLotData);
       
       // Atualizar componentes do blend
       if (editingLot.id) {
@@ -365,6 +353,7 @@ const Lotes = () => {
       harvest_year: "",
       quantity: "",
       unit: "",
+      seals_quantity: "",
       image_url: "",
       producer_id: "",
       fragrance_score: 5,
@@ -439,6 +428,7 @@ const Lotes = () => {
       harvest_year: lot.harvest_year || "",
       quantity: lot.quantity?.toString() || "",
       unit: lot.unit || "",
+      seals_quantity: (lot as any).seals_quantity?.toString() || "",
       image_url: lot.image_url || "",
       producer_id: lot.producer_id,
       fragrance_score: lot.fragrance_score || 5,
@@ -638,6 +628,7 @@ const Lotes = () => {
                   setEditingLot(null);
                   resetForm();
                 }}
+                isEditing={true}
               />
             </DialogContent>
           </Dialog>

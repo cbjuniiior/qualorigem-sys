@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Producer {
   id: string;
@@ -31,6 +31,21 @@ interface BlendCompositionProps {
 export const BlendComposition = ({ formData, setFormData, producers, associations }: BlendCompositionProps) => {
   const [expandedComponents, setExpandedComponents] = useState<Set<string>>(new Set());
 
+  // Calcular quantidade total automaticamente quando os componentes mudarem
+  useEffect(() => {
+    const totalQuantity = formData.components.reduce((sum, component) => {
+      return sum + (parseFloat(component.component_quantity) || 0);
+    }, 0);
+    
+    // Só atualizar se a quantidade calculada for diferente da atual
+    if (parseFloat(formData.quantity) !== totalQuantity) {
+      setFormData({ 
+        ...formData, 
+        quantity: totalQuantity.toString()
+      });
+    }
+  }, [formData.components]);
+
   const addComponent = () => {
     const newComponent = {
       id: crypto.randomUUID(),
@@ -52,13 +67,37 @@ export const BlendComposition = ({ formData, setFormData, producers, association
 
   const removeComponent = (index: number) => {
     const newComponents = formData.components.filter((_: any, i: number) => i !== index);
-    setFormData({ ...formData, components: newComponents });
+    
+    // Recalcular a quantidade total após remover um componente
+    const totalQuantity = newComponents.reduce((sum, component) => {
+      return sum + (parseFloat(component.component_quantity) || 0);
+    }, 0);
+    
+    setFormData({ 
+      ...formData, 
+      components: newComponents,
+      quantity: totalQuantity.toString()
+    });
   };
 
   const updateComponent = (index: number, field: string, value: any) => {
     const newComponents = [...formData.components];
     newComponents[index] = { ...newComponents[index], [field]: value };
-    setFormData({ ...formData, components: newComponents });
+    
+    // Se a quantidade de um componente foi alterada, recalcular a quantidade total
+    if (field === 'component_quantity') {
+      const totalQuantity = newComponents.reduce((sum, component) => {
+        return sum + (parseFloat(component.component_quantity) || 0);
+      }, 0);
+      
+      setFormData({ 
+        ...formData, 
+        components: newComponents,
+        quantity: totalQuantity.toString()
+      });
+    } else {
+      setFormData({ ...formData, components: newComponents });
+    }
   };
 
   const toggleComponent = (componentId: string) => {
@@ -73,6 +112,68 @@ export const BlendComposition = ({ formData, setFormData, producers, association
 
   return (
     <div className="space-y-4">
+      {/* Quantidade Total do Blend */}
+      <div className="bg-white border border-gray-200 rounded-lg p-5">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center">
+            <Package className="w-4 h-4 text-purple-600" />
+          </div>
+          <div>
+            <h3 className="font-medium text-gray-900">Quantidade Total do Blend</h3>
+            <p className="text-xs text-gray-500">Volume total produzido do blend</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div>
+            <Label htmlFor="quantity" className="text-sm font-medium mb-2 block">
+              Quantidade de Matéria Prima *
+            </Label>
+            <Input 
+              id="quantity" 
+              type="number" 
+              step="0.01" 
+              value={formData.quantity} 
+              readOnly
+              placeholder="Calculado automaticamente" 
+              className="h-10 bg-gray-50 text-gray-600"
+            />
+          </div>
+          
+          <div>
+            <Label htmlFor="unit" className="text-sm font-medium mb-2 block">
+              Unidade da Matéria Prima *
+            </Label>
+            <Select value={formData.unit} onValueChange={value => setFormData({ ...formData, unit: value })}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Selecione a unidade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Kg">Quilogramas (Kg)</SelectItem>
+                <SelectItem value="L">Litros (L)</SelectItem>
+                <SelectItem value="g">Gramas (g)</SelectItem>
+                <SelectItem value="ml">Mililitros (ml)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label htmlFor="seals_quantity" className="text-sm font-medium mb-2 block">
+              Número de Selos *
+            </Label>
+            <Input 
+              id="seals_quantity" 
+              type="number" 
+              step="1" 
+              value={formData.seals_quantity || ""} 
+              onChange={e => setFormData({ ...formData, seals_quantity: e.target.value })} 
+              placeholder="100" 
+              className="h-10"
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Header com botão de adicionar */}
       <div className="flex items-center justify-between">
         <div>

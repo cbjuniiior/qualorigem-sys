@@ -108,30 +108,6 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
                 />
               </div>
               
-              <div>
-                <Label htmlFor="harvest_month" className="text-sm font-medium mb-2 block">
-                  Mês da Colheita
-                </Label>
-                <Select value={formData.harvest_month} onValueChange={value => setFormData({ ...formData, harvest_month: value })}>
-                  <SelectTrigger className="h-10">
-                    <SelectValue placeholder="Selecione o mês" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="01">Janeiro</SelectItem>
-                    <SelectItem value="02">Fevereiro</SelectItem>
-                    <SelectItem value="03">Março</SelectItem>
-                    <SelectItem value="04">Abril</SelectItem>
-                    <SelectItem value="05">Maio</SelectItem>
-                    <SelectItem value="06">Junho</SelectItem>
-                    <SelectItem value="07">Julho</SelectItem>
-                    <SelectItem value="08">Agosto</SelectItem>
-                    <SelectItem value="09">Setembro</SelectItem>
-                    <SelectItem value="10">Outubro</SelectItem>
-                    <SelectItem value="11">Novembro</SelectItem>
-                    <SelectItem value="12">Dezembro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           </div>
 
@@ -147,10 +123,10 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
                 <Label htmlFor="quantity" className="text-sm font-medium mb-2 block">
-                  Quantidade *
+                  Quantidade de Matéria Prima *
                 </Label>
                 <Input 
                   id="quantity" 
@@ -165,7 +141,7 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
               
               <div>
                 <Label htmlFor="unit" className="text-sm font-medium mb-2 block">
-                  Unidade *
+                  Unidade da Matéria Prima *
                 </Label>
                 <Select value={formData.unit} onValueChange={value => setFormData({ ...formData, unit: value })}>
                   <SelectTrigger className="h-10">
@@ -174,11 +150,25 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
                   <SelectContent>
                     <SelectItem value="Kg">Quilogramas (Kg)</SelectItem>
                     <SelectItem value="L">Litros (L)</SelectItem>
-                    <SelectItem value="un">Unidades</SelectItem>
                     <SelectItem value="g">Gramas (g)</SelectItem>
                     <SelectItem value="ml">Mililitros (ml)</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="seals_quantity" className="text-sm font-medium mb-2 block">
+                  Número de Selos *
+                </Label>
+                <Input 
+                  id="seals_quantity" 
+                  type="number" 
+                  step="1" 
+                  value={formData.seals_quantity || ""} 
+                  onChange={e => setFormData({ ...formData, seals_quantity: e.target.value })} 
+                  placeholder="100" 
+                  className="h-10"
+                />
               </div>
             </div>
           </div>

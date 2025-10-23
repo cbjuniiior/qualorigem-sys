@@ -29,6 +29,7 @@ interface LotFormProps {
   totalSteps: number;
   onSubmit: () => void;
   onCancel: () => void;
+  isEditing?: boolean;
 }
 
 export const LotForm = ({
@@ -42,7 +43,8 @@ export const LotForm = ({
   setCurrentStep,
   totalSteps,
   onSubmit,
-  onCancel
+  onCancel,
+  isEditing = false
 }: LotFormProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -240,7 +242,7 @@ export const LotForm = ({
               onClick={onSubmit}
             >
               <Check className="w-4 h-4 mr-2" />
-              Criar Lote
+              {isEditing ? "Atualizar Lote" : "Criar Lote"}
             </Button>
           )}
         </div>

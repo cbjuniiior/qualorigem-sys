@@ -23,6 +23,7 @@ import { Separator } from "@/components/ui/separator";
 import { QRCodeSVG } from "qrcode.react";
 import { productLotsApi } from "@/services/api";
 import { toast } from "sonner";
+import { ProductLot } from "@/types/lot";
 
 interface ProductLot {
   id: string;
@@ -33,6 +34,7 @@ interface ProductLot {
   harvest_year: string | null;
   quantity: number | null;
   unit: string | null;
+  seals_quantity?: number | null;
   image_url: string | null;
   producer_id: string;
   fragrance_score: number | null;
