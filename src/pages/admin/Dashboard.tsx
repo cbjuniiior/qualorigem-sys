@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { ProducerForm } from "./Produtores";
 import { useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { LotForm } from "./Lotes";
+import { LotForm } from "@/components/lots/LotForm";
 
 interface DashboardStats {
   totalProducers: number;

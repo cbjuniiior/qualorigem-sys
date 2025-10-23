@@ -106,7 +106,46 @@ export const productLotsApi = {
       .order("created_at", { ascending: false });
     
     if (error) throw error;
-    return data;
+    
+    // Buscar componentes separadamente para cada lote
+    const lotsWithComponents = await Promise.all(
+      data.map(async (lot) => {
+        const { data: components } = await supabase
+          .from("lot_components")
+          .select(`
+            id,
+            component_name,
+            component_percentage,
+            component_variety,
+            component_quantity,
+            component_unit,
+            component_origin,
+            producer_id,
+            component_harvest_year,
+            association_id,
+            producers (
+              id,
+              name,
+              property_name,
+              city,
+              state
+            ),
+            associations (
+              id,
+              name,
+              type
+            )
+          `)
+          .eq("lot_id", lot.id);
+        
+        return {
+          ...lot,
+          lot_components: components || []
+        };
+      })
+    );
+    
+    return lotsWithComponents;
   },
 
   // Buscar lote por código
@@ -169,7 +208,21 @@ export const productLotsApi = {
       .single();
     
     if (error) throw error;
-    return data;
+    
+    // Buscar componentes do blend incluindo produtor e associação, se existirem
+    const { data: components } = await supabase
+      .from("lot_components")
+      .select(`
+        *,
+        producers:producers(*),
+        associations:associations(*)
+      `)
+      .eq("lot_id", id);
+    
+    return {
+      ...data,
+      components: components || []
+    };
   },
 
   // Buscar lotes por produtor
