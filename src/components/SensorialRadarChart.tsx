@@ -10,9 +10,18 @@ interface SensorialData {
 
 interface SensorialRadarChartProps {
   data: SensorialData;
+  branding?: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  };
 }
 
-export const SensorialRadarChart = ({ data }: SensorialRadarChartProps) => {
+export const SensorialRadarChart = ({ data, branding }: SensorialRadarChartProps) => {
+  const primaryColor = branding?.primaryColor || '#059669';
+  const secondaryColor = branding?.secondaryColor || '#10b981';
+  const accentColor = branding?.accentColor || '#34d399';
+  
   const chartData = [
     {
       atributo: "Fragrância",
@@ -50,23 +59,23 @@ export const SensorialRadarChart = ({ data }: SensorialRadarChartProps) => {
           <PolarGrid stroke="#e5e7eb" />
           <PolarAngleAxis 
             dataKey="atributo" 
-            tick={{ fontSize: 16, fill: "#6b7280" }}
+            tick={{ fontSize: 16, fill: primaryColor, fontWeight: 500 }}
             className="text-base"
           />
           <PolarRadiusAxis 
             angle={90} 
             domain={[0, 10]} 
-            tick={{ fontSize: 14, fill: "#9ca3af" }}
+            tick={{ fontSize: 14, fill: secondaryColor }}
             tickCount={6}
           />
           <Radar 
             name="Avaliação" 
             dataKey="valor" 
-            stroke="#059669" 
-            fill="#10b981" 
-            fillOpacity={0.2}
-            strokeWidth={2}
-            dot={{ fill: "#059669", strokeWidth: 2, r: 5 }}
+            stroke={primaryColor} 
+            fill={secondaryColor} 
+            fillOpacity={0.3}
+            strokeWidth={3}
+            dot={{ fill: accentColor, strokeWidth: 2, r: 6 }}
           />
         </RadarChart>
       </ResponsiveContainer>

@@ -1,5 +1,4 @@
 import { Badge } from "@/components/ui/badge";
-import { Stack, User } from "@phosphor-icons/react";
 
 interface HeroSectionProps {
   loteData: {
@@ -12,11 +11,31 @@ interface HeroSectionProps {
   isBlend: boolean;
   blendComponentsCount: number;
   producerName?: string;
+  branding?: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+    logoUrl: string | null;
+  };
 }
 
-export const HeroSection = ({ loteData, isBlend, blendComponentsCount, producerName }: HeroSectionProps) => {
+export const HeroSection = ({ loteData, isBlend, blendComponentsCount, producerName, branding }: HeroSectionProps) => {
+  const primaryColor = branding?.primaryColor || '#16a34a';
+  const accentColor = branding?.accentColor || '#2563eb';
+  const logoUrl = branding?.logoUrl;
+  
   return (
     <div className="relative w-full h-[60vh] min-h-[400px] bg-gray-100 overflow-hidden">
+      {/* Logo no topo esquerdo */}
+      {logoUrl && (
+        <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20">
+          <img
+            src={logoUrl}
+            alt="Logo"
+            className="h-10 sm:h-12 object-contain max-w-[200px] bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-lg"
+          />
+        </div>
+      )}
       {/* Imagem de fundo com overlay sutil */}
       <div 
         className="absolute inset-0 w-full h-full bg-cover bg-center"
@@ -34,14 +53,18 @@ export const HeroSection = ({ loteData, isBlend, blendComponentsCount, producerN
         {/* Badge do tipo de lote */}
         <div className="mb-6">
           {isBlend ? (
-            <Badge className="bg-blue-600 text-white px-4 py-2 text-sm font-medium">
-              <Stack className="h-4 w-4 mr-2" />
-              Blend
+            <Badge 
+              className="text-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide"
+              style={{ backgroundColor: accentColor }}
+            >
+              BLEND
             </Badge>
           ) : (
-            <Badge className="bg-green-600 text-white px-4 py-2 text-sm font-medium">
-              <User className="h-4 w-4 mr-2" />
-              Individual
+            <Badge 
+              className="text-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide"
+              style={{ backgroundColor: primaryColor }}
+            >
+              INDIVIDUAL
             </Badge>
           )}
         </div>

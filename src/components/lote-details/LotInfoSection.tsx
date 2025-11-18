@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Scales, Leaf, Tag, Users, User, Stack } from "@phosphor-icons/react";
+import { Calendar, Scales, Leaf, Tag, Users, User } from "@phosphor-icons/react";
 
 interface LotInfoSectionProps {
   loteData: {
@@ -19,9 +19,17 @@ interface LotInfoSectionProps {
     component_percentage: number;
   }>;
   producerName?: string;
+  branding?: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  };
 }
 
-export const LotInfoSection = ({ loteData, isBlend, blendComponents, producerName }: LotInfoSectionProps) => {
+export const LotInfoSection = ({ loteData, isBlend, blendComponents, producerName, branding }: LotInfoSectionProps) => {
+  const primaryColor = branding?.primaryColor || '#16a34a';
+  const secondaryColor = branding?.secondaryColor || '#22c55e';
+  const accentColor = branding?.accentColor || '#10b981';
   return (
     <div className="mb-12">
       {/* Layout principal com imagem e informações */}
@@ -46,14 +54,18 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producerNam
             <div>
               <div className="flex items-center gap-3 mb-4">
                 {isBlend ? (
-                  <Badge className="bg-blue-600 text-white px-3 py-1 text-sm font-medium">
-                    <Stack className="h-4 w-4 mr-1" />
-                    Blend
+                  <Badge 
+                    className="text-white px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+                    style={{ backgroundColor: accentColor }}
+                  >
+                    BLEND
                   </Badge>
                 ) : (
-                  <Badge className="bg-green-600 text-white px-3 py-1 text-sm font-medium">
-                    <User className="h-4 w-4 mr-1" />
-                    Individual
+                  <Badge 
+                    className="text-white px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    INDIVIDUAL
                   </Badge>
                 )}
                 <Badge variant="outline" className="text-gray-600 border-gray-300">
@@ -73,8 +85,11 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producerNam
             {/* Grid de informações */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
-                <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Calendar className="h-5 w-5 text-gray-600" />
+                <div 
+                  className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: `${primaryColor}20` }}
+                >
+                  <Calendar className="h-5 w-5" style={{ color: primaryColor }} />
                 </div>
                 <div>
                   <div className="text-sm text-gray-500 mb-1">Safra</div>
@@ -83,8 +98,11 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producerNam
               </div>
               
               <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
-                <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Scales className="h-5 w-5 text-gray-600" />
+                <div 
+                  className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: `${secondaryColor}20` }}
+                >
+                  <Scales className="h-5 w-5" style={{ color: secondaryColor }} />
                 </div>
                 <div>
                   <div className="text-sm text-gray-500 mb-1">Quantidade</div>
@@ -94,8 +112,11 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producerNam
               
               {loteData.variety && (
                 <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
-                  <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Leaf className="h-5 w-5 text-gray-600" />
+                  <div 
+                    className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: `${primaryColor}20` }}
+                  >
+                    <Leaf className="h-5 w-5" style={{ color: primaryColor }} />
                   </div>
                   <div>
                     <div className="text-sm text-gray-500 mb-1">Variedade</div>
@@ -106,8 +127,11 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producerNam
               
               {loteData.seals_quantity && (
                 <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-xl">
-                  <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Tag className="h-5 w-5 text-gray-600" />
+                  <div 
+                    className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: `${accentColor}20` }}
+                  >
+                    <Tag className="h-5 w-5" style={{ color: accentColor }} />
                   </div>
                   <div>
                     <div className="text-sm text-gray-500 mb-1">Selos</div>
@@ -132,7 +156,7 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producerNam
             {isBlend ? (
               <div className="border-t border-gray-200 pt-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <Users className="h-5 w-5 text-gray-400" />
+                  <Users className="h-5 w-5" style={{ color: accentColor }} />
                   <span className="font-medium text-gray-900">
                     {blendComponents.length} Produtor{blendComponents.length !== 1 ? 'es' : ''}
                   </span>
@@ -158,7 +182,7 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producerNam
             ) : (
               <div className="border-t border-gray-200 pt-6">
                 <div className="flex items-center gap-3">
-                  <User className="h-5 w-5 text-gray-400" />
+                  <User className="h-5 w-5" style={{ color: primaryColor }} />
                   <span className="font-medium text-gray-900">
                     {producerName || 'Produtor não informado'}
                   </span>

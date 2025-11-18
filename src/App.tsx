@@ -22,6 +22,7 @@ import { ProducerConfiguracoes } from "./pages/produtor/Configuracoes";
 import NotFound from "./pages/NotFound";
 import ProducerDetails from "./pages/admin/ProducerDetails";
 import Configuracoes from "./pages/admin/Configuracoes";
+import Personalizacao from "./pages/admin/Personalizacao";
 
 const queryClient = new QueryClient();
 
@@ -67,6 +68,11 @@ const App = () => (
             <Route path="/admin/produtores/:id" element={
               <ProtectedRoute>
                 <ProducerDetails />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/personalizacao" element={
+              <ProtectedRoute>
+                <Personalizacao />
               </ProtectedRoute>
             } />
             <Route path="/admin/configuracoes" element={

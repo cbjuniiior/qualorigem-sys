@@ -647,6 +647,17 @@ export const systemConfigApi = {
   async getVideoConfig() {
     const config = await this.getByKey('video_settings');
     return config?.config_value || { enabled: true, auto_play: true, show_after_seconds: 3 };
+  },
+
+  async getBrandingConfig() {
+    const config = await this.getByKey('branding_settings');
+    return config?.config_value || { 
+      preset: 'default',
+      primaryColor: '#16a34a',
+      secondaryColor: '#22c55e',
+      accentColor: '#10b981',
+      logoUrl: null
+    };
   }
 }; 
 
