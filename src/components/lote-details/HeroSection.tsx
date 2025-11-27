@@ -25,68 +25,102 @@ export const HeroSection = ({ loteData, isBlend, blendComponentsCount, producerN
   const logoUrl = branding?.logoUrl;
   
   return (
-    <div className="relative w-full h-[60vh] min-h-[400px] bg-gray-100 overflow-hidden">
-      {/* Logo no topo esquerdo */}
-      {logoUrl && (
-        <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20">
-          <img
-            src={logoUrl}
-            alt="Logo"
-            className="h-10 sm:h-12 object-contain max-w-[200px] bg-white/90 backdrop-blur-sm rounded-lg p-2 shadow-lg"
-          />
-        </div>
-      )}
-      {/* Imagem de fundo com overlay sutil */}
+    <div className="relative w-full h-[40vh] min-h-[350px] md:h-[65vh] md:min-h-[560px] bg-gray-900 overflow-hidden">
+      {/* Imagem de fundo com efeito parallax sutil */}
       <div 
-        className="absolute inset-0 w-full h-full bg-cover bg-center"
+        className="absolute inset-0 w-full h-full bg-cover bg-center scale-105 transition-transform duration-[20s] ease-out"
         style={{
           backgroundImage: `url(${loteData?.image_url || '/placeholder.svg'})`,
-          filter: 'brightness(0.4)'
+          filter: 'brightness(0.4) saturate(1.05) contrast(1.1)'
         }}
       />
        
-      {/* Overlay minimalista */}
-      <div className="absolute inset-0 bg-gradient-to-t from-gray-900/60 via-gray-900/20 to-transparent"></div>
+      {/* Overlay com múltiplas camadas para profundidade */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/50 to-black/70"></div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
        
-      {/* Conteúdo centralizado */}
-      <div className="relative z-10 flex flex-col justify-center items-center h-full text-center px-6">
-        {/* Badge do tipo de lote */}
-        <div className="mb-6">
-          {isBlend ? (
-            <Badge 
-              className="text-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide"
-              style={{ backgroundColor: accentColor }}
-            >
-              BLEND
-            </Badge>
-          ) : (
-            <Badge 
-              className="text-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide"
-              style={{ backgroundColor: primaryColor }}
-            >
-              INDIVIDUAL
-            </Badge>
-          )}
+      {/* Container principal */}
+      <div className="relative z-10 h-full flex flex-col">
+        {/* Conteúdo central */}
+        <div className="flex-1 flex flex-col justify-center items-center px-4 sm:px-6 py-12 sm:py-16">
+          <div className="w-full max-w-3xl mx-auto flex flex-col items-center">
+            
+            {/* Logo com espaçamento refinado */}
+            {logoUrl && (
+              <div className="mb-6 sm:mb-10 opacity-0 animate-[fadeIn_0.8s_ease-out_0.1s_forwards]">
+                <div className="relative">
+                  <img
+                    src={logoUrl}
+                    alt="Logo"
+                    className="h-28 sm:h-32 md:h-36 object-contain max-w-[280px] sm:max-w-[320px] mx-auto filter drop-shadow-lg"
+                  />
+                </div>
+              </div>
+            )}
+            
+            {/* Badge com design refinado */}
+            <div className="mb-6 sm:mb-8 opacity-0 animate-[fadeIn_0.8s_ease-out_0.3s_forwards]">
+              {isBlend ? (
+                <Badge 
+                  className="text-white px-3 py-1 sm:px-4 sm:py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.1em] rounded-full border-0 shadow-lg"
+                  style={{ 
+                    backgroundColor: accentColor,
+                    letterSpacing: '0.1em'
+                  }}
+                >
+                  BLEND
+                </Badge>
+              ) : (
+                <Badge 
+                  className="text-white px-3 py-1 sm:px-4 sm:py-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.1em] rounded-full border-0 shadow-lg"
+                  style={{ 
+                    backgroundColor: primaryColor,
+                    letterSpacing: '0.1em'
+                  }}
+                >
+                  INDIVIDUAL
+                </Badge>
+              )}
+            </div>
+            
+            {/* Título principal com tipografia refinada */}
+            <div className="text-center mb-8 sm:mb-10 opacity-0 animate-[fadeInUp_0.8s_ease-out_0.5s_forwards]">
+              <h1 className="text-4xl sm:text-6xl md:text-7xl font-light text-white leading-[1.1] tracking-[-0.02em] mb-4 sm:mb-6">
+                <span className="font-medium">{loteData?.name}</span>
+              </h1>
+              
+              {/* Informações secundárias com separador elegante */}
+              <div className="flex flex-col items-center space-y-2">
+                <div className="flex flex-wrap justify-center items-center gap-2 sm:gap-3 text-white/95">
+                  <span className="text-sm sm:text-lg font-normal whitespace-nowrap">
+                    {isBlend 
+                      ? `${blendComponentsCount} produtor${blendComponentsCount > 1 ? 'es' : ''}`
+                      : producerName
+                    }
+                  </span>
+                  <span className="hidden sm:block w-1 h-1 rounded-full bg-white/40"></span>
+                  <span className="text-sm sm:text-lg font-light text-white/85 whitespace-nowrap">
+                    Safra {loteData.harvest_year}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         
-        {/* Título principal */}
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-light text-white mb-4 tracking-tight">
-          {loteData?.name}
-        </h1>
-        
-        {/* Subtítulo */}
-        <p className="text-lg sm:text-xl text-white/80 font-light mb-6 max-w-2xl">
-          {isBlend 
-            ? `${blendComponentsCount} produtor${blendComponentsCount > 1 ? 'es' : ''} • Safra ${loteData.harvest_year}`
-            : `${producerName} • Safra ${loteData.harvest_year}`
-          }
-        </p>
-        
-        {/* Código do lote */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 border border-white/20">
-          <span className="text-white/90 font-mono text-sm">
-            {loteData?.code}
-          </span>
+        {/* Seção inferior - Código com design elegante */}
+        <div className="pb-8 sm:pb-12 px-4 sm:px-6 opacity-0 animate-[fadeIn_0.8s_ease-out_0.7s_forwards]">
+          <div className="w-full max-w-3xl mx-auto flex justify-center">
+            <div className="group inline-flex items-center gap-2.5 bg-white/[0.08] backdrop-blur-md rounded-full px-3 py-1.5 sm:px-4 sm:py-2 border border-white/10 hover:bg-white/[0.12] hover:border-white/20 transition-all duration-300 shadow-lg">
+              <span className="text-[8px] sm:text-[9px] text-white/50 font-medium uppercase tracking-[0.15em] leading-none">
+                Código
+              </span>
+              <span className="w-px h-3 bg-white/20 group-hover:bg-white/30 transition-colors duration-300"></span>
+              <span className="text-[10px] sm:text-xs text-white/95 font-mono font-medium tracking-wider">
+                {loteData?.code}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>

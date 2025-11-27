@@ -40,198 +40,159 @@ export const BlendComposition = ({ blendComponents, harvestYear, quantity, unit,
   const accentColor = branding?.accentColor || '#10b981';
 
   return (
-    <div className="mb-12">
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div className="mb-16">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
         {/* Header */}
-        <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-8 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-2 flex items-center">
-                <Package className="h-6 w-6 mr-3" style={{ color: accentColor }} />
-                Composição do Blend
-              </h2>
-              <p className="text-gray-600">
-                {blendComponents.length} componente{blendComponents.length > 1 ? 's' : ''} cuidadosamente selecionado{blendComponents.length > 1 ? 's' : ''}
-              </p>
+        <div className="p-6 sm:p-8 border-b border-gray-100">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-gray-50 rounded-xl">
+                <Package className="h-8 w-8 text-gray-700" weight="duotone" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight mb-1">
+                  Composição do Blend
+                </h2>
+                <p className="text-gray-500 text-xs sm:text-sm max-w-md">
+                  Combinação de {blendComponents.length} componentes únicos para um perfil sensorial exclusivo.
+                </p>
+              </div>
             </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold text-gray-900">100%</div>
-              <div className="text-sm text-gray-500">Composição Total</div>
+            
+            <div className="flex gap-6 sm:gap-8 items-center bg-gray-50 px-4 sm:px-6 py-3 rounded-xl border border-gray-100 self-start md:self-auto w-full md:w-auto justify-center md:justify-start">
+              <div className="text-center border-r border-gray-200 pr-6 sm:pr-8">
+                <div className="text-xl sm:text-2xl font-bold text-gray-900">100%</div>
+                <div className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wide">Composição</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xl sm:text-2xl font-bold text-gray-900">{blendComponents.length}</div>
+                <div className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wide">Componentes</div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Componentes */}
-        <div className="p-8">
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="p-4 sm:p-8 bg-gray-50/30">
+          <div className={`grid gap-4 sm:gap-6 grid-cols-1 ${
+            blendComponents.length % 3 === 0 
+              ? 'md:grid-cols-3' 
+              : 'md:grid-cols-2'
+          }`}>
             {blendComponents.map((component) => (
-              <div key={component.id} className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-300">
+              <div key={component.id} className="group bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 hover:border-gray-300 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
+                {/* Barra de cor superior */}
+                <div 
+                  className="absolute top-0 left-0 right-0 h-1.5"
+                  style={{ 
+                    background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor})`,
+                    opacity: component.component_percentage / 100 + 0.2
+                  }}
+                ></div>
+
                 {/* Header do componente */}
-                <div className="mb-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900">{component.component_name}</h3>
-                    <Badge 
-                      className="text-white text-sm px-3 py-1"
-                      style={{ backgroundColor: accentColor }}
+                <div className="mb-6 mt-2">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">
+                      {component.component_name}
+                    </h3>
+                    <span 
+                      className="inline-flex items-center justify-center px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-bold"
+                      style={{ backgroundColor: `${accentColor}15`, color: accentColor }}
                     >
                       {component.component_percentage}%
-                    </Badge>
+                    </span>
                   </div>
                   
-                  {/* Barra de progresso */}
-                  <div className="w-full bg-gray-200 rounded-full h-3">
+                  {/* Visualização de proporção */}
+                  <div className="w-full bg-gray-100 rounded-full h-2 mb-1">
                     <div 
-                      className="h-3 rounded-full transition-all duration-1000 ease-out"
+                      className="h-2 rounded-full transition-all duration-1000 ease-out"
                       style={{ 
                         width: `${component.component_percentage}%`,
-                        background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor})`
+                        backgroundColor: primaryColor
                       }}
                     ></div>
                   </div>
                 </div>
               
-                {/* Detalhes do componente */}
-                <div className="space-y-4">
+                {/* Detalhes do componente em Grid Compacto */}
+                <div className="space-y-3">
                   {component.producer_id && component.producers && (
-                    <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                      <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: `${primaryColor}20` }}
-                      >
-                        <User className="h-4 w-4" style={{ color: primaryColor }} />
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Produtor</div>
-                        <div className="font-medium text-gray-900 text-sm">{component.producers.name}</div>
-                      </div>
-                    </div>
+                    <DetailRow 
+                      icon={<User weight="duotone" />} 
+                      label="Produtor" 
+                      value={component.producers.name} 
+                      color={primaryColor}
+                    />
                   )}
                   
                   {component.association_id && component.associations && (
-                    <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                      <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: `${accentColor}20` }}
-                      >
-                        <Medal className="h-4 w-4" style={{ color: accentColor }} />
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Associação</div>
-                        <div className="font-medium text-gray-900 text-sm">{component.associations.name}</div>
-                      </div>
-                    </div>
+                    <DetailRow 
+                      icon={<Medal weight="duotone" />} 
+                      label="Associação" 
+                      value={component.associations.name} 
+                      color={accentColor}
+                    />
                   )}
                   
                   {component.component_harvest_year && (
-                    <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                      <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: `${primaryColor}20` }}
-                      >
-                        <Calendar className="h-4 w-4" style={{ color: primaryColor }} />
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Safra</div>
-                        <div className="font-medium text-gray-900 text-sm">{component.component_harvest_year}</div>
-                      </div>
-                    </div>
+                    <DetailRow 
+                      icon={<Calendar weight="duotone" />} 
+                      label="Safra" 
+                      value={component.component_harvest_year} 
+                      color={primaryColor}
+                    />
                   )}
                   
                   {component.component_variety && (
-                    <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                      <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: `${secondaryColor}20` }}
-                      >
-                        <Tag className="h-4 w-4" style={{ color: secondaryColor }} />
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Variedade</div>
-                        <div className="font-medium text-gray-900 text-sm">{component.component_variety}</div>
-                      </div>
-                    </div>
+                    <DetailRow 
+                      icon={<Tag weight="duotone" />} 
+                      label="Variedade" 
+                      value={component.component_variety} 
+                      color={secondaryColor}
+                    />
                   )}
                   
                   {component.component_quantity && component.component_unit && (
-                    <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                      <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: `${secondaryColor}20` }}
-                      >
-                        <Scales className="h-4 w-4" style={{ color: secondaryColor }} />
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Quantidade</div>
-                        <div className="font-medium text-gray-900 text-sm">{component.component_quantity} {component.component_unit}</div>
-                      </div>
-                    </div>
+                    <DetailRow 
+                      icon={<Scales weight="duotone" />} 
+                      label="Qtd." 
+                      value={`${component.component_quantity} ${component.component_unit}`} 
+                      color={secondaryColor}
+                    />
                   )}
                   
                   {component.component_origin && (
-                    <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                      <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: `${accentColor}20` }}
-                      >
-                        <MapPin className="h-4 w-4" style={{ color: accentColor }} />
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Origem</div>
-                        <div className="font-medium text-gray-900 text-sm">{component.component_origin}</div>
-                      </div>
-                    </div>
+                    <DetailRow 
+                      icon={<MapPin weight="duotone" />} 
+                      label="Origem" 
+                      value={component.component_origin} 
+                      color={accentColor}
+                    />
                   )}
                 </div>
               </div>
             ))}
-          </div>
-          
-          {/* Resumo do blend */}
-          <div 
-            className="mt-8 p-6 rounded-xl border"
-            style={{
-              background: `linear-gradient(to right, ${primaryColor}15, ${secondaryColor}15)`,
-              borderColor: `${primaryColor}40`,
-            }}
-          >
-            <div className="flex items-start gap-4">
-              <div 
-                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: accentColor }}
-              >
-                <Leaf className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h4 className="text-lg font-semibold text-gray-900 mb-2">Blend Artesanal</h4>
-                <p className="text-gray-700 leading-relaxed text-sm">
-                  Este produto é um blend especial composto por <strong>{blendComponents.length} componente{blendComponents.length > 1 ? 's' : ''}</strong> cuidadosamente selecionado{blendComponents.length > 1 ? 's' : ''}, 
-                  cada um contribuindo com suas características únicas para criar um perfil sensorial excepcional.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Estatísticas do blend */}
-          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-white rounded-xl border border-gray-200">
-              <div className="text-2xl font-bold text-gray-900">{blendComponents.length}</div>
-              <div className="text-sm text-gray-600">Componentes</div>
-            </div>
-            <div className="text-center p-4 bg-white rounded-xl border border-gray-200">
-              <div className="text-2xl font-bold text-gray-900">100%</div>
-              <div className="text-sm text-gray-600">Composição</div>
-            </div>
-            <div className="text-center p-4 bg-white rounded-xl border border-gray-200">
-              <div className="text-2xl font-bold text-gray-900">{harvestYear}</div>
-              <div className="text-sm text-gray-600">Safra</div>
-            </div>
-            <div className="text-center p-4 bg-white rounded-xl border border-gray-200">
-              <div className="text-2xl font-bold text-gray-900">{quantity}</div>
-              <div className="text-sm text-gray-600">{unit}</div>
-            </div>
           </div>
         </div>
       </div>
     </div>
   );
 };
+
+// Componente auxiliar para linhas de detalhes
+const DetailRow = ({ icon, label, value, color }: { icon: React.ReactNode, label: string, value: string, color: string }) => (
+  <div className="flex items-center gap-3 text-sm group/row">
+    <div 
+      className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 transition-colors"
+      style={{ color: color }}
+    >
+      {icon}
+    </div>
+    <div className="flex-1 flex items-baseline justify-between border-b border-gray-100 pb-1 border-dashed group-hover/row:border-gray-300 transition-colors">
+      <span className="text-gray-500 text-xs font-medium uppercase tracking-wide">{label}</span>
+      <span className="font-medium text-gray-900 text-right ml-2 truncate max-w-[140px]" title={value}>{value}</span>
+    </div>
+  </div>
+);

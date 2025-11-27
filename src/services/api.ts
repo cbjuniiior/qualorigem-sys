@@ -100,7 +100,10 @@ export const productLotsApi = {
           city,
           state,
           altitude,
-          average_temperature
+          average_temperature,
+          latitude,
+          longitude,
+          photos
         )
       `)
       .order("created_at", { ascending: false });
@@ -128,7 +131,10 @@ export const productLotsApi = {
               name,
               property_name,
               city,
-              state
+              state,
+              latitude,
+              longitude,
+              photos
             ),
             associations (
               id,
@@ -162,7 +168,10 @@ export const productLotsApi = {
           city,
           state,
           altitude,
-          average_temperature
+          average_temperature,
+          latitude,
+          longitude,
+          photos
         )
       `)
       .eq("code", code)
@@ -201,7 +210,10 @@ export const productLotsApi = {
           city,
           state,
           altitude,
-          average_temperature
+          average_temperature,
+          latitude,
+          longitude,
+          photos
         )
       `)
       .eq("id", id)
@@ -239,7 +251,10 @@ export const productLotsApi = {
           city,
           state,
           altitude,
-          average_temperature
+          average_temperature,
+          latitude,
+          longitude,
+          photos
         )
       `)
       .eq("producer_id", producerId)
@@ -264,7 +279,10 @@ export const productLotsApi = {
           city,
           state,
           altitude,
-          average_temperature
+          average_temperature,
+          latitude,
+          longitude,
+          photos
         )
       `)
       .single();
@@ -289,7 +307,10 @@ export const productLotsApi = {
           city,
           state,
           altitude,
-          average_temperature
+          average_temperature,
+          latitude,
+          longitude,
+          photos
         )
       `)
       .single();
@@ -344,7 +365,10 @@ export const productLotsApi = {
           city,
           state,
           altitude,
-          average_temperature
+          average_temperature,
+          latitude,
+          longitude,
+          photos
         )
       `)
       .eq("category", category)

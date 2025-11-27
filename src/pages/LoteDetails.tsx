@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, ShareNetwork, Copy } from "@phosphor-icons/react";
+import { ArrowLeft, ShareNetwork, Copy, CaretDown, Tag } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { productLotsApi, producersApi, systemConfigApi } from "@/services/api";
@@ -40,8 +40,8 @@ interface LoteData {
     state: string;
     altitude: number | null;
     average_temperature: number | null;
-    latitude?: string;
-    longitude?: string;
+    latitude?: string | number;
+    longitude?: string | number;
     photos?: string[];
   };
   fragrance_score: number | null;
@@ -832,64 +832,70 @@ const LoteDetails = () => {
           } : undefined}
         />
       
-        {/* Faixa de ações */}
-        <div className="bg-white border-b border-gray-100 -mt-2">
-          <div className="container mx-auto px-6 py-6 max-w-6xl">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="text-sm text-gray-500">
-                  Compartilhe este lote
-                </div>
-                <div className="w-px h-4 bg-gray-200"></div>
-                <div className="text-sm text-gray-400">
-                  {loteData?.category}
+        {/* Barra de ações */}
+        <div className="bg-white border-b border-gray-200/60 -mt-2 sticky top-0 z-40 shadow-sm transition-all duration-300">
+          <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-5 max-w-6xl">
+            <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
+              {/* Lado esquerdo - Informações contextuais */}
+              <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex items-center gap-2 sm:gap-2.5">
+                  <span className="hidden sm:block text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Compartilhe este lote
+                  </span>
+                  <span className="hidden sm:block w-px h-3.5 bg-gray-300"></span>
+                  <div className="flex items-center gap-1.5">
+                    <Tag className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-gray-400" weight="fill" />
+                    <span className="text-xs sm:text-sm font-medium text-gray-600">
+                      {loteData?.category}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div className="flex gap-2">
+              
+              {/* Lado direito - Ações */}
+              <div className="flex items-center gap-1.5 sm:gap-2 ml-auto">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={showLotInfo}
-                  className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-colors"
+                  className="group flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2 h-8 sm:h-9 rounded-lg transition-all duration-200 hover:scale-[1.02]"
                   style={{
                     color: branding?.primaryColor || '#16a34a',
                   }}
                   onMouseEnter={(e) => {
                     const color = branding?.primaryColor || '#16a34a';
-                    e.currentTarget.style.backgroundColor = `${color}15`;
-                    e.currentTarget.style.color = branding?.secondaryColor || '#22c55e';
+                    e.currentTarget.style.backgroundColor = `${color}12`;
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = branding?.primaryColor || '#16a34a';
                   }}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                  <span>Ver Informações</span>
+                  <CaretDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform duration-200 group-hover:translate-y-0.5" weight="bold" />
+                  <span className="font-medium hidden sm:inline">Ver Informações</span>
+                  <span className="font-medium sm:hidden">Infos</span>
                 </Button>
+                
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleShare}
-                  className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-colors"
+                  className="group flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2 h-8 sm:h-9 rounded-lg transition-all duration-200 hover:scale-[1.02]"
                   style={{
                     color: branding?.secondaryColor || '#22c55e',
                   }}
                   onMouseEnter={(e) => {
                     const color = branding?.secondaryColor || '#22c55e';
-                    e.currentTarget.style.backgroundColor = `${color}15`;
-                    e.currentTarget.style.color = branding?.accentColor || '#10b981';
+                    e.currentTarget.style.backgroundColor = `${color}12`;
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = branding?.secondaryColor || '#22c55e';
                   }}
                 >
-                  <ShareNetwork className="h-4 w-4" />
-                  <span>Compartilhar</span>
+                  <ShareNetwork className="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform duration-200 group-hover:rotate-12" weight="fill" />
+                  <span className="font-medium hidden sm:inline">Compartilhar</span>
+                  <span className="font-medium sm:hidden">Share</span>
                 </Button>
+                
                 <Button
                   variant="ghost"
                   size="sm"
@@ -897,31 +903,30 @@ const LoteDetails = () => {
                     navigator.clipboard.writeText(window.location.href);
                     toast.success("URL copiada para a área de transferência!");
                   }}
-                  className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-colors"
+                  className="group flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2 h-8 sm:h-9 rounded-lg transition-all duration-200 hover:scale-[1.02]"
                   style={{
                     color: branding?.accentColor || '#10b981',
                   }}
                   onMouseEnter={(e) => {
                     const color = branding?.accentColor || '#10b981';
-                    e.currentTarget.style.backgroundColor = `${color}15`;
-                    e.currentTarget.style.color = branding?.primaryColor || '#16a34a';
+                    e.currentTarget.style.backgroundColor = `${color}12`;
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
-                    e.currentTarget.style.color = branding?.accentColor || '#10b981';
                   }}
                 >
-                  <Copy className="h-4 w-4" />
-                  <span>Copiar</span>
+                  <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform duration-200 group-hover:scale-110" weight="fill" />
+                  <span className="font-medium hidden sm:inline">Copiar</span>
+                  <span className="font-medium sm:hidden">Copiar</span>
                 </Button>
               </div>
             </div>
           </div>
         </div>
         
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12 max-w-7xl">
           {/* Referência para scroll - Seção de informações do produto */}
-          <div ref={productDetailsRef} className="scroll-mt-4">
+          <div ref={productDetailsRef} className="scroll-mt-20 sm:scroll-mt-24 space-y-8 sm:space-y-12">
             {/* Seção Principal - Informações do Lote */}
             <LotInfoSection 
               loteData={loteData}
