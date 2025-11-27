@@ -15,6 +15,11 @@ interface BasicInfoStepProps {
   handleImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   removeImage: () => void;
   qrValue: string;
+  branding?: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  } | null;
 }
 
 export const BasicInfoStep = ({
@@ -25,8 +30,12 @@ export const BasicInfoStep = ({
   fileInputRef,
   handleImageUpload,
   removeImage,
-  qrValue
+  qrValue,
+  branding
 }: BasicInfoStepProps) => {
+  const primaryColor = branding?.primaryColor || '#16a34a';
+  const accentColor = branding?.accentColor || '#10b981';
+
   return (
     <div className="space-y-6">
       {/* Tipo de Lote - Ultra Simplificado */}
@@ -52,6 +61,7 @@ export const BasicInfoStep = ({
                   ? 'bg-white text-gray-900 shadow-sm' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
+              style={!isBlendMode ? { color: primaryColor } : {}}
             >
               Produto Único
             </button>
@@ -82,6 +92,7 @@ export const BasicInfoStep = ({
                   ? 'bg-white text-gray-900 shadow-sm' 
                   : 'text-gray-600 hover:text-gray-900'
               }`}
+              style={isBlendMode ? { color: accentColor } : {}}
             >
               Blend
             </button>
@@ -95,8 +106,11 @@ export const BasicInfoStep = ({
         <div className="lg:col-span-3">
           <div className="bg-white border border-gray-200 rounded-lg p-5">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center">
-                <Tag className="w-4 h-4 text-green-600" />
+              <div 
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: `${primaryColor}15` }}
+              >
+                <Tag className="w-4 h-4" style={{ color: primaryColor }} />
               </div>
               <div>
                 <h3 className="font-medium text-gray-900">Identificação do Lote</h3>
@@ -160,7 +174,10 @@ export const BasicInfoStep = ({
                   <Label className="text-sm font-medium mb-2 block">
                     Foto do Lote *
                   </Label>
-                  <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-blue-300 transition-colors">
+                  <div className="border-2 border-dashed border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 transition-colors"
+                    onMouseEnter={(e) => e.currentTarget.style.borderColor = `${primaryColor}50`}
+                    onMouseLeave={(e) => e.currentTarget.style.borderColor = ''}
+                  >
                     {formData.image_url ? (
                       <div className="space-y-3">
                         <div className="relative inline-block">
@@ -207,7 +224,8 @@ export const BasicInfoStep = ({
                           <Button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="bg-blue-600 hover:bg-blue-700 h-7 text-xs"
+                            className="h-7 text-xs hover:opacity-90 text-white"
+                            style={{ backgroundColor: primaryColor }}
                           >
                             Selecionar
                           </Button>
@@ -238,8 +256,11 @@ export const BasicInfoStep = ({
         <div className="lg:col-span-1">
           <div className="bg-white border border-gray-200 rounded-xl p-4 sticky top-6">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
-                <QrCode className="w-4 h-4 text-orange-600" />
+              <div 
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: `${accentColor}15` }}
+              >
+                <QrCode className="w-4 h-4" style={{ color: accentColor }} />
               </div>
               <div>
                 <h3 className="font-medium text-gray-900 text-sm">QR Code</h3>

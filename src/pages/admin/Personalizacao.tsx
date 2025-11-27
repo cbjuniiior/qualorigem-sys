@@ -176,7 +176,8 @@ const Personalizacao = () => {
           <Button 
             onClick={saveBranding} 
             disabled={saving}
-            className="bg-green-600 hover:bg-green-700"
+            className="text-white shadow-sm hover:opacity-90"
+            style={{ backgroundColor: brandingConfig.primaryColor }}
           >
             {saving ? (
               <Spinner className="h-4 w-4 mr-2 animate-spin" />
@@ -192,7 +193,7 @@ const Personalizacao = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Palette className="h-5 w-5 mr-2 text-green-600" />
+                <Palette className="h-5 w-5 mr-2" style={{ color: brandingConfig.primaryColor }} />
                 Preset de Cores
               </CardTitle>
             </CardHeader>
@@ -204,9 +205,13 @@ const Personalizacao = () => {
                     onClick={() => handlePresetChange(key as any)}
                     className={`p-4 border-2 rounded-lg transition-all hover:scale-105 ${
                       brandingConfig.preset === key
-                        ? 'border-green-600 bg-green-50'
+                        ? 'bg-opacity-10'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
+                    style={{ 
+                      borderColor: brandingConfig.preset === key ? brandingConfig.primaryColor : undefined,
+                      backgroundColor: brandingConfig.preset === key ? `${brandingConfig.primaryColor}10` : undefined
+                    }}
                   >
                     <div className="flex flex-col items-center gap-2">
                       <div className="flex gap-1">
@@ -231,9 +236,13 @@ const Personalizacao = () => {
                   onClick={() => handlePresetChange('custom')}
                   className={`p-4 border-2 rounded-lg transition-all hover:scale-105 ${
                     brandingConfig.preset === 'custom'
-                      ? 'border-green-600 bg-green-50'
+                      ? 'bg-opacity-10'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
+                  style={{ 
+                    borderColor: brandingConfig.preset === 'custom' ? brandingConfig.primaryColor : undefined,
+                    backgroundColor: brandingConfig.preset === 'custom' ? `${brandingConfig.primaryColor}10` : undefined
+                  }}
                 >
                   <div className="flex flex-col items-center gap-2">
                     <div className="w-8 h-8 rounded-full border-2 border-dashed border-gray-400 flex items-center justify-center">
@@ -334,7 +343,7 @@ const Personalizacao = () => {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Image className="h-5 w-5 mr-2 text-green-600" />
+                <Image className="h-5 w-5 mr-2" style={{ color: brandingConfig.primaryColor }} />
                 Logo do Site
               </CardTitle>
             </CardHeader>

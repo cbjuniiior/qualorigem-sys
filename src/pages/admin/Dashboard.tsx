@@ -7,16 +7,18 @@ import {
   Calendar,
   MapPin,
   Medal,
-  ChartBar
+  ChartBar,
+  ArrowUp,
+  ArrowDown,
+  Ticket
 } from "@phosphor-icons/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { producersApi, productLotsApi } from "@/services/api";
+import { producersApi, productLotsApi, systemConfigApi } from "@/services/api";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ProducerForm } from "./Produtores";
-import { useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LotForm } from "@/components/lots/LotForm";
 
@@ -26,6 +28,7 @@ interface DashboardStats {
   totalViews: number;
   topCategories: { category: string; count: number }[];
   recentLots: any[];
+  totalSeals30Days: number;
 }
 
 const Dashboard = () => {
@@ -35,8 +38,14 @@ const Dashboard = () => {
     totalViews: 0,
     topCategories: [],
     recentLots: [],
+    totalSeals30Days: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [branding, setBranding] = useState<{
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  } | null>(null);
   const [showProducerModal, setShowProducerModal] = useState(false);
   const [showLotModal, setShowLotModal] = useState(false);
   const [lotFormData, setLotFormData] = useState({
@@ -57,6 +66,18 @@ const Dashboard = () => {
     sensory_notes: "",
   });
   const [lotProducers, setLotProducers] = useState<any[]>([]);
+
+  useEffect(() => {
+    const loadBranding = async () => {
+      try {
+        const config = await systemConfigApi.getBrandingConfig();
+        setBranding(config);
+      } catch (error) {
+        console.error("Erro ao carregar branding:", error);
+      }
+    };
+    loadBranding();
+  }, []);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -84,12 +105,20 @@ const Dashboard = () => {
         // Visualizações reais
         const totalViews = lots.reduce((sum, lot) => sum + (lot.views ?? 0), 0);
 
+        // Calcular total de selos dos lotes criados nos últimos 30 dias
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const recentLots = lots.filter(lot => new Date(lot.created_at) >= thirtyDaysAgo);
+        const totalSeals30Days = recentLots.reduce((acc, lot) => acc + (lot.seals_quantity || 0), 0);
+
         setStats({
           totalProducers: producers.length,
           totalLots: lots.length,
           totalViews,
           topCategories,
           recentLots: lots.slice(0, 5),
+          totalSeals30Days,
         });
       } catch (error) {
         console.error("Erro ao carregar dados do dashboard:", error);
@@ -162,6 +191,9 @@ const Dashboard = () => {
     }
   };
 
+  const primaryColor = branding?.primaryColor || '#16a34a';
+  const secondaryColor = branding?.secondaryColor || '#22c55e';
+
   const StatCard = ({ 
     title, 
     value, 
@@ -175,32 +207,31 @@ const Dashboard = () => {
     description?: string;
     trend?: { value: number; isPositive: boolean };
   }) => (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-gray-600">
-          {title}
-        </CardTitle>
-        <Icon className="h-4 w-4 text-gray-400" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold text-gray-900">{value}</div>
-        {description && (
-          <p className="text-xs text-gray-500 mt-1">{description}</p>
-        )}
-        {trend && (
-          <div className="flex items-center mt-2">
-            <TrendUp 
-              className={`h-3 w-3 mr-1 ${
-                trend.isPositive ? "text-green-500" : "text-red-500"
-              }`} 
-            />
-            <span className={`text-xs ${
-              trend.isPositive ? "text-green-600" : "text-red-600"
-            }`}>
-              {trend.isPositive ? "+" : "-"}{trend.value}% este mês
-            </span>
+    <Card className="border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 group">
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div 
+            className="p-3 rounded-xl transition-colors duration-300 group-hover:bg-opacity-20"
+            style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
+          >
+            <Icon className="h-6 w-6" weight="duotone" />
           </div>
-        )}
+          {trend && (
+            <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+              trend.isPositive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+            }`}>
+              {trend.isPositive ? <ArrowUp className="h-3 w-3 mr-1" /> : <ArrowDown className="h-3 w-3 mr-1" />}
+              {trend.value}%
+            </div>
+          )}
+        </div>
+        <div>
+          <h3 className="text-sm font-medium text-gray-500 mb-1">{title}</h3>
+          <div className="text-3xl font-bold text-gray-900 tracking-tight">{value}</div>
+          {description && (
+            <p className="text-xs text-gray-400 mt-2">{description}</p>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -208,10 +239,13 @@ const Dashboard = () => {
   if (loading) {
     return (
       <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600">Carregando dashboard...</p>
+        <div className="flex items-center justify-center h-[calc(100vh-100px)]">
+          <div className="flex flex-col items-center gap-4">
+            <div 
+              className="w-12 h-12 border-4 rounded-full animate-spin"
+              style={{ borderColor: `${primaryColor}30`, borderTopColor: primaryColor }}
+            ></div>
+            <p className="text-gray-500 text-sm font-medium animate-pulse">Carregando dados...</p>
           </div>
         </div>
       </AdminLayout>
@@ -220,11 +254,21 @@ const Dashboard = () => {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
+      <div className="space-y-8 max-w-[1600px] mx-auto">
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Visão geral do sistema GeoTrace</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
+            <p className="text-gray-500 mt-1">Visão geral do sistema e métricas principais</p>
+          </div>
+          <div className="flex gap-3">
+            <button 
+              className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm"
+              onClick={() => window.location.reload()}
+            >
+              Atualizar
+            </button>
+          </div>
         </div>
 
         {/* Cards de estatísticas */}
@@ -233,53 +277,59 @@ const Dashboard = () => {
             title="Total de Produtores"
             value={stats.totalProducers}
             icon={Users}
-            description="Produtores cadastrados"
+            description="Produtores cadastrados e ativos"
             trend={{ value: 12, isPositive: true }}
           />
           <StatCard
             title="Total de Lotes"
             value={stats.totalLots}
             icon={Package}
-            description="Lotes de produtos"
+            description="Lotes registrados no sistema"
             trend={{ value: 8, isPositive: true }}
           />
           <StatCard
-            title="Visualizações"
+            title="Visualizações Totais"
             value={stats.totalViews.toLocaleString()}
             icon={Eye}
-            description="Consultas aos lotes"
+            description="Acessos às páginas dos lotes"
             trend={{ value: 15, isPositive: true }}
           />
           <StatCard
-            title="Categorias"
-            value={stats.topCategories.length}
-            icon={Medal}
-            description="Tipos de produtos"
+            title="Selos Emitidos (30d)"
+            value={stats.totalSeals30Days.toLocaleString()}
+            icon={Ticket}
+            description="Total de selos gerados no mês"
           />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Categorias mais populares */}
-          <Card>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Categorias mais populares - 1 Coluna */}
+          <Card className="border border-gray-100 shadow-sm lg:col-span-1">
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Medal className="h-5 w-5 mr-2 text-green-600" />
-                Categorias Mais Populares
+              <CardTitle className="flex items-center text-lg">
+                <Medal className="h-5 w-5 mr-2" style={{ color: primaryColor }} weight="duotone" />
+                Top Categorias
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {stats.topCategories.map((item, index) => (
-                  <div key={item.category} className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                        <span className="text-green-700 font-medium text-sm">
-                          {index + 1}
-                        </span>
+                  <div key={item.category} className="flex items-center justify-between group">
+                    <div className="flex items-center gap-4">
+                      <div 
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors"
+                        style={{ 
+                          backgroundColor: index === 0 ? `${primaryColor}15` : '#f3f4f6',
+                          color: index === 0 ? primaryColor : '#6b7280'
+                        }}
+                      >
+                        {index + 1}
                       </div>
-                      <span className="font-medium text-gray-900">{item.category}</span>
+                      <span className="font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
+                        {item.category}
+                      </span>
                     </div>
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-600 hover:bg-gray-200">
                       {item.count} lotes
                     </Badge>
                   </div>
@@ -288,42 +338,56 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Lotes recentes */}
-          <Card>
+          {/* Lotes recentes - 2 Colunas */}
+          <Card className="border border-gray-100 shadow-sm lg:col-span-2">
             <CardHeader>
-              <CardTitle className="flex items-center">
-                <Package className="h-5 w-5 mr-2 text-green-600" />
+              <CardTitle className="flex items-center text-lg">
+                <Package className="h-5 w-5 mr-2" style={{ color: primaryColor }} weight="duotone" />
                 Lotes Recentes
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {stats.recentLots.map((lot) => (
-                  <div key={lot.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900">{lot.name}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {lot.category}
-                        </Badge>
+                  <div 
+                    key={lot.id} 
+                    className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl hover:border-gray-200 hover:shadow-md transition-all duration-300 group"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div 
+                        className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors"
+                        style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
+                      >
+                        <Package className="h-5 w-5" weight="duotone" />
                       </div>
-                      <div className="flex items-center space-x-4 mt-1 text-sm text-gray-500">
-                        <div className="flex items-center">
-                          <Calendar className="h-3 w-3 mr-1" />
-                          {lot.harvest_year}
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-gray-900">{lot.name}</span>
+                          <Badge variant="outline" className="text-[10px] px-2 h-5 bg-white">
+                            {lot.category}
+                          </Badge>
                         </div>
-                        <div className="flex items-center">
-                          <MapPin className="h-3 w-3 mr-1" />
-                          {lot.producers?.city}
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3.5 w-3.5" />
+                            {lot.harvest_year}
+                          </div>
+                          {lot.producers?.city && (
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3.5 w-3.5" />
+                              {lot.producers.city}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
+                    
                     <div className="text-right">
-                      <div className="text-sm font-medium text-gray-900">
+                      <div className="text-sm font-bold text-gray-900 mb-1">
                         {lot.quantity} {lot.unit}
                       </div>
-                      <div className="text-xs text-gray-500">
-                        Código: {lot.code}
+                      <div className="text-xs font-mono text-gray-400 bg-gray-50 px-2 py-1 rounded">
+                        {lot.code}
                       </div>
                     </div>
                   </div>
@@ -334,36 +398,71 @@ const Dashboard = () => {
         </div>
 
         {/* Ações rápidas */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Ações Rápidas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors text-center" onClick={() => setShowProducerModal(true)}>
-                <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <div className="font-medium text-gray-900">Adicionar Produtor</div>
-                <div className="text-sm text-gray-500">Cadastrar novo produtor</div>
-              </button>
-              <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors text-center" onClick={() => setShowLotModal(true)}>
-                <Package className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <div className="font-medium text-gray-900">Criar Lote</div>
-                <div className="text-sm text-gray-500">Registrar novo lote</div>
-              </button>
-              <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors text-center" onClick={() => window.location.href='/admin/relatorios'}>
-                <ChartBar className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <div className="font-medium text-gray-900">Ver Relatórios</div>
-                <div className="text-sm text-gray-500">Análises e métricas</div>
-              </button>
-              <button className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors text-center" onClick={() => window.location.href='/admin/associacoes'}>
-                <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <div className="font-medium text-gray-900">Associações</div>
-                <div className="text-sm text-gray-500">Gerenciar entidades</div>
-              </button>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <button 
+            className="p-6 bg-white border border-gray-200 rounded-xl hover:border-transparent hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center group flex flex-col items-center gap-3" 
+            onClick={() => setShowProducerModal(true)}
+          >
+            <div 
+              className="w-12 h-12 rounded-full flex items-center justify-center transition-colors duration-300 group-hover:bg-opacity-20"
+              style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
+            >
+              <Users className="h-6 w-6" weight="duotone" />
             </div>
-          </CardContent>
-        </Card>
+            <div>
+              <div className="font-semibold text-gray-900 mb-1">Novo Produtor</div>
+              <div className="text-xs text-gray-500">Cadastrar parceiro</div>
+            </div>
+          </button>
+
+          <button 
+            className="p-6 bg-white border border-gray-200 rounded-xl hover:border-transparent hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center group flex flex-col items-center gap-3" 
+            onClick={() => setShowLotModal(true)}
+          >
+            <div 
+              className="w-12 h-12 rounded-full flex items-center justify-center transition-colors duration-300 group-hover:bg-opacity-20"
+              style={{ backgroundColor: `${secondaryColor}10`, color: secondaryColor }}
+            >
+              <Package className="h-6 w-6" weight="duotone" />
+            </div>
+            <div>
+              <div className="font-semibold text-gray-900 mb-1">Novo Lote</div>
+              <div className="text-xs text-gray-500">Registrar produto</div>
+            </div>
+          </button>
+
+          <button 
+            className="p-6 bg-white border border-gray-200 rounded-xl hover:border-transparent hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center group flex flex-col items-center gap-3" 
+            onClick={() => window.location.href='/admin/relatorios'}
+          >
+            <div 
+              className="w-12 h-12 rounded-full flex items-center justify-center bg-blue-50 text-blue-600 transition-colors duration-300 group-hover:bg-blue-100"
+            >
+              <ChartBar className="h-6 w-6" weight="duotone" />
+            </div>
+            <div>
+              <div className="font-semibold text-gray-900 mb-1">Relatórios</div>
+              <div className="text-xs text-gray-500">Análises e métricas</div>
+            </div>
+          </button>
+
+          <button 
+            className="p-6 bg-white border border-gray-200 rounded-xl hover:border-transparent hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center group flex flex-col items-center gap-3" 
+            onClick={() => window.location.href='/admin/associacoes'}
+          >
+            <div 
+              className="w-12 h-12 rounded-full flex items-center justify-center bg-purple-50 text-purple-600 transition-colors duration-300 group-hover:bg-purple-100"
+            >
+              <Users className="h-6 w-6" weight="duotone" />
+            </div>
+            <div>
+              <div className="font-semibold text-gray-900 mb-1">Associações</div>
+              <div className="text-xs text-gray-500">Gerenciar entidades</div>
+            </div>
+          </button>
+        </div>
       </div>
+
       {/* Dialogs para formulários */}
       <Dialog open={showProducerModal} onOpenChange={setShowProducerModal}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">

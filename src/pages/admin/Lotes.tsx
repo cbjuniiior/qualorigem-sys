@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Plus, MagnifyingGlass } from "@phosphor-icons/react";
+import { Plus, MagnifyingGlass, FunnelSimple, Package, Eye } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { productLotsApi, producersApi, associationsApi } from "@/services/api";
+import { productLotsApi, producersApi, associationsApi, systemConfigApi } from "@/services/api";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -11,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { LotForm } from "@/components/lots/LotForm";
 import { LotCard } from "@/components/lots/LotCard";
 import { ProductLot } from "@/types/lot";
+import { hexToHsl } from "@/lib/utils";
 
 
 interface Producer {
@@ -30,6 +32,22 @@ const Lotes = () => {
   const [categoryFilter, setCategoryFilter] = useState("todas");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingLot, setEditingLot] = useState<ProductLot | null>(null);
+  const [branding, setBranding] = useState<{
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  } | null>(null);
+
+  const primaryColor = branding?.primaryColor || '#16a34a';
+  const secondaryColor = branding?.secondaryColor || '#22c55e';
+  const accentColor = branding?.accentColor || '#10b981';
+
+  const cssVariables = {
+    '--primary': hexToHsl(primaryColor),
+    '--secondary': hexToHsl(secondaryColor),
+    '--accent': hexToHsl(accentColor),
+    '--ring': hexToHsl(primaryColor),
+  } as React.CSSProperties;
 
   // Form state
   const [formData, setFormData] = useState({
@@ -74,6 +92,15 @@ const Lotes = () => {
   const totalSteps = 4;
 
   useEffect(() => {
+    const loadBranding = async () => {
+      try {
+        const config = await systemConfigApi.getBrandingConfig();
+        setBranding(config);
+      } catch (error) {
+        console.error("Erro ao carregar branding:", error);
+      }
+    };
+    loadBranding();
     fetchData();
   }, []);
 
@@ -507,89 +534,142 @@ const Lotes = () => {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Lotes</h1>
-            <p className="text-gray-600">Gerencie os lotes de produtos cadastrados</p>
-          </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="mt-4 sm:mt-0">
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Lote
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
-              {/* Header Simples */}
-              <div className="border-b px-6 py-4 bg-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900">Criar Novo Lote</h2>
-                    <p className="text-sm text-gray-500 mt-0.5">Passo {currentStep} de {totalSteps}</p>
+        <div className="rounded-2xl p-6 border shadow-sm" style={{ background: `linear-gradient(to right, ${primaryColor}10, ${primaryColor}05)`, borderColor: `${primaryColor}20` }}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl" style={{ backgroundColor: `${primaryColor}20` }}>
+                <Package className="h-8 w-8" style={{ color: primaryColor }} />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Lotes</h1>
+                <p className="text-gray-600 mt-1">Gerencie os lotes de produtos cadastrados</p>
+              </div>
+            </div>
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button 
+                  className="flex items-center gap-2 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:opacity-90"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  <Plus className="h-5 w-5" />
+                  Novo Lote
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
+                <div style={cssVariables} className="flex flex-col h-full">
+                  {/* Header Simples */}
+                  <div className="border-b px-6 py-4 bg-white">
+                    <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-900">Criar Novo Lote</h2>
+                      <p className="text-sm text-gray-500 mt-0.5">Passo {currentStep} de {totalSteps}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setIsCreateDialogOpen(false);
+                        resetForm();
+                      }}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <Plus className="w-5 h-5 rotate-45" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
+                </div>
+
+                {/* Content Area com scroll */}
+                <div className="flex-1 overflow-y-auto p-6">
+                  <LotForm
+                    formData={formData}
+                    setFormData={setFormData}
+                    producers={producers}
+                    associations={associations}
+                    isBlendMode={isBlendMode}
+                    setIsBlendMode={setIsBlendMode}
+                    currentStep={currentStep}
+                    setCurrentStep={setCurrentStep}
+                    totalSteps={totalSteps}
+                    onSubmit={handleCreate}
+                    onCancel={() => {
                       setIsCreateDialogOpen(false);
                       resetForm();
                     }}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </Button>
+                    branding={branding}
+                  />
                 </div>
-              </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
 
-              {/* Content Area com scroll */}
-              <div className="flex-1 overflow-y-auto p-6">
-                <LotForm
-                  formData={formData}
-                  setFormData={setFormData}
-                  producers={producers}
-                  associations={associations}
-                  isBlendMode={isBlendMode}
-                  setIsBlendMode={setIsBlendMode}
-                  currentStep={currentStep}
-                  setCurrentStep={setCurrentStep}
-                  totalSteps={totalSteps}
-                  onSubmit={handleCreate}
-                  onCancel={() => {
-                    setIsCreateDialogOpen(false);
-                    resetForm();
-                  }}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="border-0 shadow-sm bg-white">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg" style={{ backgroundColor: `${primaryColor}10` }}>
+                    <Package className="h-5 w-5" style={{ color: primaryColor }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: primaryColor }}>Total</p>
+                    <p className="text-2xl font-bold" style={{ color: `${primaryColor}CC` }}>{lots.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-0 shadow-sm bg-white">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-gray-100">
+                    <Eye className="h-5 w-5 text-gray-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Exibindo</p>
+                    <p className="text-2xl font-bold text-gray-800">{filteredLots.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="relative w-full">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <MagnifyingGlass className="h-5 w-5 text-gray-400" />
+                </div>
+                <Input
+                  placeholder="Buscar lotes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 border-gray-200 focus:ring-2"
+                  style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                 />
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <Input
-              placeholder="Buscar lotes..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="Filtrar por categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todas">Todas as categorias</SelectItem>
-              {categories.map((category) => (
-                <SelectItem key={category} value={category!}>
-                  {category}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+              
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-full sm:w-48 border-gray-200">
+                    <SelectValue placeholder="Filtrar por categoria" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas as categorias</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category!}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Lots Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -599,6 +679,7 @@ const Lotes = () => {
               lot={lot}
               onEdit={openEditDialog}
               onDelete={handleDelete}
+              branding={branding}
             />
           ))}
         </div>
@@ -613,9 +694,10 @@ const Lotes = () => {
         {editingLot && (
           <Dialog open={!!editingLot} onOpenChange={() => setEditingLot(null)}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <LotForm
-                formData={formData}
-                setFormData={setFormData}
+              <div style={cssVariables}>
+                <LotForm
+                  formData={formData}
+                  setFormData={setFormData}
                 producers={producers}
                 associations={associations}
                 isBlendMode={isBlendMode}
@@ -629,7 +711,9 @@ const Lotes = () => {
                   resetForm();
                 }}
                 isEditing={true}
+                branding={branding}
               />
+              </div>
             </DialogContent>
           </Dialog>
         )}

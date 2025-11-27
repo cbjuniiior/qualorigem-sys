@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { Plus, MagnifyingGlass, PencilSimple, Trash, MapPin, Phone, Envelope, Mountains, Thermometer, Copy, Users } from "@phosphor-icons/react";
+import { Plus, MagnifyingGlass, PencilSimple, Trash, MapPin, Phone, Envelope, Mountains, Thermometer, Copy, Users, Eye } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { producersApi, productLotsApi, associationsApi } from "@/services/api";
+import { producersApi, productLotsApi, associationsApi, systemConfigApi } from "@/services/api";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -30,6 +30,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox";
+import { hexToHsl } from "@/lib/utils";
 
 interface Producer {
   id: string;
@@ -64,10 +65,35 @@ const Produtores = () => {
   const navigate = useNavigate();
   const [filterCity, setFilterCity] = useState("");
   const [filterState, setFilterState] = useState("");
+  const [branding, setBranding] = useState<{
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  } | null>(null);
 
   useEffect(() => {
+    const loadBranding = async () => {
+      try {
+        const config = await systemConfigApi.getBrandingConfig();
+        setBranding(config);
+      } catch (error) {
+        console.error("Erro ao carregar branding:", error);
+      }
+    };
+    loadBranding();
     fetchProducers();
   }, []);
+
+  const primaryColor = branding?.primaryColor || '#16a34a';
+  const secondaryColor = branding?.secondaryColor || '#22c55e';
+  const accentColor = branding?.accentColor || '#10b981';
+
+  const cssVariables = {
+    '--primary': hexToHsl(primaryColor),
+    '--secondary': hexToHsl(secondaryColor),
+    '--accent': hexToHsl(accentColor),
+    '--ring': hexToHsl(primaryColor),
+  } as React.CSSProperties;
 
   useEffect(() => {
     if (selectedProducer) {
@@ -206,53 +232,112 @@ const Produtores = () => {
 
   return (
     <AdminLayout>
-      <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto py-10 px-4">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-2">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Produtores</h1>
-            <p className="text-gray-600">Gerencie os produtores cadastrados no sistema</p>
+      <div className="space-y-6">
+        <div className="rounded-2xl p-6 border shadow-sm" style={{ background: `linear-gradient(to right, ${primaryColor}10, ${primaryColor}05)`, borderColor: `${primaryColor}20` }}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl" style={{ backgroundColor: `${primaryColor}20` }}>
+                <Users className="h-8 w-8" style={{ color: primaryColor }} />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Produtores</h1>
+                <p className="text-gray-600 mt-1">Gerencie os produtores cadastrados no sistema</p>
+              </div>
+            </div>
+            <Button 
+              onClick={() => setIsCreateDialogOpen(true)}
+              className="flex items-center gap-2 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:opacity-90"
+              style={{ backgroundColor: primaryColor }}
+            >
+              <Plus className="h-5 w-5" />
+              Novo Produtor
+            </Button>
           </div>
-          <button className="bg-green-700 hover:bg-green-800 text-white font-bold py-3 px-8 rounded-lg shadow flex items-center gap-2 text-base h-12 min-w-[180px] justify-center" onClick={() => setIsCreateDialogOpen(true)}>
-            <span className="text-xl">+</span> Novo Produtor
-          </button>
         </div>
-        <div className="flex flex-col md:flex-row md:items-center gap-4 w-full mb-6">
-          <input
-            type="text"
-            placeholder="Buscar produtores..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full md:w-96 h-12 px-4 border border-gray-200 rounded-lg shadow-sm focus:border-primary focus:ring-2 focus:ring-primary/20 text-lg bg-white"
-          />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="border border-gray-200 rounded-lg px-4 h-12 bg-white shadow-sm flex items-center gap-2 text-base">
-                {filterCity || "Cidade"}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setFilterCity("")}>Todas</DropdownMenuItem>
-              {uniqueCities.map(city => (
-                <DropdownMenuItem key={city} onClick={() => setFilterCity(city)}>{city}</DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="border border-gray-200 rounded-lg px-4 h-12 bg-white shadow-sm flex items-center gap-2 text-base">
-                {filterState || "Estado"}
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setFilterState("")}>Todos</DropdownMenuItem>
-              {uniqueStates.map(state => (
-                <DropdownMenuItem key={state} onClick={() => setFilterState(state)}>{state}</DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <span className="ml-auto text-gray-500 text-base hidden md:inline">{filteredProducers.length} de {producers.length} produtores</span>
+
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Card className="border-0 shadow-sm bg-white">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg" style={{ backgroundColor: `${primaryColor}10` }}>
+                    <Users className="h-5 w-5" style={{ color: primaryColor }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: primaryColor }}>Total</p>
+                    <p className="text-2xl font-bold" style={{ color: `${primaryColor}CC` }}>{producers.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="border-0 shadow-sm bg-white">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-gray-100">
+                    <Eye className="h-5 w-5 text-gray-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Exibindo</p>
+                    <p className="text-2xl font-bold text-gray-800">{filteredProducers.length}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-        <div className="mb-4 md:hidden text-gray-500 text-base">{filteredProducers.length} de {producers.length} produtores</div>
+
+        <Card className="border-0 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="relative w-full">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <MagnifyingGlass className="h-5 w-5 text-gray-400" />
+                </div>
+                <Input
+                  type="text"
+                  placeholder="Buscar produtores..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 border-gray-200 focus:ring-2 w-full"
+                  style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                />
+              </div>
+              
+              <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="flex items-center gap-2 border-gray-200">
+                      <MapPin className="h-4 w-4 text-gray-400" />
+                      {filterCity || "Cidade"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => setFilterCity("")}>Todas</DropdownMenuItem>
+                    {uniqueCities.map(city => (
+                      <DropdownMenuItem key={city} onClick={() => setFilterCity(city)}>{city}</DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="flex items-center gap-2 border-gray-200">
+                      <MapPin className="h-4 w-4 text-gray-400" />
+                      {filterState || "Estado"}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => setFilterState("")}>Todos</DropdownMenuItem>
+                    {uniqueStates.map(state => (
+                      <DropdownMenuItem key={state} onClick={() => setFilterState(state)}>{state}</DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Grid de cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-8">
           {loading ? (
@@ -274,24 +359,27 @@ const Produtores = () => {
                   }}
                   style={{ textDecoration: 'none' }}
                 >
-                  {/* Foto/banner do produtor com ações sobrepostas */}
+                    {/* Foto/banner do produtor com ações sobrepostas */}
                   <div className="relative w-full h-40 bg-gray-100 flex items-center justify-center overflow-hidden">
                     {foto ? (
                       <img src={foto} alt={prod.name} className="object-cover w-full h-full" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-primary/30 bg-primary/5">
+                      <div 
+                        className="w-full h-full flex items-center justify-center text-3xl font-bold"
+                        style={{ backgroundColor: `${primaryColor}10`, color: `${primaryColor}50` }}
+                      >
                         {prod.name.split(' ').map(n => n[0]).join('').slice(0,2)}
                       </div>
                     )}
                     {/* Ações rápidas sobre a imagem */}
                     <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
-                      <button className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action" title="Editar" onClick={e => {e.stopPropagation(); openEditDialog(prod)}}>
-                        <PencilSimple className="h-5 w-5 text-primary" />
+                      <button className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action transition-all hover:scale-105" title="Editar" onClick={e => {e.stopPropagation(); openEditDialog(prod)}}>
+                        <PencilSimple className="h-5 w-5" style={{ color: primaryColor }} />
                       </button>
-                      <button className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action" title="Excluir" onClick={e => {e.stopPropagation(); handleDelete(prod.id)}}>
+                      <button className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action transition-all hover:scale-105" title="Excluir" onClick={e => {e.stopPropagation(); handleDelete(prod.id)}}>
                         <Trash className="h-5 w-5 text-red-500" />
                       </button>
-                      <button className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action" title="Copiar email" onClick={e => {e.stopPropagation(); navigator.clipboard.writeText(prod.email); toast.success('Email copiado!')}}>
+                      <button className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action transition-all hover:scale-105" title="Copiar email" onClick={e => {e.stopPropagation(); navigator.clipboard.writeText(prod.email || ""); toast.success('Email copiado!')}}>
                         <Copy className="h-5 w-5 text-gray-500" />
                       </button>
                     </div>
@@ -302,21 +390,21 @@ const Produtores = () => {
                     <div className="text-lg text-gray-500 mb-1 truncate">{prod.property_name}</div>
                     {/* Informações principais */}
                     <div className="flex flex-wrap gap-4 mt-2 text-gray-700 text-base">
-                      <span className="flex items-center gap-2"><MapPin className="h-5 w-5 text-primary/70" />{prod.city}, {prod.state}</span>
-                      <span className="flex items-center gap-2"><Phone className="h-5 w-5 text-primary/70" />{prod.phone}</span>
-                      <span className="flex items-center gap-2"><Envelope className="h-5 w-5 text-primary/70" />{prod.email}</span>
+                      <span className="flex items-center gap-2"><MapPin className="h-5 w-5" style={{ color: primaryColor }} />{prod.city}, {prod.state}</span>
+                      <span className="flex items-center gap-2"><Phone className="h-5 w-5" style={{ color: primaryColor }} />{prod.phone}</span>
+                      <span className="flex items-center gap-2"><Envelope className="h-5 w-5" style={{ color: primaryColor }} />{prod.email}</span>
                     </div>
                     {/* Badges de altitude/temperatura */}
                     <div className="flex flex-wrap gap-2 mt-3">
                       {prod.altitude && (
-                        <span className="bg-blue-100 text-blue-700 rounded-full px-4 py-1 text-base font-semibold flex items-center gap-2">
-                          <Mountains className="h-5 w-5" />
+                        <span className="bg-blue-50 text-blue-700 rounded-full px-4 py-1 text-base font-semibold flex items-center gap-2 border border-blue-100">
+                          <Mountains className="h-5 w-5" weight="duotone" />
                           {prod.altitude}m
                         </span>
                       )}
                       {prod.average_temperature && (
-                        <span className="bg-yellow-100 text-yellow-700 rounded-full px-4 py-1 text-base font-semibold flex items-center gap-2">
-                          <Thermometer className="h-5 w-5" />
+                        <span className="bg-orange-50 text-orange-700 rounded-full px-4 py-1 text-base font-semibold flex items-center gap-2 border border-orange-100">
+                          <Thermometer className="h-5 w-5" weight="duotone" />
                           {prod.average_temperature}°C
                         </span>
                       )}
@@ -332,8 +420,9 @@ const Produtores = () => {
       {/* Modal de detalhes do produtor */}
       <Dialog open={!!selectedProducer} onOpenChange={open => !open && setSelectedProducer(null)}>
         <DialogContent className="max-w-6xl max-h-[98vh] overflow-y-auto p-0 rounded-3xl shadow-2xl border-0 bg-[#f7f8fa]">
-          {selectedProducer && (
-            <div className="flex flex-col gap-10 p-0 md:p-12">
+          <div style={cssVariables}>
+            {selectedProducer && (
+              <div className="flex flex-col gap-10 p-0 md:p-12">
               {/* Topo: Carrossel e dados primários em duas colunas */}
               <div className="flex flex-col md:flex-row gap-10">
                 {/* Coluna esquerda: Carrossel/foto */}
@@ -496,6 +585,7 @@ const Produtores = () => {
               </div>
             </div>
           )}
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -503,15 +593,17 @@ const Produtores = () => {
       {editingProducer && (
         <Dialog open={!!editingProducer} onOpenChange={() => setEditingProducer(null)}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Editar Produtor</DialogTitle>
-            </DialogHeader>
-            <ProducerForm
-              key={editingProducer.id}
-              initialData={editingProducer}
-              onSubmit={handleUpdate}
-              onCancel={() => setEditingProducer(null)}
-            />
+            <div style={cssVariables}>
+              <DialogHeader>
+                <DialogTitle>Editar Produtor</DialogTitle>
+              </DialogHeader>
+              <ProducerForm
+                key={editingProducer.id}
+                initialData={editingProducer}
+                onSubmit={handleUpdate}
+                onCancel={() => setEditingProducer(null)}
+              />
+            </div>
           </DialogContent>
         </Dialog>
       )}
@@ -519,13 +611,15 @@ const Produtores = () => {
       {/* Dialog de criação de produtor controlado por isCreateDialogOpen */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Novo Produtor</DialogTitle>
-          </DialogHeader>
-          <ProducerForm
-            onSubmit={handleCreate}
-            onCancel={() => setIsCreateDialogOpen(false)}
-          />
+          <div style={cssVariables}>
+            <DialogHeader>
+              <DialogTitle>Novo Produtor</DialogTitle>
+            </DialogHeader>
+            <ProducerForm
+              onSubmit={handleCreate}
+              onCancel={() => setIsCreateDialogOpen(false)}
+            />
+          </div>
         </DialogContent>
       </Dialog>
     </AdminLayout>

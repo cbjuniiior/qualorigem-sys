@@ -19,17 +19,30 @@ interface ProductionStepProps {
   isBlendMode: boolean;
   producers: Producer[];
   associations: any[];
+  branding?: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  } | null;
+  qrValue?: string;
 }
 
-export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, associations }: ProductionStepProps) => {
+export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, associations, branding, qrValue }: ProductionStepProps) => {
+  const primaryColor = branding?.primaryColor || '#16a34a';
+  const secondaryColor = branding?.secondaryColor || '#22c55e';
+  const accentColor = branding?.accentColor || '#10b981';
+
   return (
     <div className="space-y-6">
       {isBlendMode ? (
         // Modo Blend - Composição do Blend
         <div className="bg-white border border-gray-200 rounded-lg p-5">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-              <Users className="w-4 h-4 text-blue-600" />
+            <div 
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: `${accentColor}15` }}
+            >
+              <Users className="w-4 h-4" style={{ color: accentColor }} />
             </div>
             <div>
               <h3 className="font-medium text-gray-900">Composição do Blend</h3>
@@ -42,6 +55,7 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
             setFormData={setFormData}
             producers={producers}
             associations={associations}
+            branding={branding}
           />
         </div>
       ) : (
@@ -50,8 +64,11 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
           {/* Informações do Produtor */}
           <div className="bg-white border border-gray-200 rounded-lg p-5">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center">
-                <Medal className="w-4 h-4 text-green-600" />
+              <div 
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: `${primaryColor}15` }}
+              >
+                <Medal className="w-4 h-4" style={{ color: primaryColor }} />
               </div>
               <div>
                 <h3 className="font-medium text-gray-900">Produtor</h3>
@@ -84,8 +101,11 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
           {/* Informações da Safra */}
           <div className="bg-white border border-gray-200 rounded-lg p-5">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-orange-50 rounded-lg flex items-center justify-center">
-                <Calendar className="w-4 h-4 text-orange-600" />
+              <div 
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: `${secondaryColor}15` }}
+              >
+                <Calendar className="w-4 h-4" style={{ color: secondaryColor }} />
               </div>
               <div>
                 <h3 className="font-medium text-gray-900">Informações da Safra</h3>
@@ -114,8 +134,11 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
           {/* Quantidade e Unidade */}
           <div className="bg-white border border-gray-200 rounded-lg p-5">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center">
-                <Package className="w-4 h-4 text-purple-600" />
+              <div 
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: `${primaryColor}15` }}
+              >
+                <Package className="w-4 h-4" style={{ color: primaryColor }} />
               </div>
               <div>
                 <h3 className="font-medium text-gray-900">Quantidade Produzida</h3>

@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { producersApi, productLotsApi, associationsApi } from "@/services/api";
+import { producersApi, productLotsApi, associationsApi, systemConfigApi } from "@/services/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/carousel";
 import { SlideshowLightbox } from 'lightbox.js-react';
 import { Checkbox } from "@/components/ui/checkbox";
+import { hexToHsl } from "@/lib/utils";
 
 interface Producer {
   id: string;
@@ -54,6 +55,34 @@ export default function ProducerDetails() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [carouselIndex, setCarouselIndex] = useState(0);
+  const [branding, setBranding] = useState<{
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  } | null>(null);
+
+  const primaryColor = branding?.primaryColor || '#16a34a';
+  const secondaryColor = branding?.secondaryColor || '#22c55e';
+  const accentColor = branding?.accentColor || '#10b981';
+
+  const cssVariables = {
+    '--primary': hexToHsl(primaryColor),
+    '--secondary': hexToHsl(secondaryColor),
+    '--accent': hexToHsl(accentColor),
+    '--ring': hexToHsl(primaryColor),
+  } as React.CSSProperties;
+
+  useEffect(() => {
+    const loadBranding = async () => {
+      try {
+        const config = await systemConfigApi.getBrandingConfig();
+        setBranding(config);
+      } catch (error) {
+        console.error("Erro ao carregar branding:", error);
+      }
+    };
+    loadBranding();
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -151,15 +180,17 @@ export default function ProducerDetails() {
         {/* Header premium com carrossel de fotos */}
         <Dialog open={editing} onOpenChange={setEditing}>
           <DialogContent className="max-w-3xl p-0 rounded-2xl shadow-2xl border-0 bg-[#f7f8fa] animate-fade-in">
-            <DialogHeader className="px-8 pt-8 pb-2">
-              <DialogTitle className="text-2xl font-bold text-gray-900">Editar Produtor</DialogTitle>
-            </DialogHeader>
-            <div className="px-8 pb-8">
-              <ProducerForm
-                initialData={producer}
-                onSubmit={handleUpdate}
-                onCancel={() => setEditing(false)}
-              />
+            <div style={cssVariables} className="h-full">
+              <DialogHeader className="px-8 pt-8 pb-2">
+                <DialogTitle className="text-2xl font-bold text-gray-900">Editar Produtor</DialogTitle>
+              </DialogHeader>
+              <div className="px-8 pb-8">
+                <ProducerForm
+                  initialData={producer}
+                  onSubmit={handleUpdate}
+                  onCancel={() => setEditing(false)}
+                />
+              </div>
             </div>
           </DialogContent>
         </Dialog>
@@ -167,13 +198,14 @@ export default function ProducerDetails() {
         {/* Modal de edição de associações */}
         <Dialog open={editingAssociations} onOpenChange={setEditingAssociations}>
           <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <Users className="w-5 h-5 text-primary" />
-                Gerenciar Associações
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
+            <div style={cssVariables}>
+              <DialogHeader>
+                <DialogTitle className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Users className="w-5 h-5" style={{ color: primaryColor }} />
+                  Gerenciar Associações
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
               <div className="text-sm text-gray-600">
                 Selecione as associações das quais este produtor faz parte:
               </div>
@@ -220,6 +252,7 @@ export default function ProducerDetails() {
                 Fechar
               </Button>
             </div>
+            </div>
           </DialogContent>
         </Dialog>
         <div className="flex flex-col md:flex-row items-center gap-10 mb-12 animate-fade-in">
@@ -262,7 +295,11 @@ export default function ProducerDetails() {
                   key={idx}
                   src={photo}
                   alt={`Miniatura ${idx + 1}`}
-                  className={`h-10 w-10 object-cover rounded-lg border-2 transition-all duration-200 cursor-pointer shadow-sm ${carouselIndex === idx ? 'border-primary ring-2 ring-primary' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                  className={`h-10 w-10 object-cover rounded-lg border-2 transition-all duration-200 cursor-pointer shadow-sm ${carouselIndex === idx ? 'ring-2' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                  style={{ 
+                    borderColor: carouselIndex === idx ? primaryColor : 'transparent',
+                    '--tw-ring-color': primaryColor 
+                  } as React.CSSProperties}
                   onClick={() => setCarouselIndex(idx)}
                   loading="lazy"
                 />
@@ -309,16 +346,30 @@ export default function ProducerDetails() {
                 </span>
               )}
               <div className="flex gap-2">
-                <Button size="icon" variant="ghost" onClick={() => navigate(-1)} title="Voltar" className="border border-gray-200">
+                <Button size="icon" variant="ghost" onClick={() => navigate(-1)} title="Voltar" className="border border-gray-200 hover:bg-gray-50">
                   <ArrowLeft className="w-5 h-5" />
                 </Button>
-                <Button size="icon" variant="outline" onClick={() => setEditing(true)} title="Editar" className="border border-gray-200">
+                <Button 
+                  size="icon" 
+                  variant="outline" 
+                  onClick={() => setEditing(true)} 
+                  title="Editar" 
+                  className="border border-gray-200 hover:bg-gray-50"
+                  style={{ color: primaryColor }}
+                >
                   <PencilSimple className="w-5 h-5" />
                 </Button>
-                <Button size="icon" variant="outline" onClick={() => setEditingAssociations(true)} title="Editar Associações" className="border border-gray-200">
+                <Button 
+                  size="icon" 
+                  variant="outline" 
+                  onClick={() => setEditingAssociations(true)} 
+                  title="Editar Associações" 
+                  className="border border-gray-200 hover:bg-gray-50"
+                  style={{ color: primaryColor }}
+                >
                   <Users className="w-5 h-5" />
                 </Button>
-                <Button size="icon" variant="outline" onClick={() => {navigator.clipboard.writeText(producer.id); toast.success('ID copiado!')}} title="Copiar ID" className="border border-gray-200">
+                <Button size="icon" variant="outline" onClick={() => {navigator.clipboard.writeText(producer.id); toast.success('ID copiado!')}} title="Copiar ID" className="border border-gray-200 hover:bg-gray-50">
                   <Copy className="w-5 h-5" />
                 </Button>
               </div>
@@ -332,23 +383,55 @@ export default function ProducerDetails() {
             {/* Badges de informações principais */}
             <div className="flex flex-wrap gap-3 mt-2">
               {producer.phone && (
-                <Badge variant="secondary" className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 text-base font-medium rounded-xl shadow-none">
-                  <Phone className="w-5 h-5" /> {producer.phone}
+                <Badge 
+                  variant="secondary" 
+                  className="flex items-center gap-2 px-4 py-2 text-base font-medium rounded-xl shadow-none border"
+                  style={{ 
+                    backgroundColor: `${primaryColor}10`, 
+                    color: primaryColor,
+                    borderColor: `${primaryColor}30`
+                  }}
+                >
+                  <Phone className="w-5 h-5" weight="duotone" /> {producer.phone}
                 </Badge>
               )}
               {producer.email && (
-                <Badge variant="secondary" className="flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 text-base font-medium rounded-xl shadow-none">
-                  <Envelope className="w-5 h-5" /> {producer.email}
+                <Badge 
+                  variant="secondary" 
+                  className="flex items-center gap-2 px-4 py-2 text-base font-medium rounded-xl shadow-none border"
+                  style={{ 
+                    backgroundColor: `${primaryColor}10`, 
+                    color: primaryColor,
+                    borderColor: `${primaryColor}30`
+                  }}
+                >
+                  <Envelope className="w-5 h-5" weight="duotone" /> {producer.email}
                 </Badge>
               )}
               {producer.altitude && (
-                <Badge variant="secondary" className="flex items-center gap-2 bg-orange-100 text-orange-700 px-4 py-2 text-base font-medium rounded-xl shadow-none">
-                  <Mountains className="w-5 h-5" /> {producer.altitude}m
+                <Badge 
+                  variant="secondary" 
+                  className="flex items-center gap-2 px-4 py-2 text-base font-medium rounded-xl shadow-none border"
+                  style={{ 
+                    backgroundColor: `${secondaryColor}10`, 
+                    color: secondaryColor,
+                    borderColor: `${secondaryColor}30`
+                  }}
+                >
+                  <Mountains className="w-5 h-5" weight="duotone" /> {producer.altitude}m
                 </Badge>
               )}
               {producer.average_temperature && (
-                <Badge variant="secondary" className="flex items-center gap-2 bg-pink-100 text-pink-700 px-4 py-2 text-base font-medium rounded-xl shadow-none">
-                  <Thermometer className="w-5 h-5" /> {producer.average_temperature}°C
+                <Badge 
+                  variant="secondary" 
+                  className="flex items-center gap-2 px-4 py-2 text-base font-medium rounded-xl shadow-none border"
+                  style={{ 
+                    backgroundColor: `${accentColor}10`, 
+                    color: accentColor,
+                    borderColor: `${accentColor}30`
+                  }}
+                >
+                  <Thermometer className="w-5 h-5" weight="duotone" /> {producer.average_temperature}°C
                 </Badge>
               )}
             </div>
@@ -359,22 +442,23 @@ export default function ProducerDetails() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
+              <Users className="w-5 h-5" style={{ color: primaryColor }} weight="duotone" />
               Associações
             </h2>
             <Button 
               variant="ghost" 
               size="sm"
               onClick={() => setEditingAssociations(true)}
-              className="flex items-center gap-1 text-sm"
+              className="flex items-center gap-1 text-sm hover:bg-gray-50"
+              style={{ color: primaryColor }}
             >
               <Plus className="w-4 h-4" />
               Gerenciar
             </Button>
           </div>
           {associations.length === 0 ? (
-            <div className="text-center text-gray-400 py-8 bg-gray-50 rounded-lg">
-              <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+            <div className="text-center text-gray-400 py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+              <Users className="w-8 h-8 mx-auto mb-2 text-gray-300" weight="duotone" />
               <p className="text-sm text-gray-500">Nenhuma associação vinculada</p>
             </div>
           ) : (
@@ -389,7 +473,7 @@ export default function ProducerDetails() {
                         </div>
                       ) : (
                         <div className="w-12 h-12 border border-gray-200 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-50">
-                          <Users className="w-6 h-6 text-gray-400" />
+                          <Users className="w-6 h-6 text-gray-400" weight="duotone" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
@@ -408,7 +492,7 @@ export default function ProducerDetails() {
                             {association.type}
                           </Badge>
                           <span className="text-xs text-gray-500 flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
+                            <MapPin className="w-3 h-3" weight="duotone" />
                             {association.city}, {association.state}
                           </span>
                         </div>
@@ -424,7 +508,8 @@ export default function ProducerDetails() {
                       <Button 
                         variant="ghost" 
                         size="sm" 
-                        className="text-xs text-primary hover:text-primary/80 h-6 px-2"
+                        className="text-xs hover:bg-gray-50 h-6 px-2"
+                        style={{ color: primaryColor }}
                         onClick={() => {
                           toast.info("Funcionalidade de detalhes em desenvolvimento");
                         }}
@@ -442,12 +527,18 @@ export default function ProducerDetails() {
         {/* Cards de dados e mapa */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12 animate-fade-in-up">
           <Card className="col-span-2 p-6 rounded-3xl shadow-md border bg-white flex flex-col gap-4">
-            <div className="font-bold text-lg text-gray-900 mb-2">Sobre a Fazenda</div>
-            <div className="text-gray-700 whitespace-pre-line">{producer.property_description || 'Sem descrição.'}</div>
-            <div className="text-gray-600 text-sm mt-2">Cadastrado em: {new Date(producer.created_at).toLocaleDateString()}</div>
+            <div className="font-bold text-lg text-gray-900 mb-2 flex items-center gap-2">
+              <Buildings className="w-5 h-5" style={{ color: primaryColor }} weight="duotone" />
+              Sobre a Fazenda
+            </div>
+            <div className="text-gray-700 whitespace-pre-line leading-relaxed">{producer.property_description || 'Sem descrição.'}</div>
+            <div className="text-gray-600 text-sm mt-2 pt-4 border-t border-gray-100">Cadastrado em: {new Date(producer.created_at).toLocaleDateString()}</div>
           </Card>
           <Card className="p-0 rounded-3xl shadow-md border bg-white flex flex-col overflow-hidden">
-            <div className="font-bold text-lg text-gray-900 px-6 pt-6 pb-2">Localização</div>
+            <div className="font-bold text-lg text-gray-900 px-6 pt-6 pb-2 flex items-center gap-2">
+              <MapTrifold className="w-5 h-5" style={{ color: primaryColor }} weight="duotone" />
+              Localização
+            </div>
             <div className="w-full h-56 relative">
               {loadingMap ? (
                 <div className="w-full h-full flex items-center justify-center text-gray-400">Carregando mapa...</div>
@@ -462,15 +553,22 @@ export default function ProducerDetails() {
                   allowFullScreen
                 ></iframe>
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400">Localização não disponível</div>
+                <div className="w-full h-full flex items-center justify-center text-gray-400 bg-gray-50">
+                  <div className="flex flex-col items-center">
+                    <MapPin className="w-8 h-8 text-gray-300 mb-2" weight="duotone" />
+                    <span>Localização não disponível</span>
+                  </div>
+                </div>
               )}
               {mapCoords && (
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${mapCoords.lat},${mapCoords.lon}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="absolute bottom-2 right-2 bg-primary text-white px-3 py-1 rounded shadow text-xs font-medium transition hover:bg-primary/90"
+                  className="absolute bottom-2 right-2 text-white px-3 py-1 rounded shadow text-xs font-medium transition hover:opacity-90 flex items-center gap-1"
+                  style={{ backgroundColor: primaryColor }}
                 >
+                  <ArrowSquareOut className="w-3 h-3" />
                   Ver no Google Maps
                 </a>
               )}
@@ -478,15 +576,15 @@ export default function ProducerDetails() {
             {/* Dados de endereço com ícones */}
             <div className="px-6 pb-4 pt-4 text-gray-700 text-sm space-y-3">
               {producer.address && (
-                <div className="flex items-center gap-3"><MapTrifold className="w-5 h-5 text-primary" /><span className="font-semibold">Endereço:</span> {producer.address}</div>
+                <div className="flex items-center gap-3"><MapTrifold className="w-5 h-5" style={{ color: primaryColor }} weight="duotone" /><span className="font-semibold">Endereço:</span> {producer.address}</div>
               )}
-              <div className="flex items-center gap-3"><Buildings className="w-5 h-5 text-primary" /><span className="font-semibold">Cidade:</span> {producer.city}</div>
-              <div className="flex items-center gap-3"><Globe className="w-5 h-5 text-primary" /><span className="font-semibold">Estado:</span> {producer.state}</div>
+              <div className="flex items-center gap-3"><Buildings className="w-5 h-5" style={{ color: primaryColor }} weight="duotone" /><span className="font-semibold">Cidade:</span> {producer.city}</div>
+              <div className="flex items-center gap-3"><Globe className="w-5 h-5" style={{ color: primaryColor }} weight="duotone" /><span className="font-semibold">Estado:</span> {producer.state}</div>
               {producer.cep && (
-                <div className="flex items-center gap-3"><EnvelopeSimple className="w-5 h-5 text-primary" /><span className="font-semibold">CEP:</span> {producer.cep}</div>
+                <div className="flex items-center gap-3"><EnvelopeSimple className="w-5 h-5" style={{ color: primaryColor }} weight="duotone" /><span className="font-semibold">CEP:</span> {producer.cep}</div>
               )}
               {mapCoords && (
-                <div className="flex items-center gap-3 mt-2 text-xs text-gray-500"><Compass className="w-5 h-5 text-primary" /><span className="font-semibold">Coordenadas:</span> {mapCoords.lat}, {mapCoords.lon}</div>
+                <div className="flex items-center gap-3 mt-2 text-xs text-gray-500"><Compass className="w-5 h-5" style={{ color: primaryColor }} weight="duotone" /><span className="font-semibold">Coordenadas:</span> {mapCoords.lat}, {mapCoords.lon}</div>
               )}
             </div>
           </Card>
@@ -494,11 +592,17 @@ export default function ProducerDetails() {
         {/* Lotes do produtor */}
         <div className="mb-10 animate-fade-in-up">
           <div className="flex items-center gap-3 mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">Lotes do Produtor</h2>
-            {lots.length > 0 && <Badge variant="secondary" className="bg-blue-100 text-blue-700">{lots.length}</Badge>}
+            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Package className="w-6 h-6" style={{ color: primaryColor }} weight="duotone" />
+              Lotes do Produtor
+            </h2>
+            {lots.length > 0 && <Badge variant="secondary" className="bg-blue-50 text-blue-700">{lots.length}</Badge>}
           </div>
           {lots.length === 0 ? (
-            <div className="text-center text-gray-400 py-12">Nenhum lote cadastrado.</div>
+            <div className="text-center text-gray-400 py-12 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+              <Package className="w-12 h-12 mx-auto mb-2 text-gray-300" weight="duotone" />
+              <p className="text-gray-500">Nenhum lote cadastrado.</p>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {lots.map((lote) => {
@@ -513,18 +617,18 @@ export default function ProducerDetails() {
                     className="block group"
                     style={{ textDecoration: 'none' }}
                   >
-                    <Card className="rounded-2xl shadow-md border bg-white overflow-hidden flex flex-col hover:shadow-xl transition-all cursor-pointer">
+                    <Card className="rounded-2xl shadow-md border bg-white overflow-hidden flex flex-col hover:shadow-xl transition-all cursor-pointer h-full">
                       {/* Imagem do lote com ações sobrepostas */}
                       <div className="relative w-full h-44 bg-gray-100 flex items-center justify-center overflow-hidden">
                         {lote.image_url ? (
-                          <img src={lote.image_url} alt={lote.name} className="object-cover w-full h-full" />
+                          <img src={lote.image_url} alt={lote.name} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <Package className="w-12 h-12 text-gray-300" />
+                            <Package className="w-12 h-12 text-gray-300" weight="duotone" />
                           </div>
                         )}
                         {/* Botões de ação sobre a imagem */}
-                        <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
+                        <div className="absolute top-3 right-3 flex flex-col gap-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                           <button
                             className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border flex items-center justify-center"
                             title="Abrir página pública do lote"
@@ -533,7 +637,7 @@ export default function ProducerDetails() {
                               window.open(publicUrl, '_blank', 'noopener,noreferrer');
                             }}
                           >
-                            <ArrowSquareOut className="w-5 h-5 text-primary" />
+                            <ArrowSquareOut className="w-5 h-5" style={{ color: primaryColor }} />
                           </button>
                           <button
                             className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border flex items-center justify-center"
@@ -550,15 +654,15 @@ export default function ProducerDetails() {
                               document.body.removeChild(link);
                             }}
                           >
-                            <QrCode className="w-5 h-5 text-green-700" />
+                            <QrCode className="w-5 h-5 text-gray-700" />
                           </button>
                         </div>
                       </div>
                       {/* Conteúdo principal */}
                       <div className="flex-1 flex flex-col gap-2 px-6 py-5">
-                        <div className="font-extrabold text-2xl text-gray-900 mb-1 truncate">{lote.name}</div>
+                        <div className="font-extrabold text-2xl text-gray-900 mb-1 truncate group-hover:text-primary transition-colors" style={{ color: 'inherit' }}>{lote.name}</div>
                         <div className="text-sm text-gray-500 mb-1 truncate">
-                          Código: <span className="font-medium">{lote.code}</span> | Safra: {lote.harvest_year}
+                          Código: <span className="font-medium text-gray-700">{lote.code}</span> | Safra: {lote.harvest_year}
                         </div>
                         <div className="text-sm text-gray-500 mb-1 truncate">
                           Categoria: {lote.category} {lote.variety && `| Variedade: ${lote.variety}`}
@@ -567,7 +671,7 @@ export default function ProducerDetails() {
                         <div className="flex items-center gap-2 mt-1">
                           <span className="flex items-center gap-1 bg-gray-100 text-gray-600 rounded-full px-3 py-1 text-xs font-semibold">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4 h-4">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
                             {lote.views ?? 0} visualizações
@@ -577,19 +681,19 @@ export default function ProducerDetails() {
                         <div className="flex flex-wrap gap-2 mt-2">
                           <span className="bg-gray-100 text-gray-700 rounded-full px-4 py-1 text-sm font-semibold">{lote.quantity} {lote.unit}</span>
                           {lote.flavor_score && (
-                            <span className="bg-green-100 text-green-700 rounded-full px-4 py-1 text-sm font-semibold">{lote.flavor_score.toFixed(1)} Sabor</span>
+                            <span className="bg-green-50 text-green-700 rounded-full px-4 py-1 text-sm font-semibold border border-green-100">{lote.flavor_score.toFixed(1)} Sabor</span>
                           )}
                           {lote.fragrance_score && (
-                            <span className="bg-yellow-100 text-yellow-700 rounded-full px-4 py-1 text-sm font-semibold">{lote.fragrance_score.toFixed(1)} Fragrância</span>
+                            <span className="bg-yellow-50 text-yellow-700 rounded-full px-4 py-1 text-sm font-semibold border border-yellow-100">{lote.fragrance_score.toFixed(1)} Fragrância</span>
                           )}
                           {lote.finish_score && (
-                            <span className="bg-blue-100 text-blue-700 rounded-full px-4 py-1 text-sm font-semibold">{lote.finish_score.toFixed(1)} Finalização</span>
+                            <span className="bg-blue-50 text-blue-700 rounded-full px-4 py-1 text-sm font-semibold border border-blue-100">{lote.finish_score.toFixed(1)} Finalização</span>
                           )}
                           {lote.acidity_score && (
-                            <span className="bg-pink-100 text-pink-700 rounded-full px-4 py-1 text-sm font-semibold">{lote.acidity_score.toFixed(1)} Acidez</span>
+                            <span className="bg-pink-50 text-pink-700 rounded-full px-4 py-1 text-sm font-semibold border border-pink-100">{lote.acidity_score.toFixed(1)} Acidez</span>
                           )}
                           {lote.body_score && (
-                            <span className="bg-purple-100 text-purple-700 rounded-full px-4 py-1 text-sm font-semibold">{lote.body_score.toFixed(1)} Corpo</span>
+                            <span className="bg-purple-50 text-purple-700 rounded-full px-4 py-1 text-sm font-semibold border border-purple-100">{lote.body_score.toFixed(1)} Corpo</span>
                           )}
                         </div>
                         <div className="text-xs text-gray-400 mt-2">ID: {lote.id}</div>

@@ -9,9 +9,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { associationsApi } from "@/services/api";
+import { associationsApi, systemConfigApi } from "@/services/api";
 import { uploadImageToSupabase } from "@/services/upload";
 import { toast } from "sonner";
+import { hexToHsl } from "@/lib/utils";
 import { 
   Plus, 
   PencilSimple, 
@@ -23,11 +24,11 @@ import {
   Envelope, 
   Phone, 
   Globe, 
-  Trash,
-  Eye,
-  Building,
-  Users,
-  X
+  Trash, 
+  Eye, 
+  Building, 
+  Users, 
+  X 
 } from "@phosphor-icons/react";
 
 interface AssociationFormData {
@@ -82,6 +83,34 @@ export default function Associacoes() {
   const [selectedAssociation, setSelectedAssociation] = useState<any>(null);
   const [producersList, setProducersList] = useState<any[]>([]);
   const [loadingProducers, setLoadingProducers] = useState(false);
+  const [branding, setBranding] = useState<{
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  } | null>(null);
+
+  const primaryColor = branding?.primaryColor || '#16a34a';
+  const secondaryColor = branding?.secondaryColor || '#22c55e';
+  const accentColor = branding?.accentColor || '#10b981';
+
+  const cssVariables = {
+    '--primary': hexToHsl(primaryColor),
+    '--secondary': hexToHsl(secondaryColor),
+    '--accent': hexToHsl(accentColor),
+    '--ring': hexToHsl(primaryColor),
+  } as React.CSSProperties;
+
+  useEffect(() => {
+    const loadBranding = async () => {
+      try {
+        const config = await systemConfigApi.getBrandingConfig();
+        setBranding(config);
+      } catch (error) {
+        console.error("Erro ao carregar branding:", error);
+      }
+    };
+    loadBranding();
+  }, []);
 
   const fetchAll = async () => {
     try {
@@ -258,11 +287,11 @@ export default function Associacoes() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-100">
+        <div className="rounded-2xl p-6 border shadow-sm" style={{ background: `linear-gradient(to right, ${primaryColor}10, ${primaryColor}05)`, borderColor: `${primaryColor}20` }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-100 rounded-xl">
-                <Building className="h-8 w-8 text-green-600" />
+              <div className="p-3 rounded-xl" style={{ backgroundColor: `${primaryColor}20` }}>
+                <Building className="h-8 w-8" style={{ color: primaryColor }} />
               </div>
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Associações & Cooperativas</h1>
@@ -271,28 +300,35 @@ export default function Associacoes() {
             </div>
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
-                <Button onClick={openCreate} className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-200">
+                <Button 
+                  onClick={openCreate} 
+                  className="flex items-center gap-2 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:opacity-90"
+                  style={{ backgroundColor: primaryColor }}
+                >
                   <Plus className="h-5 w-5" />
                   Nova Associação
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <Building className="h-5 w-5 text-green-600" />
-                    {editing ? "Editar Associação" : "Nova Associação"}
-                  </DialogTitle>
-                  
-                  {/* Indicador de Progresso */}
+                <div style={cssVariables}>
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <Building className="h-5 w-5" style={{ color: primaryColor }} />
+                      {editing ? "Editar Associação" : "Nova Associação"}
+                    </DialogTitle>
+                    
+                    {/* Indicador de Progresso */}
                   <div className="mt-4">
                     <div className="flex items-center justify-between">
                       {[1, 2, 3].map((step) => (
                         <div key={step} className="flex items-center">
-                          <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
-                            step <= currentStep 
-                              ? 'bg-green-600 text-white' 
-                              : 'bg-gray-200 text-gray-500'
-                          }`}>
+                          <div 
+                            className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium transition-colors duration-300`}
+                            style={{ 
+                              backgroundColor: step <= currentStep ? primaryColor : '#e5e7eb',
+                              color: step <= currentStep ? 'white' : '#6b7280'
+                            }}
+                          >
                             {step}
                           </div>
                           <div className="ml-2 text-sm font-medium text-gray-700">
@@ -301,9 +337,10 @@ export default function Associacoes() {
                             {step === 3 && 'Contatos'}
                           </div>
                           {step < 3 && (
-                            <div className={`w-8 h-0.5 mx-4 ${
-                              step < currentStep ? 'bg-green-600' : 'bg-gray-200'
-                            }`} />
+                            <div 
+                              className={`w-8 h-0.5 mx-4 transition-colors duration-300`}
+                              style={{ backgroundColor: step < currentStep ? primaryColor : '#e5e7eb' }}
+                            />
                           )}
                         </div>
                       ))}
@@ -429,7 +466,7 @@ export default function Associacoes() {
                               >
                                 {uploadingLogo ? (
                                   <div className="flex items-center gap-2">
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                                     Enviando...
                                   </div>
                                 ) : (
@@ -546,7 +583,8 @@ export default function Associacoes() {
                       {currentStep < totalSteps ? (
                         <Button 
                           onClick={nextStep}
-                          className="px-6 bg-green-600 hover:bg-green-700 text-white"
+                          className="px-6 text-white hover:opacity-90"
+                          style={{ backgroundColor: primaryColor }}
                           disabled={!validateStep(currentStep)}
                         >
                           Próximo
@@ -554,7 +592,8 @@ export default function Associacoes() {
                       ) : (
                         <Button 
                           onClick={handleSubmit}
-                          className="px-6 bg-green-600 hover:bg-green-700 text-white"
+                          className="px-6 text-white hover:opacity-90"
+                          style={{ backgroundColor: primaryColor }}
                           disabled={!form.name.trim()}
                         >
                           {editing ? "Salvar Alterações" : "Criar Associação"}
@@ -562,6 +601,7 @@ export default function Associacoes() {
                       )}
                     </div>
                   </div>
+                </div>
                 </div>
               </DialogContent>
             </Dialog>
@@ -571,11 +611,12 @@ export default function Associacoes() {
         {/* Modal de Produtores Associados */}
         <Dialog open={showProducersModal} onOpenChange={setShowProducersModal}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Users className="h-5 w-5 text-green-600" />
-                Produtores Associados
-              </DialogTitle>
+            <div style={cssVariables}>
+              <DialogHeader>
+                <DialogTitle className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Users className="h-5 w-5" style={{ color: primaryColor }} />
+                  Produtores Associados
+                </DialogTitle>
               {selectedAssociation && (
                 <p className="text-gray-600">
                   {selectedAssociation.name} • {producersList.length} produtores
@@ -586,7 +627,10 @@ export default function Associacoes() {
             <div className="space-y-4">
               {loadingProducers ? (
                 <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                  <div 
+                    className="animate-spin rounded-full h-8 w-8 border-b-2"
+                    style={{ borderColor: primaryColor }}
+                  ></div>
                   <span className="ml-3 text-gray-600">Carregando produtores...</span>
                 </div>
               ) : producersList.length === 0 ? (
@@ -605,8 +649,11 @@ export default function Associacoes() {
                     <Card key={producer.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
-                          <div className="w-12 h-12 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <Building className="h-6 w-6 text-green-600" />
+                          <div 
+                            className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ background: `linear-gradient(to bottom right, ${primaryColor}20, ${primaryColor}10)` }}
+                          >
+                            <Building className="h-6 w-6" style={{ color: primaryColor }} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <h4 className="font-semibold text-gray-900 truncate">
@@ -643,6 +690,7 @@ export default function Associacoes() {
                 Fechar
               </Button>
             </div>
+            </div>
           </DialogContent>
         </Dialog>
 
@@ -655,7 +703,8 @@ export default function Associacoes() {
                   placeholder="Buscar por nome, cidade, estado, descrição ou email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                  className="pl-10 border-gray-200 focus:ring-2"
+                  style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                 />
               </div>
               
@@ -706,57 +755,57 @@ export default function Associacoes() {
 
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-50 to-blue-100">
+            <Card className="border-0 shadow-sm bg-white">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Building className="h-5 w-5 text-blue-600" />
+                  <div className="p-2 rounded-lg" style={{ backgroundColor: `${primaryColor}10` }}>
+                    <Building className="h-5 w-5" style={{ color: primaryColor }} />
                   </div>
                   <div>
-                    <p className="text-sm text-blue-600 font-medium">Total</p>
-                    <p className="text-2xl font-bold text-blue-900">{items.length}</p>
+                    <p className="text-sm font-medium" style={{ color: primaryColor }}>Total</p>
+                    <p className="text-2xl font-bold" style={{ color: `${primaryColor}CC` }}>{items.length}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
             
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-green-50 to-green-100">
+            <Card className="border-0 shadow-sm bg-white">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <Building className="h-5 w-5 text-green-600" />
+                  <div className="p-2 rounded-lg" style={{ backgroundColor: `${secondaryColor}10` }}>
+                    <Building className="h-5 w-5" style={{ color: secondaryColor }} />
                   </div>
                   <div>
-                    <p className="text-sm text-green-600 font-medium">Associações</p>
-                    <p className="text-2xl font-bold text-green-900">{items.filter(i => i.type === 'associacao').length}</p>
+                    <p className="text-sm font-medium" style={{ color: secondaryColor }}>Associações</p>
+                    <p className="text-2xl font-bold" style={{ color: `${secondaryColor}CC` }}>{items.filter(i => i.type === 'associacao').length}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
             
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-purple-50 to-purple-100">
+            <Card className="border-0 shadow-sm bg-white">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg">
-                    <Building className="h-5 w-5 text-purple-600" />
+                  <div className="p-2 rounded-lg" style={{ backgroundColor: `${accentColor}10` }}>
+                    <Building className="h-5 w-5" style={{ color: accentColor }} />
                   </div>
                   <div>
-                    <p className="text-sm text-purple-600 font-medium">Cooperativas</p>
-                    <p className="text-2xl font-bold text-purple-900">{items.filter(i => i.type === 'cooperativa').length}</p>
+                    <p className="text-sm font-medium" style={{ color: accentColor }}>Cooperativas</p>
+                    <p className="text-2xl font-bold" style={{ color: `${accentColor}CC` }}>{items.filter(i => i.type === 'cooperativa').length}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
             
-            <Card className="border-0 shadow-sm bg-gradient-to-br from-orange-50 to-orange-100">
+            <Card className="border-0 shadow-sm bg-white">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-orange-100 rounded-lg">
-                    <Eye className="h-5 w-5 text-orange-600" />
+                  <div className="p-2 rounded-lg bg-gray-100">
+                    <Eye className="h-5 w-5 text-gray-600" />
                   </div>
                   <div>
-                    <p className="text-sm text-orange-600 font-medium">Exibindo</p>
-                    <p className="text-2xl font-bold text-orange-900">{filteredItems.length}</p>
+                    <p className="text-sm font-medium text-gray-600">Exibindo</p>
+                    <p className="text-2xl font-bold text-gray-800">{filteredItems.length}</p>
                   </div>
                 </div>
               </CardContent>
@@ -767,7 +816,10 @@ export default function Associacoes() {
             <Card className="border-0 shadow-sm">
               <CardContent className="p-12">
                 <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                  <div 
+                    className="animate-spin rounded-full h-8 w-8 border-b-2"
+                    style={{ borderColor: primaryColor }}
+                  ></div>
                   <span className="ml-3 text-gray-600">Carregando associações...</span>
                 </div>
               </CardContent>
@@ -787,7 +839,11 @@ export default function Associacoes() {
                     }
                   </p>
                   {!searchTerm && filterType === "all" && (
-                    <Button onClick={openCreate} className="bg-green-600 hover:bg-green-700">
+                    <Button 
+                      onClick={openCreate} 
+                      className="text-white hover:opacity-90"
+                      style={{ backgroundColor: primaryColor }}
+                    >
                       <Plus className="h-4 w-4 mr-2" />
                       Criar Primeira Associação
                     </Button>
@@ -798,21 +854,40 @@ export default function Associacoes() {
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 min-w-0">
               {filteredItems.map(item => (
-                <Card key={item.id} className="group hover:shadow-lg transition-all duration-300 border-0 shadow-sm bg-white hover:bg-gradient-to-br hover:from-green-50 hover:to-emerald-50">
+                <Card key={item.id} className="group hover:shadow-lg transition-all duration-300 border-0 shadow-sm bg-white">
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-4 min-w-0">
                       <div className="flex items-center gap-4 min-w-0 flex-1">
                         {item.logo_url ? (
-                          <div className="w-16 h-16 border-2 border-gray-100 rounded-xl overflow-hidden flex-shrink-0 group-hover:border-green-200 transition-colors bg-white">
+                          <div 
+                            className="w-16 h-16 border-2 border-gray-100 rounded-xl overflow-hidden flex-shrink-0 transition-colors bg-white"
+                            style={{ borderColor: 'transparent' }}
+                            onMouseEnter={(e) => e.currentTarget.style.borderColor = `${primaryColor}40`}
+                            onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
+                          >
                             <img src={item.logo_url} alt="Logo" className="w-full h-full object-contain" />
                           </div>
                         ) : (
-                          <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center group-hover:from-green-100 group-hover:to-emerald-100 transition-all">
-                            <Building className="h-8 w-8 text-gray-400 group-hover:text-green-500" />
+                          <div 
+                            className="w-16 h-16 bg-gray-50 rounded-xl flex items-center justify-center transition-all group-hover:bg-opacity-20"
+                            style={{ 
+                              backgroundColor: '#f9fafb'
+                            }}
+                          >
+                            <Building 
+                              className="h-8 w-8 text-gray-400 transition-colors" 
+                              style={{ color: '#9ca3af' }}
+                              onMouseEnter={(e) => e.currentTarget.style.color = primaryColor}
+                              onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}
+                            />
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-gray-900 text-lg group-hover:text-green-800 transition-colors truncate">
+                          <h3 
+                            className="font-bold text-gray-900 text-lg transition-colors truncate"
+                            onMouseEnter={(e) => e.currentTarget.style.color = primaryColor}
+                            onMouseLeave={(e) => e.currentTarget.style.color = ''}
+                          >
                             {item.name}
                           </h3>
                           <div className="flex items-center gap-2 mt-1">
@@ -842,7 +917,8 @@ export default function Associacoes() {
                           variant="ghost" 
                           size="icon" 
                           onClick={() => openEdit(item)} 
-                          className="h-8 w-8 hover:bg-green-100 hover:text-green-700"
+                          className="h-8 w-8"
+                          style={{ color: primaryColor }}
                           title="Editar"
                         >
                           <PencilSimple className="h-4 w-4" />
@@ -864,7 +940,10 @@ export default function Associacoes() {
                           variant="ghost"
                           size="sm"
                           onClick={() => openProducersModal(item)}
-                          className="h-8 px-3 text-green-700 hover:text-green-800 hover:bg-green-50"
+                          className="h-8 px-3 hover:bg-opacity-10"
+                          style={{ color: primaryColor }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = `${primaryColor}10`}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
                           <Users className="h-4 w-4 mr-1" />
                           Ver produtores ({item.producer_count || 0})
@@ -903,7 +982,8 @@ export default function Associacoes() {
                                 href={item.contact_info.website.startsWith('http') ? item.contact_info.website : `https://${item.contact_info.website}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-green-600 hover:text-green-700 hover:underline truncate"
+                                className="hover:underline truncate"
+                                style={{ color: primaryColor }}
                               >
                                 {item.contact_info.website}
                               </a>

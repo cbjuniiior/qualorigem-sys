@@ -12,11 +12,20 @@ interface LotCardProps {
   lot: ProductLot;
   onEdit: (lot: ProductLot) => void;
   onDelete: (id: string) => void;
+  branding?: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  } | null;
 }
 
-export const LotCard = ({ lot, onEdit, onDelete }: LotCardProps) => {
+export const LotCard = ({ lot, onEdit, onDelete, branding }: LotCardProps) => {
   const navigate = useNavigate();
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  
+  const primaryColor = branding?.primaryColor || '#16a34a';
+  const secondaryColor = branding?.secondaryColor || '#22c55e';
+  const accentColor = branding?.accentColor || '#10b981';
   
   // Detectar se é um blend - verificar tanto components quanto lot_components
   const isBlend = (lot.components && lot.components.length > 0) || (lot.lot_components && lot.lot_components.length > 0);
@@ -25,17 +34,7 @@ export const LotCard = ({ lot, onEdit, onDelete }: LotCardProps) => {
   const blendComponents = lot.components || lot.lot_components || [];
   
   // Debug: verificar estrutura do lote
-  console.log("LotCard recebido:", lot);
-  console.log("lot.components:", lot.components);
-  console.log("lot.lot_components:", lot.lot_components);
-  console.log("Estrutura detalhada dos componentes:", blendComponents.map((c: any) => ({
-    id: c.id,
-    component_name: c.component_name,
-    component_percentage: c.component_percentage,
-    producers: c.producers,
-    associations: c.associations
-  })));
-  
+  // console.log("LotCard recebido:", lot);
 
   return (
     <>
@@ -46,7 +45,7 @@ export const LotCard = ({ lot, onEdit, onDelete }: LotCardProps) => {
           onClick={() => setIsDetailsOpen(true)}
         >
           {lot.image_url ? (
-            <img src={lot.image_url} alt={lot.name} className="object-cover w-full h-full" />
+            <img src={lot.image_url} alt={lot.name} className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105" />
           ) : (
             <Package className="w-12 h-12 text-gray-300" />
           )}
@@ -56,12 +55,12 @@ export const LotCard = ({ lot, onEdit, onDelete }: LotCardProps) => {
           {/* Badge de Blend ou Individual no canto superior esquerdo da imagem */}
           <div className="absolute left-2 top-2">
             {isBlend ? (
-              <Badge className="bg-blue-600 text-white text-xs font-medium">
+              <Badge className="text-white text-xs font-medium border-0" style={{ backgroundColor: accentColor }}>
                 <Stack className="w-3 h-3 mr-1" />
                 Blend
               </Badge>
             ) : (
-              <Badge className="bg-green-600 text-white text-xs font-medium">
+              <Badge className="text-white text-xs font-medium border-0" style={{ backgroundColor: primaryColor }}>
                 <Medal className="w-3 h-3 mr-1" />
                 Individual
               </Badge>
@@ -72,7 +71,7 @@ export const LotCard = ({ lot, onEdit, onDelete }: LotCardProps) => {
         <CardHeader className="pb-3 pt-5 px-5 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <CardTitle className="text-base font-semibold text-gray-900 truncate mb-1">
+              <CardTitle className="text-base font-semibold text-gray-900 truncate mb-1 group-hover:text-primary transition-colors" style={{ color: 'inherit' }}>
                 {lot.name}
               </CardTitle>
               <p className="text-xs text-gray-500 truncate">
@@ -85,24 +84,29 @@ export const LotCard = ({ lot, onEdit, onDelete }: LotCardProps) => {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-7 w-7 p-0 text-gray-500 hover:text-blue-600 hover:bg-blue-50" 
+                className="h-7 w-7 p-0 text-gray-500 hover:bg-gray-100" 
+                style={{ color: 'inherit' }}
                 onClick={(e) => {
                   e.stopPropagation();
                   navigate(`/lote/${lot.code}`);
                 }} 
                 title="Ver Página Pública"
+                onMouseEnter={(e) => e.currentTarget.style.color = primaryColor}
+                onMouseLeave={(e) => e.currentTarget.style.color = ''}
               >
                 <ArrowUpRight className="h-3 w-3" />
               </Button>
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-7 w-7 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-100" 
+                className="h-7 w-7 p-0 text-gray-500 hover:bg-gray-100" 
                 onClick={(e) => {
                   e.stopPropagation();
                   onEdit(lot);
                 }} 
                 title="Editar"
+                onMouseEnter={(e) => e.currentTarget.style.color = primaryColor}
+                onMouseLeave={(e) => e.currentTarget.style.color = ''}
               >
                 <PencilSimple className="h-3 w-3" />
               </Button>
@@ -142,12 +146,12 @@ export const LotCard = ({ lot, onEdit, onDelete }: LotCardProps) => {
           {/* Badges de categoria e variedade */}
           <div className="flex flex-wrap gap-1.5 mt-2">
             {lot.category && (
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
                 {lot.category}
               </Badge>
             )}
             {lot.variety && (
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs text-gray-500 border-gray-200">
                 {lot.variety}
               </Badge>
             )}
@@ -166,7 +170,7 @@ export const LotCard = ({ lot, onEdit, onDelete }: LotCardProps) => {
             {/* Número de Selos */}
             {lot.seals_quantity && lot.quantity && (
               <div className="flex items-center gap-2">
-                <Tag className="h-4 w-4 text-blue-600" />
+                <Tag className="h-4 w-4" style={{ color: secondaryColor }} />
                 <span>
                   {(() => {
                     const packageSize = lot.quantity / lot.seals_quantity;
@@ -203,7 +207,7 @@ export const LotCard = ({ lot, onEdit, onDelete }: LotCardProps) => {
                 <div className="ml-5 space-y-0.5">
                   {blendComponents.slice(0, 2).map((component, index) => (
                     <div key={component.id} className="flex items-center gap-1.5">
-                      <div className="w-1 h-1 bg-blue-400 rounded-full"></div>
+                      <div className="w-1 h-1 rounded-full" style={{ backgroundColor: accentColor }}></div>
                       <span className="truncate text-xs text-gray-600">
                         {component.producers?.name || 'Produtor não informado'} 
                         <span className="text-gray-400 ml-1">({component.component_percentage}%)</span>

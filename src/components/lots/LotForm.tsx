@@ -30,6 +30,11 @@ interface LotFormProps {
   onSubmit: () => void;
   onCancel: () => void;
   isEditing?: boolean;
+  branding?: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  } | null;
 }
 
 export const LotForm = ({
@@ -44,9 +49,12 @@ export const LotForm = ({
   totalSteps,
   onSubmit,
   onCancel,
-  isEditing = false
+  isEditing = false,
+  branding
 }: LotFormProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const primaryColor = branding?.primaryColor || '#16a34a';
 
   // Upload único de imagem
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -157,6 +165,7 @@ export const LotForm = ({
         steps={steps}
         currentStep={currentStep}
         onStepClick={goToStep}
+        branding={branding}
       />
 
       {/* Conteúdo das Etapas */}
@@ -170,6 +179,7 @@ export const LotForm = ({
           handleImageUpload={handleImageUpload}
           removeImage={removeImage}
           qrValue={qrValue}
+          branding={branding}
         />
       )}
 
@@ -182,6 +192,7 @@ export const LotForm = ({
               isBlendMode={isBlendMode}
               producers={producers}
               qrValue={qrValue}
+              branding={branding}
             />
           ) : (
             <BlendComposition
@@ -189,6 +200,7 @@ export const LotForm = ({
               setFormData={setFormData}
               producers={producers}
               associations={associations}
+              branding={branding}
             />
           )}
         </div>
@@ -198,6 +210,7 @@ export const LotForm = ({
         <SensoryAnalysisStep
           formData={formData}
           setFormData={setFormData}
+          branding={branding}
         />
       )}
 
@@ -205,6 +218,7 @@ export const LotForm = ({
         <NotesStep
           formData={formData}
           setFormData={setFormData}
+          branding={branding}
         />
       )}
 
@@ -233,6 +247,8 @@ export const LotForm = ({
           {currentStep < totalSteps ? (
             <Button 
               onClick={nextStep}
+              style={{ backgroundColor: primaryColor }}
+              className="text-white hover:opacity-90"
             >
               Próximo
               <CaretRight className="w-4 h-4 ml-2" />
@@ -240,6 +256,8 @@ export const LotForm = ({
           ) : (
             <Button 
               onClick={onSubmit}
+              style={{ backgroundColor: primaryColor }}
+              className="text-white hover:opacity-90"
             >
               <Check className="w-4 h-4 mr-2" />
               {isEditing ? "Atualizar Lote" : "Criar Lote"}

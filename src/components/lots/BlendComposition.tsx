@@ -26,14 +26,23 @@ interface BlendCompositionProps {
   setFormData: (data: any) => void;
   producers: Producer[];
   associations: Association[];
+  branding?: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  } | null;
 }
 
-export const BlendComposition = ({ formData, setFormData, producers, associations }: BlendCompositionProps) => {
+export const BlendComposition = ({ formData, setFormData, producers, associations, branding }: BlendCompositionProps) => {
   const [expandedComponents, setExpandedComponents] = useState<Set<string>>(new Set());
+
+  const primaryColor = branding?.primaryColor || '#16a34a';
+  const secondaryColor = branding?.secondaryColor || '#22c55e';
+  const accentColor = branding?.accentColor || '#10b981';
 
   // Calcular quantidade total automaticamente quando os componentes mudarem
   useEffect(() => {
-    const totalQuantity = formData.components.reduce((sum, component) => {
+    const totalQuantity = formData.components.reduce((sum: any, component: any) => {
       return sum + (parseFloat(component.component_quantity) || 0);
     }, 0);
     
@@ -69,7 +78,7 @@ export const BlendComposition = ({ formData, setFormData, producers, association
     const newComponents = formData.components.filter((_: any, i: number) => i !== index);
     
     // Recalcular a quantidade total após remover um componente
-    const totalQuantity = newComponents.reduce((sum, component) => {
+    const totalQuantity = newComponents.reduce((sum: any, component: any) => {
       return sum + (parseFloat(component.component_quantity) || 0);
     }, 0);
     
@@ -86,7 +95,7 @@ export const BlendComposition = ({ formData, setFormData, producers, association
     
     // Se a quantidade de um componente foi alterada, recalcular a quantidade total
     if (field === 'component_quantity') {
-      const totalQuantity = newComponents.reduce((sum, component) => {
+      const totalQuantity = newComponents.reduce((sum: any, component: any) => {
         return sum + (parseFloat(component.component_quantity) || 0);
       }, 0);
       
@@ -115,8 +124,11 @@ export const BlendComposition = ({ formData, setFormData, producers, association
       {/* Quantidade Total do Blend */}
       <div className="bg-white border border-gray-200 rounded-lg p-5">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center">
-            <Package className="w-4 h-4 text-purple-600" />
+          <div 
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ backgroundColor: `${primaryColor}15` }}
+          >
+            <Package className="w-4 h-4" style={{ color: primaryColor }} />
           </div>
           <div>
             <h3 className="font-medium text-gray-900">Quantidade Total do Blend</h3>
@@ -184,7 +196,8 @@ export const BlendComposition = ({ formData, setFormData, producers, association
           type="button"
           size="sm"
           onClick={addComponent}
-          className="bg-blue-600 hover:bg-blue-700"
+          className="text-white hover:opacity-90"
+          style={{ backgroundColor: accentColor }}
         >
           <PlusCircle className="w-4 h-4 mr-2" />
           Adicionar Componente
@@ -198,7 +211,12 @@ export const BlendComposition = ({ formData, setFormData, producers, association
           </div>
           <h3 className="font-medium text-gray-900 mb-1">Nenhum componente adicionado</h3>
           <p className="text-sm text-gray-500 mb-4">Adicione os componentes que compõem este blend.</p>
-          <Button onClick={addComponent} size="sm">
+          <Button 
+            onClick={addComponent} 
+            size="sm"
+            style={{ backgroundColor: accentColor }}
+            className="text-white hover:opacity-90"
+          >
             <PlusCircle className="w-4 h-4 mr-2" />
             Adicionar Primeiro Componente
           </Button>
@@ -210,19 +228,6 @@ export const BlendComposition = ({ formData, setFormData, producers, association
             const selectedProducer = producers.find(p => p.id === component.producer_id);
             const selectedAssociation = associations.find(a => a.id === component.association_id);
             
-            // Debug logs
-            console.log(`Componente ${index + 1}:`, {
-              component,
-              producer_id: component.producer_id,
-              producer_id_type: typeof component.producer_id,
-              producer_id_length: component.producer_id?.length,
-              selectedProducer,
-              selectedProducer_id: selectedProducer?.id,
-              producers_available: producers.length,
-              producers_ids: producers.map(p => p.id),
-              producers_ids_types: producers.map(p => ({ id: p.id, type: typeof p.id }))
-            });
-            
             return (
               <div key={component.id} className="border border-gray-200 rounded-lg bg-white">
                 {/* Header da Sanfona */}
@@ -231,8 +236,11 @@ export const BlendComposition = ({ formData, setFormData, producers, association
                   onClick={() => toggleComponent(component.id)}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
-                      <span className="text-sm font-bold text-blue-600">{index + 1}</span>
+                    <div 
+                      className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: `${accentColor}15` }}
+                    >
+                      <span className="text-sm font-bold" style={{ color: accentColor }}>{index + 1}</span>
                     </div>
                     <div className="flex-1">
                       {/* Título Principal - Produtor + Produto */}
@@ -256,8 +264,11 @@ export const BlendComposition = ({ formData, setFormData, producers, association
                         
                         {component.component_name && (
                           <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                              <Package className="w-3 h-3 text-blue-600" />
+                            <div 
+                              className="w-6 h-6 rounded-full flex items-center justify-center"
+                              style={{ backgroundColor: `${primaryColor}15` }}
+                            >
+                              <Package className="w-3 h-3" style={{ color: primaryColor }} />
                             </div>
                             <span className="font-medium text-gray-700 text-sm">
                               {component.component_name}
@@ -269,7 +280,10 @@ export const BlendComposition = ({ formData, setFormData, producers, association
                       {/* Informações Secundárias */}
                       <div className="flex items-center gap-4 text-xs text-gray-500">
                         {component.component_percentage > 0 && (
-                          <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded-md font-medium">
+                          <span 
+                            className="px-2 py-1 rounded-md font-medium"
+                            style={{ backgroundColor: `${accentColor}15`, color: accentColor }}
+                          >
                             {component.component_percentage}%
                           </span>
                         )}
@@ -363,10 +377,6 @@ export const BlendComposition = ({ formData, setFormData, producers, association
                             ))}
                           </SelectContent>
                         </Select>
-                        {/* Debug info */}
-                        <div className="text-xs text-gray-400 mt-1">
-                          Debug: producer_id = "{component.producer_id}", selectedProducer = {selectedProducer ? selectedProducer.name : "null"}
-                        </div>
                       </div>
 
                       {/* Associação */}

@@ -32,6 +32,15 @@ interface VideoConfig {
 const Configuracoes = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [branding, setBranding] = useState<{
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+  } | null>(null);
+
+  const primaryColor = branding?.primaryColor || '#16a34a';
+  const secondaryColor = branding?.secondaryColor || '#22c55e';
+  const accentColor = branding?.accentColor || '#10b981';
   
   // Configurações
   const [lotIdConfig, setLotIdConfig] = useState<LotIdConfig>({
@@ -53,6 +62,15 @@ const Configuracoes = () => {
   });
 
   useEffect(() => {
+    const loadBranding = async () => {
+      try {
+        const config = await systemConfigApi.getBrandingConfig();
+        setBranding(config);
+      } catch (error) {
+        console.error("Erro ao carregar branding:", error);
+      }
+    };
+    loadBranding();
     loadConfigurations();
   }, []);
 
@@ -150,7 +168,8 @@ const Configuracoes = () => {
           <Button 
             onClick={saveConfigurations} 
             disabled={saving}
-            className="bg-green-600 hover:bg-green-700"
+            className="text-white hover:opacity-90"
+            style={{ backgroundColor: primaryColor }}
           >
             {saving ? (
               <Spinner className="h-4 w-4 mr-2 animate-spin" />
@@ -163,10 +182,10 @@ const Configuracoes = () => {
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Configuração de ID de Lotes */}
-          <Card>
+          <Card className="border-gray-100 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Hash className="h-5 w-5 mr-2 text-green-600" />
+                <Hash className="h-5 w-5 mr-2" style={{ color: primaryColor }} weight="duotone" />
                 Geração de ID de Lotes
               </CardTitle>
             </CardHeader>
@@ -179,7 +198,7 @@ const Configuracoes = () => {
                     setLotIdConfig(prev => ({ ...prev, mode: value }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="focus:ring-2" style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}>
                     <SelectValue placeholder="Selecione o modo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -205,6 +224,8 @@ const Configuracoes = () => {
                       onChange={(e) => setLotIdConfig(prev => ({ ...prev, prefix: e.target.value }))}
                       placeholder="GT"
                       maxLength={10}
+                      className="focus:ring-2" 
+                      style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                     />
                   </div>
 
@@ -215,6 +236,7 @@ const Configuracoes = () => {
                       onCheckedChange={(checked) => 
                         setLotIdConfig(prev => ({ ...prev, auto_increment: checked }))
                       }
+                      style={{ '--tw-ring-color': primaryColor, backgroundColor: lotIdConfig.auto_increment ? primaryColor : undefined } as React.CSSProperties}
                     />
                     <Label htmlFor="auto-increment">Numeração automática</Label>
                   </div>
@@ -231,6 +253,8 @@ const Configuracoes = () => {
                           current_number: parseInt(e.target.value) || 1 
                         }))}
                         min="1"
+                        className="focus:ring-2" 
+                        style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                       />
                       <p className="text-xs text-gray-500">
                         Próximo ID será: {lotIdConfig.prefix}-{(lotIdConfig.current_number || 1).toString().padStart(4, '0')}
@@ -243,10 +267,10 @@ const Configuracoes = () => {
           </Card>
 
           {/* Configuração de QR Code */}
-          <Card>
+          <Card className="border-gray-100 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center">
-                <QrCode className="h-5 w-5 mr-2 text-green-600" />
+                <QrCode className="h-5 w-5 mr-2" style={{ color: primaryColor }} weight="duotone" />
                 Configuração de QR Code
               </CardTitle>
             </CardHeader>
@@ -259,7 +283,7 @@ const Configuracoes = () => {
                     setQrCodeConfig(prev => ({ ...prev, mode: value }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="focus:ring-2" style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}>
                     <SelectValue placeholder="Selecione o modo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -286,7 +310,7 @@ const Configuracoes = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => removeGenericCategory(category)}
-                          className="text-red-600 hover:text-red-700"
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         >
                           ×
                         </Button>
@@ -296,7 +320,19 @@ const Configuracoes = () => {
                       variant="outline"
                       size="sm"
                       onClick={addGenericCategory}
-                      className="w-full"
+                      className="w-full hover:text-white hover:border-transparent transition-colors"
+                      style={{ 
+                        color: primaryColor, 
+                        borderColor: `${primaryColor}40` 
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = primaryColor;
+                        e.currentTarget.style.color = 'white';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                        e.currentTarget.style.color = primaryColor;
+                      }}
                     >
                       + Adicionar Categoria
                     </Button>
@@ -307,10 +343,10 @@ const Configuracoes = () => {
           </Card>
 
           {/* Configuração de Vídeo */}
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2 border-gray-100 shadow-sm">
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Video className="h-5 w-5 mr-2 text-green-600" />
+                <Video className="h-5 w-5 mr-2" style={{ color: primaryColor }} weight="duotone" />
                 Configurações do Vídeo de Apresentação
               </CardTitle>
             </CardHeader>
@@ -323,6 +359,7 @@ const Configuracoes = () => {
                     onCheckedChange={(checked) => 
                       setVideoConfig(prev => ({ ...prev, enabled: checked }))
                     }
+                    style={{ backgroundColor: videoConfig.enabled ? primaryColor : undefined } as React.CSSProperties}
                   />
                   <Label htmlFor="video-enabled">Vídeo habilitado</Label>
                 </div>
@@ -334,6 +371,7 @@ const Configuracoes = () => {
                     onCheckedChange={(checked) => 
                       setVideoConfig(prev => ({ ...prev, auto_play: checked }))
                     }
+                    style={{ backgroundColor: videoConfig.auto_play ? primaryColor : undefined } as React.CSSProperties}
                   />
                   <Label htmlFor="video-autoplay">Reprodução automática</Label>
                 </div>
@@ -350,13 +388,15 @@ const Configuracoes = () => {
                     }))}
                     min="1"
                     max="10"
+                    className="focus:ring-2" 
+                    style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
                   />
                 </div>
               </div>
 
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2">Como funciona:</h4>
-                <ul className="text-sm text-blue-800 space-y-1">
+              <div className="p-4 rounded-lg" style={{ backgroundColor: `${primaryColor}10` }}>
+                <h4 className="font-medium mb-2" style={{ color: primaryColor }}>Como funciona:</h4>
+                <ul className="text-sm space-y-1" style={{ color: `${primaryColor}90` }}>
                   <li>• O vídeo aparece automaticamente ao consultar um lote</li>
                   <li>• Após X segundos, aparece o botão "Pular para Produto"</li>
                   <li>• O usuário pode assistir o vídeo completo ou pular diretamente</li>
@@ -368,18 +408,18 @@ const Configuracoes = () => {
         </div>
 
         {/* Preview das Configurações */}
-        <Card>
+        <Card className="border-gray-100 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Gear className="h-5 w-5 mr-2 text-green-600" />
+              <Gear className="h-5 w-5 mr-2" style={{ color: primaryColor }} weight="duotone" />
               Preview das Configurações
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="p-4 border rounded-lg">
-                <h4 className="font-medium mb-2">ID de Lote</h4>
-                <Badge variant="secondary">
+              <div className="p-4 border border-gray-100 rounded-lg bg-gray-50">
+                <h4 className="font-medium mb-2 text-gray-700">ID de Lote</h4>
+                <Badge variant="secondary" className="bg-white border shadow-sm text-gray-600">
                   {lotIdConfig.mode === 'auto' 
                     ? `${lotIdConfig.prefix}-${(lotIdConfig.current_number || 1).toString().padStart(4, '0')}`
                     : 'Manual'
@@ -387,16 +427,16 @@ const Configuracoes = () => {
                 </Badge>
               </div>
 
-              <div className="p-4 border rounded-lg">
-                <h4 className="font-medium mb-2">QR Code</h4>
-                <Badge variant="secondary">
+              <div className="p-4 border border-gray-100 rounded-lg bg-gray-50">
+                <h4 className="font-medium mb-2 text-gray-700">QR Code</h4>
+                <Badge variant="secondary" className="bg-white border shadow-sm text-gray-600">
                   {qrCodeConfig.mode === 'individual' ? 'Individual' : 'Genérico'}
                 </Badge>
               </div>
 
-              <div className="p-4 border rounded-lg">
-                <h4 className="font-medium mb-2">Vídeo</h4>
-                <Badge variant="secondary">
+              <div className="p-4 border border-gray-100 rounded-lg bg-gray-50">
+                <h4 className="font-medium mb-2 text-gray-700">Vídeo</h4>
+                <Badge variant="secondary" className="bg-white border shadow-sm text-gray-600">
                   {videoConfig.enabled ? 'Habilitado' : 'Desabilitado'}
                 </Badge>
               </div>
