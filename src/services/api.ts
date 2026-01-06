@@ -425,6 +425,31 @@ export const authApi = {
   // Escutar mudanças de autenticação
   onAuthStateChange(callback: (event: string, session: any) => void) {
     return supabase.auth.onAuthStateChange(callback);
+  },
+
+  // Atualizar perfil do usuário (apenas nome)
+  async updateProfile(data: { full_name?: string }) {
+    const updateData: { data?: { full_name?: string } } = {};
+    
+    // Atualizar nome nos metadados do usuário
+    if (data.full_name !== undefined) {
+      updateData.data = { full_name: data.full_name };
+    }
+    
+    const { data: userData, error } = await supabase.auth.updateUser(updateData);
+    
+    if (error) throw error;
+    return userData;
+  },
+
+  // Atualizar senha do usuário
+  async updatePassword(newPassword: string) {
+    const { data, error } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+    
+    if (error) throw error;
+    return data;
   }
 };
 

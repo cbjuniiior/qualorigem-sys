@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Gear, User, Envelope, Phone, MapPin, FloppyDisk, Eye, EyeSlash, Bell, Shield, Palette, Globe } from "@phosphor-icons/react";
+import { Gear, User, Envelope, Phone, MapPin, FloppyDisk, Eye, EyeSlash, Bell, Shield, Palette, Globe, CheckCircle } from "@phosphor-icons/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,15 +16,29 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ProducerLayout } from "@/components/layout/ProducerLayout";
 import { useAuth } from "@/hooks/use-auth";
-import { producersApi, Producer } from "@/services/api";
+import { producersApi, Producer, authApi } from "@/services/api";
 import { toast } from "sonner";
 
 export const ProducerConfiguracoes = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [producer, setProducer] = useState<Producer | null>(null);
+  
+  // Estados da senha
+  const [passwordData, setPasswordData] = useState({
+    newPassword: "",
+    confirmPassword: "",
+  });
+  
+  // Estados do perfil do usuário (auth)
+  const [userProfile, setUserProfile] = useState({
+    full_name: "",
+  });
   
   // Estados do formulário
   const [formData, setFormData] = useState({
@@ -51,7 +65,16 @@ export const ProducerConfiguracoes = () => {
 
   useEffect(() => {
     fetchProducerData();
-  }, []);
+    loadUserProfile();
+  }, [user]);
+
+  const loadUserProfile = () => {
+    if (user) {
+      setUserProfile({
+        full_name: user.user_metadata?.full_name || "",
+      });
+    }
+  };
 
   const fetchProducerData = async () => {
     try {
@@ -135,6 +158,103 @@ export const ProducerConfiguracoes = () => {
     }
   };
 
+  const handleSaveUserProfile = async () => {
+    if (!userProfile.full_name.trim()) {
+      toast.error("Preencha o nome completo");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await authApi.updateProfile({
+        full_name: userProfile.full_name.trim(),
+      });
+      
+      toast.success("Nome atualizado com sucesso!");
+      
+      // Recarregar dados do usuário
+      loadUserProfile();
+    } catch (error: any) {
+      console.error("Erro ao atualizar perfil do usuário:", error);
+      const errorMessage = error.message || "Erro ao atualizar perfil do usuário";
+      toast.error(errorMessage);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!passwordData.newPassword || !passwordData.confirmPassword) {
+      toast.error("Preencha todos os campos de senha");
+      return;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("As senhas não coincidem");
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      toast.error("A senha deve ter pelo menos 6 caracteres");
+      return;
+    }
+
+    // Validação adicional: verificar se a senha não é muito simples
+    if (passwordData.newPassword.length > 72) {
+      toast.error("A senha não pode ter mais de 72 caracteres");
+      return;
+    }
+
+    try {
+      setSavingPassword(true);
+      await authApi.updatePassword(passwordData.newPassword);
+      
+      // Limpar campos imediatamente
+      setPasswordData({
+        newPassword: "",
+        confirmPassword: "",
+      });
+      
+      // Mostrar estado de sucesso
+      setPasswordSuccess(true);
+      
+      // Exibir toast de sucesso com duração maior
+      toast.success("Senha alterada com sucesso!", {
+        duration: 4000,
+        description: "Sua senha foi atualizada com sucesso. Use a nova senha no próximo login.",
+      });
+      
+      // Remover estado de sucesso após 3 segundos
+      setTimeout(() => {
+        setPasswordSuccess(false);
+      }, 3000);
+    } catch (error: any) {
+      console.error("Erro ao alterar senha:", error);
+      
+      // Tratamento específico para erros do Supabase
+      let errorMessage = "Erro ao alterar senha";
+      
+      if (error.message) {
+        if (error.message.includes("New password should be different from the old password")) {
+          errorMessage = "A nova senha deve ser diferente da senha atual";
+        } else if (error.message.includes("Password should be at least")) {
+          errorMessage = "A senha deve ter pelo menos 6 caracteres";
+        } else if (error.message.includes("Invalid password")) {
+          errorMessage = "A senha não atende aos requisitos de segurança";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      toast.error(errorMessage, {
+        duration: 5000,
+        description: "Por favor, verifique os requisitos e tente novamente.",
+      });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   const estados = [
     "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", 
     "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", 
@@ -167,6 +287,57 @@ export const ProducerConfiguracoes = () => {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2">
+          {/* Perfil do Usuário */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <User className="h-5 w-5" />
+                <span>Perfil do Usuário</span>
+              </CardTitle>
+              <CardDescription>
+                Informações da sua conta de acesso
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="user-name">Nome Completo</Label>
+                <Input
+                  id="user-name"
+                  value={userProfile.full_name}
+                  onChange={(e) => setUserProfile(prev => ({ ...prev, full_name: e.target.value }))}
+                  placeholder="Seu nome completo"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="user-email-display">E-mail</Label>
+                <Input
+                  id="user-email-display"
+                  type="email"
+                  value={user?.email || ""}
+                  disabled
+                  className="bg-gray-50 cursor-not-allowed"
+                />
+                <p className="text-xs text-gray-500">
+                  O e-mail não pode ser alterado
+                </p>
+              </div>
+
+              <Button 
+                onClick={handleSaveUserProfile} 
+                disabled={saving || !userProfile.full_name.trim()}
+                className="w-full"
+              >
+                {saving ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                ) : (
+                  <FloppyDisk className="h-4 w-4 mr-2" />
+                )}
+                Salvar Nome
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Perfil do Produtor */}
           <Card>
             <CardHeader>
@@ -415,21 +586,24 @@ export const ProducerConfiguracoes = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="current-password">Senha Atual</Label>
+                  <Label htmlFor="new-password">Nova Senha</Label>
                   <div className="relative">
                     <Input
-                      id="current-password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Digite sua senha atual"
+                      id="new-password"
+                      type={showNewPassword ? "text" : "password"}
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                      placeholder="Digite a nova senha"
+                      className="pr-10"
                     />
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
                       className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
+                      onClick={() => setShowNewPassword(!showNewPassword)}
                     >
-                      {showPassword ? (
+                      {showNewPassword ? (
                         <EyeSlash className="h-4 w-4" />
                       ) : (
                         <Eye className="h-4 w-4" />
@@ -439,25 +613,52 @@ export const ProducerConfiguracoes = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="new-password">Nova Senha</Label>
-                  <Input
-                    id="new-password"
-                    type="password"
-                    placeholder="Digite a nova senha"
-                  />
-                </div>
-
-                <div className="space-y-2">
                   <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
-                  <Input
-                    id="confirm-password"
-                    type="password"
-                    placeholder="Confirme a nova senha"
-                  />
+                  <div className="relative">
+                    <Input
+                      id="confirm-password"
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      placeholder="Confirme a nova senha"
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    >
+                      {showConfirmPassword ? (
+                        <EyeSlash className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
-                <Button variant="outline" className="w-full">
-                  Alterar Senha
+                <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
+                  <p className="text-xs text-blue-700">
+                    <strong>Importante:</strong> A nova senha deve ser diferente da senha atual e ter pelo menos 6 caracteres.
+                  </p>
+                </div>
+
+                <Button 
+                  onClick={handleUpdatePassword} 
+                  disabled={savingPassword || passwordSuccess || !passwordData.newPassword || !passwordData.confirmPassword}
+                  variant={passwordSuccess ? "default" : "outline"}
+                  className={`w-full ${passwordSuccess ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
+                >
+                  {savingPassword ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                  ) : passwordSuccess ? (
+                    <CheckCircle className="h-4 w-4 mr-2" weight="fill" />
+                  ) : (
+                    <Shield className="h-4 w-4 mr-2" />
+                  )}
+                  {passwordSuccess ? "Senha Alterada!" : "Alterar Senha"}
                 </Button>
               </CardContent>
             </Card>

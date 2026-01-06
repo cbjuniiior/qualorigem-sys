@@ -116,10 +116,12 @@ export const ProducerLayout = ({ children }: ProducerLayoutProps) => {
               <li className="mt-auto">
                 <div className="flex items-center gap-x-4 px-2 py-3 text-sm font-semibold leading-6 text-gray-900">
                   <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <User className="h-4 w-4 text-green-700" />
+                    <span className="font-medium text-green-700">
+                      {(user?.user_metadata?.full_name || user?.email)?.charAt(0).toUpperCase()}
+                    </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="truncate">{user?.email}</p>
+                    <p className="truncate">{user?.user_metadata?.full_name || user?.email}</p>
                     <p className="text-xs text-gray-500">Produtor</p>
                   </div>
                   <Button
@@ -189,10 +191,12 @@ export const ProducerLayout = ({ children }: ProducerLayoutProps) => {
               <div className="py-6">
                 <div className="flex items-center gap-x-4 px-3 py-2 text-base font-semibold leading-7 text-gray-900">
                   <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <User className="h-4 w-4 text-green-700" />
+                    <span className="font-medium text-green-700">
+                      {(user?.user_metadata?.full_name || user?.email)?.charAt(0).toUpperCase()}
+                    </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="truncate">{user?.email}</p>
+                    <p className="truncate">{user?.user_metadata?.full_name || user?.email}</p>
                     <p className="text-xs text-gray-500">Produtor</p>
                   </div>
                   <Button

@@ -198,11 +198,11 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                       className="font-medium"
                       style={{ color: primaryColor }}
                     >
-                      {user?.email?.charAt(0).toUpperCase()}
+                      {(user?.user_metadata?.full_name || user?.email)?.charAt(0).toUpperCase()}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="truncate">{user?.email}</p>
+                    <p className="truncate">{user?.user_metadata?.full_name || user?.email}</p>
                     <p className="text-xs text-gray-500">Administrador</p>
                   </div>
                   <Button
@@ -298,11 +298,11 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                       className="font-medium"
                       style={{ color: primaryColor }}
                     >
-                      {user?.email?.charAt(0).toUpperCase()}
+                      {(user?.user_metadata?.full_name || user?.email)?.charAt(0).toUpperCase()}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="truncate">{user?.email}</p>
+                    <p className="truncate">{user?.user_metadata?.full_name || user?.email}</p>
                     <p className="text-xs text-gray-500">Administrador</p>
                   </div>
                   <Button
