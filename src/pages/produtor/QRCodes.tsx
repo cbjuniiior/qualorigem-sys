@@ -44,10 +44,32 @@ export const ProducerQRCodes = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [qrUrls, setQrUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchLotes();
   }, []);
+
+  useEffect(() => {
+    // Gerar URLs dos QR Codes quando os lotes são carregados
+    const generateUrls = async () => {
+      const urls: Record<string, string> = {};
+      for (const lote of lotes) {
+        try {
+          const { generateQRCodeUrl } = await import("@/utils/qr-code-generator");
+          urls[lote.id] = await generateQRCodeUrl(lote.code, lote.category);
+        } catch (error) {
+          console.error('Erro ao gerar URL do QR Code:', error);
+          urls[lote.id] = `${window.location.origin}/lote/${lote.code}`;
+        }
+      }
+      setQrUrls(urls);
+    };
+    
+    if (lotes.length > 0) {
+      generateUrls();
+    }
+  }, [lotes]);
 
   const fetchLotes = async () => {
     try {
@@ -62,10 +84,6 @@ export const ProducerQRCodes = () => {
     }
   };
 
-  const generateQRUrl = (loteCode: string) => {
-    return `${window.location.origin}/lote/${loteCode}`;
-  };
-
   const handleDownloadQR = (loteCode: string, loteName: string) => {
     // Em produção, implemente a geração real do QR code como imagem
     toast.info("Funcionalidade de download será implementada");
@@ -76,10 +94,18 @@ export const ProducerQRCodes = () => {
     toast.info("Funcionalidade de impressão será implementada");
   };
 
-  const handleCopyUrl = (loteCode: string) => {
-    const url = generateQRUrl(loteCode);
-    navigator.clipboard.writeText(url);
-    toast.success("URL copiada para a área de transferência");
+  const handleCopyUrl = async (loteId: string, loteCode: string, category: string | null) => {
+    try {
+      const { generateQRCodeUrl } = await import("@/utils/qr-code-generator");
+      const url = await generateQRCodeUrl(loteCode, category);
+      navigator.clipboard.writeText(url);
+      toast.success("URL copiada para a área de transferência");
+    } catch (error) {
+      console.error('Erro ao copiar URL:', error);
+      const fallbackUrl = `${window.location.origin}/lote/${loteCode}`;
+      navigator.clipboard.writeText(fallbackUrl);
+      toast.success("URL copiada para a área de transferência");
+    }
   };
 
   const filteredLotes = lotes.filter(lote => {
@@ -196,7 +222,7 @@ export const ProducerQRCodes = () => {
                     <CardContent className="space-y-4">
                       {/* QR Code */}
                       <div className="flex justify-center">
-                        <QRCodeDisplay value={generateQRUrl(lote.code)} />
+                        <QRCodeDisplay value={qrUrls[lote.id] || `${window.location.origin}/lote/${lote.code}`} />
                       </div>
                       
                       {/* Informações do lote */}
@@ -219,7 +245,7 @@ export const ProducerQRCodes = () => {
                       
                       {/* URL do QR Code */}
                       <div className="bg-gray-50 p-2 rounded text-xs font-mono text-gray-600 break-all">
-                        {generateQRUrl(lote.code)}
+                        {qrUrls[lote.id] || `${window.location.origin}/lote/${lote.code}`}
                       </div>
                       
                       {/* Ações */}
@@ -245,7 +271,7 @@ export const ProducerQRCodes = () => {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => handleCopyUrl(lote.code)}
+                          onClick={() => handleCopyUrl(lote.id, lote.code, lote.category)}
                         >
                           <Copy className="h-3 w-3" />
                         </Button>

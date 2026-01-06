@@ -8,7 +8,6 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import LoteDetails from "./pages/LoteDetails";
 import Login from "./pages/auth/Login";
-import Register from "./pages/auth/Register";
 import Dashboard from "./pages/admin/Dashboard";
 import Produtores from "./pages/admin/Produtores";
 import Lotes from "./pages/admin/Lotes";
@@ -23,6 +22,7 @@ import NotFound from "./pages/NotFound";
 import ProducerDetails from "./pages/admin/ProducerDetails";
 import Configuracoes from "./pages/admin/Configuracoes";
 import Personalizacao from "./pages/admin/Personalizacao";
+import Usuarios from "./pages/admin/Usuarios";
 
 const queryClient = new QueryClient();
 
@@ -37,7 +37,6 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/lote/:codigo" element={<LoteDetails />} />
             <Route path="/auth/login" element={<Login />} />
-            <Route path="/auth/register" element={<Register />} />
             
             {/* Rotas protegidas do admin */}
             <Route path="/admin" element={
@@ -78,6 +77,11 @@ const App = () => (
             <Route path="/admin/configuracoes" element={
               <ProtectedRoute>
                 <Configuracoes />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/usuarios" element={
+              <ProtectedRoute>
+                <Usuarios />
               </ProtectedRoute>
             } />
             

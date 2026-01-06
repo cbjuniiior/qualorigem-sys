@@ -70,6 +70,11 @@ const LoteDetails = () => {
   const productDetailsRef = useRef<HTMLDivElement>(null);
   
   // Estados para controle do vídeo
+  const [videoConfig, setVideoConfig] = useState<{
+    enabled: boolean;
+    auto_play: boolean;
+    show_after_seconds: number;
+  } | null>(null);
   const [videoMuted, setVideoMuted] = useState(true);
   const [countdown, setCountdown] = useState(10);
   const [showTimer, setShowTimer] = useState(true);
@@ -146,29 +151,40 @@ const LoteDetails = () => {
     }
   };
 
-  // Carregar branding
+  // Carregar branding e configurações de vídeo
   useEffect(() => {
-    const loadBranding = async () => {
+    const loadConfigs = async () => {
       try {
-        const brandingConfig = await systemConfigApi.getBrandingConfig();
+        const [brandingConfig, videoConfigData] = await Promise.all([
+          systemConfigApi.getBrandingConfig(),
+          systemConfigApi.getVideoConfig()
+        ]);
+        
         setBranding({
           primaryColor: brandingConfig.primaryColor,
           secondaryColor: brandingConfig.secondaryColor,
           accentColor: brandingConfig.accentColor,
           logoUrl: brandingConfig.logoUrl,
         });
+        
+        setVideoConfig(videoConfigData);
       } catch (error) {
-        console.error('Erro ao carregar branding:', error);
-        // Usar cores padrão em caso de erro
+        console.error('Erro ao carregar configurações:', error);
+        // Usar valores padrão em caso de erro
         setBranding({
           primaryColor: '#16a34a',
           secondaryColor: '#22c55e',
           accentColor: '#10b981',
           logoUrl: null,
         });
+        setVideoConfig({
+          enabled: true,
+          auto_play: true,
+          show_after_seconds: 3
+        });
       }
     };
-    loadBranding();
+    loadConfigs();
   }, []);
 
   useEffect(() => {
@@ -198,12 +214,13 @@ const LoteDetails = () => {
 
   // Resetar countdown quando o vídeo é carregado
   useEffect(() => {
-    if (loteData?.youtube_video_url && videoMuted) {
-      setCountdown(10);
+    if (loteData?.youtube_video_url && videoMuted && videoConfig) {
+      const delaySeconds = videoConfig.show_after_seconds || 3;
+      setCountdown(delaySeconds);
       setShowTimer(true);
       setShowInfoMessage(false);
     }
-  }, [loteData?.youtube_video_url, videoMuted]);
+  }, [loteData?.youtube_video_url, videoMuted, videoConfig]);
 
   // Inicializar players do YouTube quando os divs estiverem prontos
   useEffect(() => {
@@ -237,10 +254,13 @@ const LoteDetails = () => {
       // Inicializar player principal
       if (iframeRef.current && document.getElementById('youtube-player-main')) {
         try {
+          // Usar configuração de auto_play se disponível
+          const shouldAutoplay = videoConfig?.auto_play !== false;
+          
           mainPlayerRef.current = new (window as any).YT.Player('youtube-player-main', {
             videoId: videoId,
             playerVars: {
-              autoplay: 1,
+              autoplay: shouldAutoplay ? 1 : 0,
               mute: videoMuted ? 1 : 0,
               rel: 0,
               modestbranding: 1,
@@ -282,7 +302,7 @@ const LoteDetails = () => {
         mainPlayerReadyRef.current = false;
       }
     };
-  }, [loteData?.youtube_video_url, videoMuted]);
+  }, [loteData?.youtube_video_url, videoMuted, videoConfig]);
 
   // Inicializar player flutuante quando necessário
   useEffect(() => {
@@ -388,10 +408,11 @@ const LoteDetails = () => {
     };
   }, [loteData?.youtube_video_url, isVideoFloating, showInfoMessage, videoMuted]);
 
-  // Countdown de 10 segundos quando o vídeo está sendo exibido
+  // Countdown baseado na configuração quando o vídeo está sendo exibido
   useEffect(() => {
-    if (!loteData?.youtube_video_url || !showTimer) return;
+    if (!loteData?.youtube_video_url || !showTimer || !videoConfig) return;
 
+    const delaySeconds = videoConfig.show_after_seconds || 3;
     const interval = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -405,7 +426,7 @@ const LoteDetails = () => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [loteData?.youtube_video_url, showTimer]);
+  }, [loteData?.youtube_video_url, showTimer, videoConfig]);
 
   useEffect(() => {
     if (!producer) return;
@@ -649,8 +670,8 @@ const LoteDetails = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
-      {/* Vídeo do YouTube - Seção em tela cheia (100vh) quando aguardando, normal após 10s */}
-      {loteData.youtube_video_url && (
+      {/* Vídeo do YouTube - Seção em tela cheia (100vh) quando aguardando, normal após X segundos */}
+      {loteData.youtube_video_url && videoConfig?.enabled !== false && (
         <div 
           ref={videoSectionRef}
           className={`w-full h-screen max-h-screen bg-black relative flex flex-col overflow-hidden ${
@@ -712,7 +733,7 @@ const LoteDetails = () => {
                                   strokeWidth="3"
                                   fill="none"
                                   strokeDasharray={`${2 * Math.PI * 18}`}
-                                  strokeDashoffset={`${2 * Math.PI * 18 * (1 - (10 - countdown) / 10)}`}
+                                  strokeDashoffset={`${2 * Math.PI * 18 * (1 - ((videoConfig?.show_after_seconds || 3) - countdown) / (videoConfig?.show_after_seconds || 3))}`}
                                   style={{ transition: 'stroke-dashoffset 1s linear' }}
                                   strokeLinecap="round"
                                 />
@@ -734,7 +755,7 @@ const LoteDetails = () => {
                                   strokeWidth="4"
                                   fill="none"
                                   strokeDasharray={`${2 * Math.PI * 28}`}
-                                  strokeDashoffset={`${2 * Math.PI * 28 * (1 - (10 - countdown) / 10)}`}
+                                  strokeDashoffset={`${2 * Math.PI * 28 * (1 - ((videoConfig?.show_after_seconds || 3) - countdown) / (videoConfig?.show_after_seconds || 3))}`}
                                   style={{ transition: 'stroke-dashoffset 1s linear' }}
                                   strokeLinecap="round"
                                 />

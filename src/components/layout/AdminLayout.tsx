@@ -11,7 +11,8 @@ import {
   X,
   Leaf,
   CaretDown,
-  Palette
+  Palette,
+  UserCircle
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -53,6 +54,11 @@ const navigation = [
     name: "Personalização",
     href: "/admin/personalizacao",
     icon: Palette,
+  },
+  {
+    name: "Usuários",
+    href: "/admin/usuarios",
+    icon: UserCircle,
   },
   {
     name: "Configurações",

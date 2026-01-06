@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Gear, User, Envelope, Phone, MapPin, FloppyDisk, Eye, EyeSlash, Bell, Shield, Palette, Globe, CheckCircle } from "@phosphor-icons/react";
+import { Gear, User, Envelope, Phone, MapPin, FloppyDisk, Eye, EyeSlash, Bell, Shield, Palette, Globe, CheckCircle, UserCircle, Lock, Info, Building, Thermometer, Mountains } from "@phosphor-icons/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ProducerLayout } from "@/components/layout/ProducerLayout";
 import { useAuth } from "@/hooks/use-auth";
 import { producersApi, Producer, authApi } from "@/services/api";
@@ -27,6 +29,7 @@ export const ProducerConfiguracoes = () => {
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [activeTab, setActiveTab] = useState("perfil");
   const [producer, setProducer] = useState<Producer | null>(null);
   
   // Estados da senha
@@ -133,8 +136,10 @@ export const ProducerConfiguracoes = () => {
           altitude: formData.altitude ? parseFloat(formData.altitude) : null,
           average_temperature: formData.average_temperature ? parseFloat(formData.average_temperature) : null,
         });
-        toast.success("Perfil atualizado com sucesso");
-        fetchProducerData(); // Recarregar dados
+        toast.success("Perfil atualizado com sucesso!", {
+          description: "Suas informações foram salvas.",
+        });
+        fetchProducerData();
       }
     } catch (error) {
       console.error("Erro ao atualizar perfil:", error);
@@ -147,9 +152,10 @@ export const ProducerConfiguracoes = () => {
   const handleSaveSettings = async () => {
     try {
       setSaving(true);
-      // Em produção, salvar configurações no banco de dados
       localStorage.setItem('producer-settings', JSON.stringify(settings));
-      toast.success("Configurações salvas com sucesso");
+      toast.success("Configurações salvas com sucesso!", {
+        description: "Suas preferências foram atualizadas.",
+      });
     } catch (error) {
       console.error("Erro ao salvar configurações:", error);
       toast.error("Erro ao salvar configurações");
@@ -170,14 +176,14 @@ export const ProducerConfiguracoes = () => {
         full_name: userProfile.full_name.trim(),
       });
       
-      toast.success("Nome atualizado com sucesso!");
+      toast.success("Nome atualizado com sucesso!", {
+        description: "Seu perfil foi atualizado.",
+      });
       
-      // Recarregar dados do usuário
       loadUserProfile();
     } catch (error: any) {
       console.error("Erro ao atualizar perfil do usuário:", error);
-      const errorMessage = error.message || "Erro ao atualizar perfil do usuário";
-      toast.error(errorMessage);
+      toast.error(error.message || "Erro ao atualizar perfil do usuário");
     } finally {
       setSaving(false);
     }
@@ -199,7 +205,6 @@ export const ProducerConfiguracoes = () => {
       return;
     }
 
-    // Validação adicional: verificar se a senha não é muito simples
     if (passwordData.newPassword.length > 72) {
       toast.error("A senha não pode ter mais de 72 caracteres");
       return;
@@ -209,29 +214,24 @@ export const ProducerConfiguracoes = () => {
       setSavingPassword(true);
       await authApi.updatePassword(passwordData.newPassword);
       
-      // Limpar campos imediatamente
       setPasswordData({
         newPassword: "",
         confirmPassword: "",
       });
       
-      // Mostrar estado de sucesso
       setPasswordSuccess(true);
       
-      // Exibir toast de sucesso com duração maior
       toast.success("Senha alterada com sucesso!", {
         duration: 4000,
-        description: "Sua senha foi atualizada com sucesso. Use a nova senha no próximo login.",
+        description: "Sua senha foi atualizada. Use a nova senha no próximo login.",
       });
       
-      // Remover estado de sucesso após 3 segundos
       setTimeout(() => {
         setPasswordSuccess(false);
       }, 3000);
     } catch (error: any) {
       console.error("Erro ao alterar senha:", error);
       
-      // Tratamento específico para erros do Supabase
       let errorMessage = "Erro ao alterar senha";
       
       if (error.message) {
@@ -265,7 +265,10 @@ export const ProducerConfiguracoes = () => {
     return (
       <ProducerLayout>
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Carregando configurações...</p>
+          </div>
         </div>
       </ProducerLayout>
     );
@@ -275,414 +278,500 @@ export const ProducerConfiguracoes = () => {
     <ProducerLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-              Configurações
-            </h1>
-            <p className="mt-2 text-sm text-gray-600">
-              Gerencie seu perfil e preferências do sistema.
-            </p>
+            <h1 className="text-3xl font-bold text-gray-900">Configurações</h1>
+            <p className="text-gray-600 mt-1">Gerencie seu perfil e preferências do sistema</p>
           </div>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Perfil do Usuário */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <User className="h-5 w-5" />
-                <span>Perfil do Usuário</span>
-              </CardTitle>
-              <CardDescription>
-                Informações da sua conta de acesso
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="user-name">Nome Completo</Label>
-                <Input
-                  id="user-name"
-                  value={userProfile.full_name}
-                  onChange={(e) => setUserProfile(prev => ({ ...prev, full_name: e.target.value }))}
-                  placeholder="Seu nome completo"
-                />
-              </div>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsTrigger value="perfil" className="flex items-center gap-2">
+              <UserCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Perfil</span>
+            </TabsTrigger>
+            <TabsTrigger value="propriedade" className="flex items-center gap-2">
+              <Building className="h-4 w-4" />
+              <span className="hidden sm:inline">Propriedade</span>
+            </TabsTrigger>
+            <TabsTrigger value="seguranca" className="flex items-center gap-2">
+              <Lock className="h-4 w-4" />
+              <span className="hidden sm:inline">Segurança</span>
+            </TabsTrigger>
+            <TabsTrigger value="preferencias" className="flex items-center gap-2">
+              <Gear className="h-4 w-4" />
+              <span className="hidden sm:inline">Preferências</span>
+            </TabsTrigger>
+          </TabsList>
 
-              <div className="space-y-2">
-                <Label htmlFor="user-email-display">E-mail</Label>
-                <Input
-                  id="user-email-display"
-                  type="email"
-                  value={user?.email || ""}
-                  disabled
-                  className="bg-gray-50 cursor-not-allowed"
-                />
-                <p className="text-xs text-gray-500">
-                  O e-mail não pode ser alterado
-                </p>
-              </div>
+          {/* Tab: Perfil */}
+          <TabsContent value="perfil" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Perfil do Usuário */}
+              <Card className="border-gray-200 shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <User className="h-5 w-5 text-green-600" weight="duotone" />
+                    Perfil do Usuário
+                  </CardTitle>
+                  <CardDescription>
+                    Informações da sua conta de acesso
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="user-name" className="text-sm font-medium">Nome Completo</Label>
+                    <Input
+                      id="user-name"
+                      value={userProfile.full_name}
+                      onChange={(e) => setUserProfile(prev => ({ ...prev, full_name: e.target.value }))}
+                      placeholder="Seu nome completo"
+                      className="h-11"
+                    />
+                  </div>
 
+                  <div className="space-y-2">
+                    <Label htmlFor="user-email-display" className="text-sm font-medium">E-mail</Label>
+                    <Input
+                      id="user-email-display"
+                      type="email"
+                      value={user?.email || ""}
+                      disabled
+                      className="h-11 bg-gray-50 cursor-not-allowed"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      O e-mail não pode ser alterado
+                    </p>
+                  </div>
+
+                  <Button 
+                    onClick={handleSaveUserProfile} 
+                    disabled={saving || !userProfile.full_name.trim()}
+                    className="w-full"
+                  >
+                    {saving ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    ) : (
+                      <FloppyDisk className="h-4 w-4 mr-2" />
+                    )}
+                    Salvar Nome
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Perfil do Produtor */}
+              <Card className="border-gray-200 shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <User className="h-5 w-5 text-green-600" weight="duotone" />
+                    Dados Pessoais
+                  </CardTitle>
+                  <CardDescription>
+                    Informações pessoais do produtor
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="text-sm font-medium">Nome Completo</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange("name", e.target.value)}
+                      placeholder="Seu nome completo"
+                      className="h-11"
+                    />
+                  </div>
+                  
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="email" className="text-sm font-medium">E-mail</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => handleInputChange("email", e.target.value)}
+                        placeholder="seu@email.com"
+                        className="h-11"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone" className="text-sm font-medium">Telefone</Label>
+                      <Input
+                        id="phone"
+                        value={formData.phone}
+                        onChange={(e) => handleInputChange("phone", e.target.value)}
+                        placeholder="(11) 99999-9999"
+                        className="h-11"
+                      />
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={handleSaveProfile} 
+                    disabled={saving}
+                    className="w-full"
+                  >
+                    {saving ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    ) : (
+                      <FloppyDisk className="h-4 w-4 mr-2" />
+                    )}
+                    Salvar Perfil
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Tab: Propriedade */}
+          <TabsContent value="propriedade" className="space-y-6">
+            <Card className="border-gray-200 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Building className="h-5 w-5 text-green-600" weight="duotone" />
+                  Informações da Propriedade
+                </CardTitle>
+                <CardDescription>
+                  Dados sobre sua propriedade e localização
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="property_name" className="text-sm font-medium">Nome da Propriedade</Label>
+                  <Input
+                    id="property_name"
+                    value={formData.property_name}
+                    onChange={(e) => handleInputChange("property_name", e.target.value)}
+                    placeholder="Nome da sua propriedade"
+                    className="h-11"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="property_description" className="text-sm font-medium">Descrição da Propriedade</Label>
+                  <Textarea
+                    id="property_description"
+                    value={formData.property_description}
+                    onChange={(e) => handleInputChange("property_description", e.target.value)}
+                    placeholder="Descreva sua propriedade..."
+                    rows={4}
+                    className="resize-none"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address" className="text-sm font-medium flex items-center gap-2">
+                    <MapPin className="h-4 w-4" />
+                    Endereço
+                  </Label>
+                  <Input
+                    id="address"
+                    value={formData.address}
+                    onChange={(e) => handleInputChange("address", e.target.value)}
+                    placeholder="Endereço completo"
+                    className="h-11"
+                  />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="city" className="text-sm font-medium">Cidade</Label>
+                    <Input
+                      id="city"
+                      value={formData.city}
+                      onChange={(e) => handleInputChange("city", e.target.value)}
+                      placeholder="Sua cidade"
+                      className="h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state" className="text-sm font-medium">Estado</Label>
+                    <Select value={formData.state} onValueChange={(value) => handleInputChange("state", value)}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Selecione o estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {estados.map(estado => (
+                          <SelectItem key={estado} value={estado}>{estado}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <Separator />
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="altitude" className="text-sm font-medium flex items-center gap-2">
+                      <Mountains className="h-4 w-4" />
+                      Altitude (metros)
+                    </Label>
+                    <Input
+                      id="altitude"
+                      type="number"
+                      value={formData.altitude}
+                      onChange={(e) => handleInputChange("altitude", e.target.value)}
+                      placeholder="800"
+                      className="h-11"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="average_temperature" className="text-sm font-medium flex items-center gap-2">
+                      <Thermometer className="h-4 w-4" />
+                      Temperatura Média (°C)
+                    </Label>
+                    <Input
+                      id="average_temperature"
+                      type="number"
+                      value={formData.average_temperature}
+                      onChange={(e) => handleInputChange("average_temperature", e.target.value)}
+                      placeholder="22"
+                      className="h-11"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t">
+                  <Button 
+                    onClick={handleSaveProfile} 
+                    disabled={saving}
+                    className="min-w-[140px]"
+                  >
+                    {saving ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    ) : (
+                      <FloppyDisk className="h-4 w-4 mr-2" />
+                    )}
+                    Salvar Alterações
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab: Segurança */}
+          <TabsContent value="seguranca" className="space-y-6">
+            <Card className="border-gray-200 shadow-sm">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Lock className="h-5 w-5 text-green-600" weight="duotone" />
+                  Alterar Senha
+                </CardTitle>
+                <CardDescription>
+                  Mantenha sua conta segura com uma senha forte
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password" className="text-sm font-medium">Nova Senha</Label>
+                    <div className="relative">
+                      <Input
+                        id="new-password"
+                        type={showNewPassword ? "text" : "password"}
+                        value={passwordData.newPassword}
+                        onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                        placeholder="Digite a nova senha"
+                        className="h-11 pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                      >
+                        {showNewPassword ? (
+                          <EyeSlash className="h-4 w-4 text-gray-500" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-gray-500" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-password" className="text-sm font-medium">Confirmar Nova Senha</Label>
+                    <div className="relative">
+                      <Input
+                        id="confirm-password"
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={passwordData.confirmPassword}
+                        onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                        placeholder="Confirme a nova senha"
+                        className="h-11 pr-10"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeSlash className="h-4 w-4 text-gray-500" />
+                        ) : (
+                          <Eye className="h-4 w-4 text-gray-500" />
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <Alert className="bg-blue-50 border-blue-200">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-sm text-blue-700">
+                    <strong>Requisitos da senha:</strong> A nova senha deve ser diferente da senha atual e ter pelo menos 6 caracteres (máximo 72 caracteres).
+                  </AlertDescription>
+                </Alert>
+
+                <div className="flex justify-end pt-4 border-t">
+                  <Button 
+                    onClick={handleUpdatePassword} 
+                    disabled={savingPassword || passwordSuccess || !passwordData.newPassword || !passwordData.confirmPassword}
+                    className={`min-w-[160px] ${
+                      passwordSuccess 
+                        ? 'bg-green-600 hover:bg-green-700 text-white' 
+                        : ''
+                    }`}
+                  >
+                    {savingPassword ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                    ) : passwordSuccess ? (
+                      <CheckCircle className="h-4 w-4 mr-2" weight="fill" />
+                    ) : (
+                      <Shield className="h-4 w-4 mr-2" />
+                    )}
+                    {passwordSuccess ? "Senha Alterada!" : "Alterar Senha"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Tab: Preferências */}
+          <TabsContent value="preferencias" className="space-y-6">
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Notificações */}
+              <Card className="border-gray-200 shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Bell className="h-5 w-5 text-green-600" weight="duotone" />
+                    Notificações
+                  </CardTitle>
+                  <CardDescription>
+                    Configure como você quer receber notificações
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-medium cursor-pointer">Notificações por E-mail</Label>
+                      <p className="text-xs text-gray-500">
+                        Receba atualizações por e-mail
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.emailNotifications}
+                      onCheckedChange={(checked) => handleSettingChange("emailNotifications", checked)}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-medium cursor-pointer">Notificações por SMS</Label>
+                      <p className="text-xs text-gray-500">
+                        Receba alertas por mensagem de texto
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.smsNotifications}
+                      onCheckedChange={(checked) => handleSettingChange("smsNotifications", checked)}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Aparência */}
+              <Card className="border-gray-200 shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Palette className="h-5 w-5 text-green-600" weight="duotone" />
+                    Aparência
+                  </CardTitle>
+                  <CardDescription>
+                    Personalize a aparência do sistema
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-medium cursor-pointer">Modo Escuro</Label>
+                      <p className="text-xs text-gray-500">
+                        Ativar tema escuro
+                      </p>
+                    </div>
+                    <Switch
+                      checked={settings.darkMode}
+                      onCheckedChange={(checked) => handleSettingChange("darkMode", checked)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="language" className="text-sm font-medium">Idioma</Label>
+                    <Select value={settings.language} onValueChange={(value) => handleSettingChange("language", value)}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pt-BR">Português (Brasil)</SelectItem>
+                        <SelectItem value="en">English</SelectItem>
+                        <SelectItem value="es">Español</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="timezone" className="text-sm font-medium flex items-center gap-2">
+                      <Globe className="h-4 w-4" />
+                      Fuso Horário
+                    </Label>
+                    <Select value={settings.timezone} onValueChange={(value) => handleSettingChange("timezone", value)}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="America/Sao_Paulo">Brasília (GMT-3)</SelectItem>
+                        <SelectItem value="America/Manaus">Manaus (GMT-4)</SelectItem>
+                        <SelectItem value="America/Belem">Belém (GMT-3)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Botão Salvar Configurações */}
+            <div className="flex justify-end">
               <Button 
-                onClick={handleSaveUserProfile} 
-                disabled={saving || !userProfile.full_name.trim()}
-                className="w-full"
-              >
-                {saving ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                ) : (
-                  <FloppyDisk className="h-4 w-4 mr-2" />
-                )}
-                Salvar Nome
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Perfil do Produtor */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <User className="h-5 w-5" />
-                <span>Perfil do Produtor</span>
-              </CardTitle>
-              <CardDescription>
-                Informações pessoais e da propriedade
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome Completo</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange("name", e.target.value)}
-                    placeholder="Seu nome completo"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">E-mail</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    placeholder="seu@email.com"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">Telefone</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange("phone", e.target.value)}
-                  placeholder="(11) 99999-9999"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="property_name">Nome da Propriedade</Label>
-                <Input
-                  id="property_name"
-                  value={formData.property_name}
-                  onChange={(e) => handleInputChange("property_name", e.target.value)}
-                  placeholder="Nome da sua propriedade"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="property_description">Descrição da Propriedade</Label>
-                <Textarea
-                  id="property_description"
-                  value={formData.property_description}
-                  onChange={(e) => handleInputChange("property_description", e.target.value)}
-                  placeholder="Descreva sua propriedade..."
-                  rows={3}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="address">Endereço</Label>
-                <Input
-                  id="address"
-                  value={formData.address}
-                  onChange={(e) => handleInputChange("address", e.target.value)}
-                  placeholder="Endereço completo"
-                />
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="city">Cidade</Label>
-                  <Input
-                    id="city"
-                    value={formData.city}
-                    onChange={(e) => handleInputChange("city", e.target.value)}
-                    placeholder="Sua cidade"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="state">Estado</Label>
-                  <Select value={formData.state} onValueChange={(value) => handleInputChange("state", value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {estados.map(estado => (
-                        <SelectItem key={estado} value={estado}>{estado}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="altitude">Altitude (metros)</Label>
-                  <Input
-                    id="altitude"
-                    type="number"
-                    value={formData.altitude}
-                    onChange={(e) => handleInputChange("altitude", e.target.value)}
-                    placeholder="800"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="average_temperature">Temperatura Média (°C)</Label>
-                  <Input
-                    id="average_temperature"
-                    type="number"
-                    value={formData.average_temperature}
-                    onChange={(e) => handleInputChange("average_temperature", e.target.value)}
-                    placeholder="22"
-                  />
-                </div>
-              </div>
-
-              <Button 
-                onClick={handleSaveProfile} 
+                onClick={handleSaveSettings} 
                 disabled={saving}
-                className="w-full"
+                className="min-w-[180px]"
               >
                 {saving ? (
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 ) : (
                   <FloppyDisk className="h-4 w-4 mr-2" />
                 )}
-                Salvar Perfil
+                Salvar Configurações
               </Button>
-            </CardContent>
-          </Card>
-
-          {/* Configurações do Sistema */}
-          <div className="space-y-6">
-            {/* Notificações */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Bell className="h-5 w-5" />
-                  <span>Notificações</span>
-                </CardTitle>
-                <CardDescription>
-                  Configure como você quer receber notificações
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Notificações por E-mail</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receba atualizações por e-mail
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.emailNotifications}
-                    onCheckedChange={(checked) => handleSettingChange("emailNotifications", checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Notificações por SMS</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Receba alertas por mensagem de texto
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.smsNotifications}
-                    onCheckedChange={(checked) => handleSettingChange("smsNotifications", checked)}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Aparência */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Palette className="h-5 w-5" />
-                  <span>Aparência</span>
-                </CardTitle>
-                <CardDescription>
-                  Personalize a aparência do sistema
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Modo Escuro</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Ativar tema escuro
-                    </p>
-                  </div>
-                  <Switch
-                    checked={settings.darkMode}
-                    onCheckedChange={(checked) => handleSettingChange("darkMode", checked)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="language">Idioma</Label>
-                  <Select value={settings.language} onValueChange={(value) => handleSettingChange("language", value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pt-BR">Português (Brasil)</SelectItem>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="es">Español</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="timezone">Fuso Horário</Label>
-                  <Select value={settings.timezone} onValueChange={(value) => handleSettingChange("timezone", value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="America/Sao_Paulo">Brasília (GMT-3)</SelectItem>
-                      <SelectItem value="America/Manaus">Manaus (GMT-4)</SelectItem>
-                      <SelectItem value="America/Belem">Belém (GMT-3)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Segurança */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Shield className="h-5 w-5" />
-                  <span>Segurança</span>
-                </CardTitle>
-                <CardDescription>
-                  Configurações de segurança da conta
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="new-password">Nova Senha</Label>
-                  <div className="relative">
-                    <Input
-                      id="new-password"
-                      type={showNewPassword ? "text" : "password"}
-                      value={passwordData.newPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
-                      placeholder="Digite a nova senha"
-                      className="pr-10"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                    >
-                      {showNewPassword ? (
-                        <EyeSlash className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
-                  <div className="relative">
-                    <Input
-                      id="confirm-password"
-                      type={showConfirmPassword ? "text" : "password"}
-                      value={passwordData.confirmPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                      placeholder="Confirme a nova senha"
-                      className="pr-10"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    >
-                      {showConfirmPassword ? (
-                        <EyeSlash className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
-                  <p className="text-xs text-blue-700">
-                    <strong>Importante:</strong> A nova senha deve ser diferente da senha atual e ter pelo menos 6 caracteres.
-                  </p>
-                </div>
-
-                <Button 
-                  onClick={handleUpdatePassword} 
-                  disabled={savingPassword || passwordSuccess || !passwordData.newPassword || !passwordData.confirmPassword}
-                  variant={passwordSuccess ? "default" : "outline"}
-                  className={`w-full ${passwordSuccess ? 'bg-green-600 hover:bg-green-700 text-white' : ''}`}
-                >
-                  {savingPassword ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                  ) : passwordSuccess ? (
-                    <CheckCircle className="h-4 w-4 mr-2" weight="fill" />
-                  ) : (
-                    <Shield className="h-4 w-4 mr-2" />
-                  )}
-                  {passwordSuccess ? "Senha Alterada!" : "Alterar Senha"}
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Salvar Configurações */}
-            <Card>
-              <CardContent className="pt-6">
-                <Button 
-                  onClick={handleSaveSettings} 
-                  disabled={saving}
-                  className="w-full"
-                >
-                  {saving ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  ) : (
-                    <FloppyDisk className="h-4 w-4 mr-2" />
-                  )}
-                  Salvar Configurações
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </ProducerLayout>
   );
-}; 
+};

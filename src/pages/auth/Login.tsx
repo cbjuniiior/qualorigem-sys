@@ -167,20 +167,6 @@ const Login = () => {
               </Button>
             </form>
 
-            <Separator className="my-6" />
-
-            <div className="text-center">
-              <p className="text-sm text-gray-600">
-                Não tem uma conta?{" "}
-                <Link
-                  to="/auth/register"
-                  className="font-medium hover:underline"
-                  style={{ color: primaryColor }}
-                >
-                  Criar conta
-                </Link>
-              </p>
-            </div>
           </CardContent>
         </Card>
 

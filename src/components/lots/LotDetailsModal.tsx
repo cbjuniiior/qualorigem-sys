@@ -94,11 +94,31 @@ export const LotDetailsModal = ({
   lot, 
   isOpen, 
   onClose, 
-  onEdit, 
+  onEdit,
   onDelete 
 }: LotDetailsModalProps) => {
   const [lotDetails, setLotDetails] = useState<ProductLot | null>(null);
   const [loading, setLoading] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
+  
+  useEffect(() => {
+    const loadQRUrl = async () => {
+      if (lotDetails?.code) {
+        try {
+          const { generateQRCodeUrl } = await import("@/utils/qr-code-generator");
+          const url = await generateQRCodeUrl(lotDetails.code, lotDetails.category);
+          setQrCodeUrl(url);
+        } catch (error) {
+          console.error('Erro ao gerar URL do QR Code:', error);
+          setQrCodeUrl(`${window.location.origin}/lote/${lotDetails.code}`);
+        }
+      }
+    };
+    
+    if (lotDetails) {
+      loadQRUrl();
+    }
+  }, [lotDetails]);
 
   useEffect(() => {
     if (lot && isOpen) {
@@ -126,7 +146,7 @@ export const LotDetailsModal = ({
   const handleShare = async () => {
     if (!lotDetails) return;
     
-    const url = `${window.location.origin}/lote/${lotDetails.code}`;
+    const url = qrCodeUrl || `${window.location.origin}/lote/${lotDetails.code}`;
     try {
       await navigator.clipboard.writeText(url);
       toast.success("Link copiado para a área de transferência!");
@@ -217,7 +237,7 @@ export const LotDetailsModal = ({
                     <div className="flex flex-col items-center space-y-3">
                       <div className="bg-white p-3 rounded-lg border">
                         <QRCodeSVG 
-                          value={`${window.location.origin}/lote/${lotDetails?.code}`}
+                          value={qrCodeUrl || `${window.location.origin}/lote/${lotDetails?.code || ''}`}
                           size={100}
                           bgColor="#fff"
                           fgColor="#222"

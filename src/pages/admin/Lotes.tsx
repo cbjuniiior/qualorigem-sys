@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { productLotsApi, producersApi, associationsApi, systemConfigApi } from "@/services/api";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -489,29 +488,19 @@ const Lotes = () => {
 
   const categories = Array.from(new Set(lots.map(lot => lot.category).filter(Boolean)));
 
-  // Função para gerar código do produto único
-  const generateProductCode = async () => {
-    try {
-      // @ts-ignore - função não está nos tipos gerados
-      const { data, error } = await supabase.rpc('generate_unique_lot_code');
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Erro ao gerar código único:', error);
-      // Fallback: usar timestamp + random para garantir unicidade
-      const year = new Date().getFullYear();
-      const timestamp = Date.now().toString().slice(-6);
-      const rand = Math.floor(1000 + Math.random() * 9000);
-      return `PROD-${year}-${timestamp}-${rand}`;
-    }
-  };
-
   // Código do produto gerado automaticamente (apenas uma vez)
   useEffect(() => {
     const generateCode = async () => {
       if (!formData.code) {
-        const newCode = await generateProductCode();
-        setFormData({ ...formData, code: newCode });
+        try {
+          const { generateLotCode } = await import("@/utils/lot-code-generator");
+          const newCode = await generateLotCode();
+          if (newCode) {
+            setFormData({ ...formData, code: newCode });
+          }
+        } catch (error) {
+          console.error('Erro ao gerar código:', error);
+        }
       }
     };
     generateCode();

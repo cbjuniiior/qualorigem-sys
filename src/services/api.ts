@@ -1,6 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
+const SUPABASE_URL = "https://giomnnxpgjrpwyjrkkwr.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdpb21ubnhwZ2pycHd5anJra3dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0MTg1MzUsImV4cCI6MjA2Njk5NDUzNX0.L0WG0KW0keg2IwdraGVOmNxokIaZXNWrdCKty79bYv4";
+
 // Tipos para facilitar o uso
 export type Producer = Tables<"producers">;
 export type ProductLot = Tables<"product_lots">;
@@ -385,6 +388,107 @@ export const productLotsApi = {
   }
 };
 
+// Serviços para Gerenciamento de Usuários (Admin)
+// Usa Edge Function para segurança
+export const usersApi = {
+  // Listar todos os usuários (requer admin)
+  async getAll() {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      throw new Error("Usuário não autenticado");
+    }
+
+    // Usar fetch diretamente para GET
+    const response = await fetch(
+      `${SUPABASE_URL}/functions/v1/manage-users?action=list`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erro ao listar usuários');
+    }
+
+    const data = await response.json();
+    return data;
+  },
+
+  // Criar novo usuário (requer admin)
+  async create(userData: { email: string; password: string; full_name?: string }) {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      throw new Error("Usuário não autenticado");
+    }
+
+    const response = await fetch(
+      `${SUPABASE_URL}/functions/v1/manage-users`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'create',
+          email: userData.email,
+          password: userData.password,
+          full_name: userData.full_name,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erro ao criar usuário');
+    }
+
+    const data = await response.json();
+    return data;
+  },
+
+  // Deletar usuário (requer admin)
+  async delete(userId: string) {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+      throw new Error("Usuário não autenticado");
+    }
+
+    const response = await fetch(
+      `${SUPABASE_URL}/functions/v1/manage-users`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'delete',
+          userId,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Erro ao deletar usuário');
+    }
+
+    const data = await response.json();
+    return data;
+  },
+};
+
 // Serviços de Autenticação
 export const authApi = {
   // Login com email e senha
@@ -642,7 +746,13 @@ export const systemConfigApi = {
       .eq("config_key", key)
       .single();
     
-    if (error) throw error;
+    // Se não encontrar, retorna null ao invés de lançar erro
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null; // Registro não encontrado
+      }
+      throw error;
+    }
     return data;
   },
 

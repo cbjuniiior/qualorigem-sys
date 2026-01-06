@@ -16,7 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { producersApi, productLotsApi, systemConfigApi } from "@/services/api";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ProducerForm } from "./Produtores";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -137,10 +136,11 @@ const Dashboard = () => {
       const generateCode = async () => {
         if (!lotFormData.code) {
           try {
-            // Chamar função do Supabase para gerar código único
-            const { data, error } = await supabase.rpc('generate_unique_lot_code');
-            if (error) throw error;
-            setLotFormData((prev) => ({ ...prev, code: data }));
+            const { generateLotCode } = await import("@/utils/lot-code-generator");
+            const newCode = await generateLotCode();
+            if (newCode) {
+              setLotFormData((prev) => ({ ...prev, code: newCode }));
+            }
           } catch (error) {
             console.error('Erro ao gerar código único:', error);
             // Fallback: usar timestamp + random para garantir unicidade

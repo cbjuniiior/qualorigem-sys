@@ -60,6 +60,7 @@ export default function ProducerDetails() {
     secondaryColor: string;
     accentColor: string;
   } | null>(null);
+  const [qrUrls, setQrUrls] = useState<Record<string, string>>({});
 
   const primaryColor = branding?.primaryColor || '#16a34a';
   const secondaryColor = branding?.secondaryColor || '#22c55e';
@@ -105,6 +106,27 @@ export default function ProducerDetails() {
     if (!id) return;
     productLotsApi.getByProducer(id).then(setLots);
   }, [id]);
+
+  // Gerar URLs dos QR Codes quando os lotes são carregados
+  useEffect(() => {
+    const generateUrls = async () => {
+      const urls: Record<string, string> = {};
+      for (const lote of lots) {
+        try {
+          const { generateQRCodeUrl } = await import("@/utils/qr-code-generator");
+          urls[lote.id] = await generateQRCodeUrl(lote.code, lote.category);
+        } catch (error) {
+          console.error('Erro ao gerar URL do QR Code:', error);
+          urls[lote.id] = `${window.location.origin}/lote/${lote.code}`;
+        }
+      }
+      setQrUrls(urls);
+    };
+    
+    if (lots.length > 0) {
+      generateUrls();
+    }
+  }, [lots]);
 
   useEffect(() => {
     if (!producer) return;
@@ -606,7 +628,7 @@ export default function ProducerDetails() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {lots.map((lote) => {
-                const publicUrl = `${window.location.origin}/lote/${lote.code}`;
+                const publicUrl = qrUrls[lote.id] || `${window.location.origin}/lote/${lote.code}`;
                 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=${encodeURIComponent(publicUrl)}`;
                 return (
                   <a
@@ -642,7 +664,7 @@ export default function ProducerDetails() {
                           <button
                             className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border flex items-center justify-center"
                             title="Baixar QRCode"
-                            onClick={e => {
+                            onClick={(e) => {
                               e.stopPropagation();
                               const link = document.createElement('a');
                               link.href = qrUrl;
