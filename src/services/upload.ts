@@ -1,33 +1,108 @@
 import { supabase } from "@/integrations/supabase/client";
 
-// Faz upload de uma imagem para o bucket 'propriedades' e retorna a URL pública
-export async function uploadImageToSupabase(file: File): Promise<string> {
+/**
+ * Redimensiona uma imagem para uma largura máxima mantendo a proporção
+ */
+async function resizeImage(file: File, maxWidth: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = (maxWidth * height) / width;
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Não foi possível obter o contexto do canvas'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Erro ao converter canvas para blob'));
+            }
+          },
+          file.type,
+          0.8 // Qualidade 80%
+        );
+      };
+      img.onerror = (err) => reject(err);
+    };
+    reader.onerror = (err) => reject(err);
+  });
+}
+
+// Faz upload de uma imagem para um bucket (padrão 'propriedades') e retorna a URL pública
+export async function uploadImageToSupabase(file: File, bucketName: string = 'propriedades'): Promise<string> {
+  let fileToUpload: File | Blob = file;
+
+  // Redimensionar se for imagem e maior que 500px
+  if (file.type.startsWith('image/')) {
+    try {
+      fileToUpload = await resizeImage(file, 500);
+    } catch (error) {
+      console.warn('Erro ao redimensionar imagem, enviando original:', error);
+      fileToUpload = file;
+    }
+  }
+
   const fileExt = file.name.split('.').pop();
   const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
   const filePath = `${fileName}`;
 
-  const { error } = await supabase.storage.from('propriedades').upload(filePath, file, {
+  const { error } = await supabase.storage.from(bucketName).upload(filePath, fileToUpload, {
     cacheControl: '3600',
     upsert: false,
+    contentType: file.type // Importante para manter o tipo correto após conversão em Blob
   });
   if (error) throw error;
 
   // Gerar URL pública
-  const { data } = supabase.storage.from('propriedades').getPublicUrl(filePath);
+  const { data } = supabase.storage.from(bucketName).getPublicUrl(filePath);
   if (!data?.publicUrl) throw new Error('Erro ao obter URL pública da imagem');
   return data.publicUrl;
 }
 
 // Faz upload de um logo para o bucket 'branding' e retorna a URL pública
 export async function uploadLogoToSupabase(file: File): Promise<string> {
+  let fileToUpload: File | Blob = file;
+
+  // Redimensionar se for imagem e maior que 500px
+  if (file.type.startsWith('image/')) {
+    try {
+      fileToUpload = await resizeImage(file, 500);
+    } catch (error) {
+      console.warn('Erro ao redimensionar logo, enviando original:', error);
+      fileToUpload = file;
+    }
+  }
+
   const fileExt = file.name.split('.').pop();
   const fileName = `logo-${Date.now()}.${fileExt}`;
   const filePath = `${fileName}`;
 
   // Tentar fazer upload no bucket 'branding'
-  const { error } = await supabase.storage.from('branding').upload(filePath, file, {
+  const { error } = await supabase.storage.from('branding').upload(filePath, fileToUpload, {
     cacheControl: '3600',
     upsert: true,
+    contentType: file.type
   });
 
   if (error) {

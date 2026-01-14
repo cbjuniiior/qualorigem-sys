@@ -1023,6 +1023,40 @@ export const associationsApi = {
       .eq("association_id", associationId);
     if (error) throw error;
   },
+  // Deletar associação
+  async delete(id: string) {
+    // 1. Remover vínculos com produtores (tabela pivot)
+    const { error: relationError } = await supabase
+      .from("producers_associations")
+      .delete()
+      .eq("association_id", id);
+    
+    if (relationError) throw relationError;
+
+    // 2. Limpar referência em lotes (set null)
+    const { error: lotError } = await supabase
+      .from("product_lots")
+      .update({ association_id: null })
+      .eq("association_id", id);
+    
+    if (lotError) throw lotError;
+
+    // 3. Limpar referência em componentes de blend (set null)
+    const { error: componentError } = await supabase
+      .from("lot_components")
+      .update({ association_id: null })
+      .eq("association_id", id);
+    
+    if (componentError) throw componentError;
+
+    // 4. Finalmente remover a associação em si
+    const { error } = await supabase
+      .from("associations")
+      .delete()
+      .eq("id", id);
+    
+    if (error) throw error;
+  },
 };
 
 // Serviços para Marcas

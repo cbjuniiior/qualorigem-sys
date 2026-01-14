@@ -369,6 +369,7 @@ export default function Associacoes() {
                   <SelectItem value="all" className="font-bold">Todos os Tipos</SelectItem>
                   <SelectItem value="associacao" className="font-medium">Associação</SelectItem>
                   <SelectItem value="cooperativa" className="font-medium">Cooperativa</SelectItem>
+                  <SelectItem value="outros" className="font-medium">Outros</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -400,7 +401,13 @@ export default function Associacoes() {
                       </Avatar>
                       <div>
                         <h4 className="text-lg font-black text-slate-900 line-clamp-1">{item.name}</h4>
-                        <Badge className={`${item.type === 'cooperativa' ? 'bg-purple-50 text-purple-600' : 'bg-emerald-50 text-emerald-600'} border-0 font-black text-[10px] uppercase rounded-md mt-1`}>
+                        <Badge className={`${
+                          item.type === 'cooperativa' 
+                            ? 'bg-purple-50 text-purple-600' 
+                            : item.type === 'associacao'
+                            ? 'bg-emerald-50 text-emerald-600'
+                            : 'bg-slate-100 text-slate-600'
+                        } border-0 font-black text-[10px] uppercase rounded-md mt-1`}>
                           {item.type}
                         </Badge>
                       </div>
@@ -532,6 +539,7 @@ export default function Associacoes() {
                           <SelectContent className="rounded-xl">
                             <SelectItem value="associacao">Associação</SelectItem>
                             <SelectItem value="cooperativa">Cooperativa</SelectItem>
+                            <SelectItem value="outros">Outros</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
