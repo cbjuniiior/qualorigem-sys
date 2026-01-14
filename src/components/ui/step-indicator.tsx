@@ -20,7 +20,7 @@ export const FormStepIndicator = ({ steps, currentStep, primaryColor }: StepIndi
         const isCompleted = currentStep > s.id;
         
         return (
-          <React.Fragment key={s.id}>
+          <div key={s.id} style={{ display: "contents" }}>
             <div className="flex items-center gap-3 shrink-0">
               <div 
                 className={`w-9 h-9 lg:w-10 lg:h-10 rounded-xl flex items-center justify-center font-black transition-all duration-500 ${
@@ -41,7 +41,7 @@ export const FormStepIndicator = ({ steps, currentStep, primaryColor }: StepIndi
             {i < steps.length - 1 && (
               <div className="h-px w-4 lg:w-8 bg-slate-200 shrink-0" />
             )}
-          </React.Fragment>
+          </div>
         );
       })}
     </div>

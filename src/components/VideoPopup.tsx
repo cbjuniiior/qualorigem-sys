@@ -9,6 +9,7 @@ interface VideoPopupProps {
   videoUrl?: string;
   onSkipToContent: () => void;
   showAfterSeconds?: number;
+  brandingTitle?: string;
 }
 
 export const VideoPopup = ({ 
@@ -16,7 +17,8 @@ export const VideoPopup = ({
   onClose, 
   videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
   onSkipToContent,
-  showAfterSeconds = 3
+  showAfterSeconds = 3,
+  brandingTitle = "GeoTrace"
 }: VideoPopupProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -198,7 +200,7 @@ export const VideoPopup = ({
 
               <div className="flex items-center space-x-2">
                 <span className="text-white text-sm font-medium">
-                  GeoTrace - Rastreabilidade Premium
+                  {brandingTitle} - Rastreabilidade Premium
                 </span>
               </div>
             </div>

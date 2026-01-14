@@ -178,7 +178,7 @@ const Usuarios = () => {
               <ShieldCheck size={32} style={{ color: primaryColor }} weight="fill" />
               Gestão de Acesso
             </h2>
-            <p className="text-slate-500 font-medium text-sm">Administre os usuários que possuem acesso ao GeoTrace.</p>
+            <p className="text-slate-500 font-medium text-sm">Administre os usuários que possuem acesso ao {branding?.siteTitle?.split(' - ')[0] || "GeoTrace"}.</p>
           </div>
           <Button 
             onClick={handleOpenSheet} 

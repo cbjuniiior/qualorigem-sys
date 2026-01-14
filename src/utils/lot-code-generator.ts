@@ -1,7 +1,7 @@
 import { systemConfigApi } from "@/services/api";
 
 interface LotIdConfig {
-  mode: 'auto' | 'manual';
+  mode: 'auto' | 'manual' | 'producer_brand';
   prefix: string;
   auto_increment: boolean;
   current_number?: number;
@@ -10,7 +10,7 @@ interface LotIdConfig {
 /**
  * Gera um código único para o lote baseado na configuração do sistema
  */
-export async function generateLotCode(customPrefix?: string): Promise<string> {
+export async function generateLotCode(customPrefix?: string, increment: boolean = false): Promise<string> {
   try {
     const config = await systemConfigApi.getLotIdConfig();
     
@@ -19,13 +19,13 @@ export async function generateLotCode(customPrefix?: string): Promise<string> {
       return customPrefix ? `${customPrefix}-` : '';
     }
     
-    // Modo automático
-    if (config.mode === 'auto') {
+    // Modo automático ou baseado em Produtor/Marca (se solicitado auto)
+    if (config.mode === 'auto' || config.mode === 'producer_brand') {
       const prefix = customPrefix || config.prefix || 'GT';
       let currentNumber = config.current_number || 1;
       
-      // Se auto_increment estiver habilitado, incrementa o número
-      if (config.auto_increment) {
+      // Se auto_increment estiver habilitado E for solicitado o incremento definitivo
+      if (increment && config.auto_increment) {
         // Atualiza o número atual no banco para o próximo uso
         await systemConfigApi.upsert({
           config_key: 'lot_id_mode',

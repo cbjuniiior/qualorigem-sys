@@ -3,29 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { MagnifyingGlass, ArrowRight, Leaf, ShieldCheck, Binoculars, Tree } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { systemConfigApi } from "@/services/api";
+import { useBranding } from "@/hooks/use-branding";
 
 const Index = () => {
   const [searchCode, setSearchCode] = useState("");
-  const [branding, setBranding] = useState<{
-    primaryColor: string;
-    secondaryColor: string;
-    accentColor: string;
-    logoUrl: string | null;
-  } | null>(null);
+  const { branding } = useBranding();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const loadBranding = async () => {
-      try {
-        const config = await systemConfigApi.getBrandingConfig();
-        setBranding(config);
-      } catch (error) {
-        console.error("Erro ao carregar branding:", error);
-      }
-    };
-    loadBranding();
-  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,9 +19,9 @@ const Index = () => {
     navigate(`/lote/${searchCode.trim()}`);
   };
 
-  const primaryColor = branding?.primaryColor || '#16a34a';
-  const secondaryColor = branding?.secondaryColor || '#22c55e';
-  const accentColor = branding?.accentColor || '#10b981';
+  const primaryColor = branding.primaryColor;
+  const secondaryColor = branding.secondaryColor;
+  const accentColor = branding.accentColor;
 
   return (
     <div 
@@ -70,7 +53,7 @@ const Index = () => {
                 >
                   <Leaf className="h-10 w-10 text-white" weight="fill" />
                 </div>
-                <h1 className="text-4xl font-bold text-gray-900 tracking-tight">GeoTrace</h1>
+                <h1 className="text-4xl font-bold text-gray-900 tracking-tight">{branding?.siteTitle?.split(' - ')[0] || "GeoTrace"}</h1>
               </div>
             )}
             

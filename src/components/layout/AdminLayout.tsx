@@ -17,13 +17,13 @@ import {
   Tag,
   Bell,
   MagnifyingGlass,
-  Plus
+  Plus,
+  SquaresFour
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { useBranding } from "@/hooks/use-branding";
 import { toast } from "sonner";
-import { systemConfigApi } from "@/services/api";
-import { hexToHsl } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -46,34 +46,17 @@ const navigation = [
   { name: "Indústria", href: "/admin/industria", icon: Tag },
   { name: "Lotes", href: "/admin/lotes", icon: Package },
   { name: "Relatórios", href: "/admin/relatorios", icon: ChartBar },
-  { name: "Personalização", href: "/admin/personalizacao", icon: Palette },
+  { name: "Gestão", href: "/admin/gestao", icon: SquaresFour },
   { name: "Usuários", href: "/admin/usuarios", icon: UserCircle },
   { name: "Configurações", href: "/admin/configuracoes", icon: Gear },
 ];
 
 export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [branding, setBranding] = useState<{
-    primaryColor: string;
-    secondaryColor: string;
-    accentColor: string;
-    logoUrl: string | null;
-  } | null>(null);
+  const { branding } = useBranding();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-
-  useEffect(() => {
-    const loadBranding = async () => {
-      try {
-        const config = await systemConfigApi.getBrandingConfig();
-        setBranding(config);
-      } catch (error) {
-        console.error("Erro ao carregar branding:", error);
-      }
-    };
-    loadBranding();
-  }, []);
 
   const handleSignOut = async () => {
     try {
@@ -84,16 +67,9 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
     }
   };
 
-  const primaryColor = branding?.primaryColor || '#16a34a';
-  const secondaryColor = branding?.secondaryColor || '#22c55e';
-  const accentColor = branding?.accentColor || '#10b981';
-
-  const cssVariables = {
-    '--primary': hexToHsl(primaryColor),
-    '--secondary': hexToHsl(secondaryColor),
-    '--accent': hexToHsl(accentColor),
-    '--ring': hexToHsl(primaryColor),
-  } as React.CSSProperties;
+  const primaryColor = branding.primaryColor;
+  const secondaryColor = branding.secondaryColor;
+  const accentColor = branding.accentColor;
 
   const userInitials = (user?.user_metadata?.full_name || user?.email || "U")
     .split(" ")
@@ -103,7 +79,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
     .substring(0, 2);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]" style={cssVariables}>
+    <div className="min-h-screen bg-[#F8FAFC]">
       {/* Sidebar para desktop */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
         <div className="flex grow flex-col gap-y-6 overflow-y-auto bg-white px-6 pb-4 border-r border-slate-200/60 shadow-sm">
@@ -118,7 +94,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                     <Leaf className="h-6 w-6 text-white" weight="fill" />
                   </div>
                   <span className="text-2xl font-black tracking-tight text-slate-900">
-                    GeoTrace
+                    {branding?.siteTitle?.split(' - ')[0] || "GeoTrace"}
                   </span>
                 </>
               )}
@@ -253,7 +229,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
 
         {/* Footer opcional */}
         <footer className="py-6 border-t border-slate-200/60 px-8 text-center text-xs text-slate-400">
-          &copy; 2026 GeoTrace - Sistema de Rastreabilidade Premium
+          &copy; 2026 {branding?.siteTitle?.split(' - ')[0] || "GeoTrace"} - Sistema de Rastreabilidade Premium
         </footer>
       </div>
 
@@ -270,7 +246,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
             {/* Sidebar content simplified for mobile */}
             <div className="flex grow flex-col gap-y-5 overflow-y-auto px-6 pb-4">
               <div className="flex h-20 shrink-0 items-center py-6">
-                <span className="text-xl font-black text-slate-900">GeoTrace Admin</span>
+                <span className="text-xl font-black text-slate-900">{branding?.siteTitle?.split(' - ')[0] || "GeoTrace"} Admin</span>
               </div>
               <nav className="flex flex-1 flex-col">
                 <ul role="list" className="flex flex-1 flex-col gap-y-7">

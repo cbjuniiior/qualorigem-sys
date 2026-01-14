@@ -3,7 +3,8 @@ import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, ShareNetwork, Copy, CaretDown, Tag } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { productLotsApi, producersApi, systemConfigApi } from "@/services/api";
+import { productLotsApi, producersApi } from "@/services/api";
+import { useBranding } from "@/hooks/use-branding";
 import type { ProductLot, LotComponent } from "@/services/api";
 
 // Componentes refatorados
@@ -50,22 +51,26 @@ interface LoteData {
   acidity_score: number | null;
   body_score: number | null;
   sensory_notes: string | null;
+  characteristics?: Array<{
+    id: string;
+    characteristic_id: string;
+    value: string;
+    characteristics: {
+      id: string;
+      name: string;
+    };
+  }>;
 }
 
 const LoteDetails = () => {
   const { codigo } = useParams();
   const navigate = useNavigate();
+  const { branding } = useBranding();
   const [loteData, setLoteData] = useState<LoteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [producer, setProducer] = useState<any | null>(null);
   const [industry, setIndustry] = useState<any | null>(null);
   const [associations, setAssociations] = useState<any[]>([]);
-  const [branding, setBranding] = useState<{
-    primaryColor: string;
-    secondaryColor: string;
-    accentColor: string;
-    logoUrl: string | null;
-  } | null>(null);
   const [mapCoords, setMapCoords] = useState<{ lat: string; lon: string } | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -157,28 +162,12 @@ const LoteDetails = () => {
   useEffect(() => {
     const loadConfigs = async () => {
       try {
-        const [brandingConfig, videoConfigData] = await Promise.all([
-          systemConfigApi.getBrandingConfig(),
-          systemConfigApi.getVideoConfig()
-        ]);
-        
-        setBranding({
-          primaryColor: brandingConfig.primaryColor,
-          secondaryColor: brandingConfig.secondaryColor,
-          accentColor: brandingConfig.accentColor,
-          logoUrl: brandingConfig.logoUrl,
-        });
-        
+        const { systemConfigApi } = await import("@/services/api");
+        const videoConfigData = await systemConfigApi.getVideoConfig();
         setVideoConfig(videoConfigData);
+        console.log('Video Config Carregada:', videoConfigData);
       } catch (error) {
-        console.error('Erro ao carregar configurações:', error);
-        // Usar valores padrão em caso de erro
-        setBranding({
-          primaryColor: '#16a34a',
-          secondaryColor: '#22c55e',
-          accentColor: '#10b981',
-          logoUrl: null,
-        });
+        console.error('Erro ao carregar configurações de vídeo:', error);
         setVideoConfig({
           enabled: true,
           auto_play: true,
@@ -429,7 +418,9 @@ const LoteDetails = () => {
   useEffect(() => {
     if (!loteData?.youtube_video_url || !showTimer || !videoConfig) return;
 
-    const delaySeconds = videoConfig.show_after_seconds || 3;
+    const delaySeconds = loteData.video_delay_seconds || videoConfig.show_after_seconds || 3;
+    setCountdown(delaySeconds);
+    
     const interval = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -688,7 +679,7 @@ const LoteDetails = () => {
   return (
     <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       {/* Vídeo do YouTube - Seção em tela cheia (100vh) quando aguardando, normal após X segundos */}
-      {loteData.youtube_video_url && videoConfig?.enabled !== false && (
+      {loteData.youtube_video_url && videoConfig?.enabled && (
         <div 
           ref={videoSectionRef}
           className={`w-full h-screen max-h-screen bg-black relative flex flex-col overflow-hidden ${
@@ -808,7 +799,7 @@ const LoteDetails = () => {
                     </h3>
                   </div>
                   <p className="text-gray-300 text-xs sm:text-sm mb-3 sm:mb-4 leading-relaxed px-2">
-                    Explore detalhes técnicos, composição e características únicas deste lote
+                    {loteData.video_description || "Explore detalhes técnicos, composição e características únicas deste lote"}
                   </p>
                   <Button
                     onClick={showLotInfo}
@@ -855,7 +846,7 @@ const LoteDetails = () => {
       )}
       
       {/* Conteúdo principal da página - Exibido após 10s ou quando não há vídeo */}
-      <div className={`${loteData.youtube_video_url && !showInfoMessage ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+      <div className={`${loteData.youtube_video_url && videoConfig?.enabled && !showInfoMessage ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         {/* Hero Section */}
         <HeroSection 
           loteData={loteData}
@@ -996,6 +987,7 @@ const LoteDetails = () => {
               isBlend={isBlend}
               blendComponents={blendComponents}
               producer={producer}
+              loteData={loteData}
               branding={branding || undefined}
             />
 

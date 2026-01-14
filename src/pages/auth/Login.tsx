@@ -1,39 +1,22 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Eye, EyeSlash, Leaf, ArrowLeft } from "@phosphor-icons/react";
+import { Eye, EyeSlash, Leaf, ArrowLeft, Lock, Envelope } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/use-auth";
+import { useBranding } from "@/hooks/use-branding";
 import { toast } from "sonner";
-import { systemConfigApi } from "@/services/api";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [branding, setBranding] = useState<{
-    primaryColor: string;
-    secondaryColor: string;
-    accentColor: string;
-    logoUrl: string | null;
-  } | null>(null);
-  const { signIn, loading, user } = useAuth();
+  const [isResetMode, setIsResetMode] = useState(false);
+  const { branding } = useBranding();
+  const { signIn, resetPassword, loading, user } = useAuth();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const loadBranding = async () => {
-      try {
-        const config = await systemConfigApi.getBrandingConfig();
-        setBranding(config);
-      } catch (error) {
-        console.error("Erro ao carregar branding:", error);
-      }
-    };
-    loadBranding();
-  }, []);
 
   // Redirecionar se já estiver logado
   useEffect(() => {
@@ -45,6 +28,18 @@ const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (isResetMode) {
+      if (!email.trim()) {
+        toast.error("Preencha seu email");
+        return;
+      }
+      try {
+        await resetPassword(email);
+        setIsResetMode(false);
+      } catch (error) {}
+      return;
+    }
+
     if (!email.trim() || !password.trim()) {
       toast.error("Preencha todos os campos");
       return;
@@ -58,127 +53,163 @@ const Login = () => {
     }
   };
 
-  const primaryColor = branding?.primaryColor || '#16a34a';
-  const secondaryColor = branding?.secondaryColor || '#22c55e';
+  const primaryColor = branding.primaryColor || '#16a34a';
+  const secondaryColor = branding.secondaryColor || '#22c55e';
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <Link 
-            to="/" 
-            className="inline-flex items-center mb-4 font-medium transition-colors"
-            style={{ color: primaryColor }}
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar ao site
-          </Link>
-          
-          <div className="flex flex-col items-center justify-center gap-4 mb-4">
+    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Elementos Decorativos Minimalistas */}
+      <div className="absolute top-[-10%] right-[-5%] w-[400px] h-[400px] rounded-full blur-[120px] opacity-10 pointer-events-none" style={{ backgroundColor: primaryColor }} />
+      <div className="absolute bottom-[-10%] left-[-5%] w-[300px] h-[300px] rounded-full blur-[100px] opacity-10 pointer-events-none" style={{ backgroundColor: secondaryColor }} />
+
+      <div className="w-full max-w-md space-y-10 animate-in fade-in zoom-in-95 duration-700 relative z-10">
+        
+        {/* Header Minimalista */}
+        <div className="text-center space-y-6">
+          <div className="flex flex-col items-center gap-6">
+            <Link 
+              to="/" 
+              className="inline-flex items-center text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] gap-2 hover:text-slate-600 transition-colors mb-2"
+            >
+              <ArrowLeft size={14} weight="bold" />
+              Voltar ao site
+            </Link>
+
             {branding?.logoUrl ? (
               <img 
                 src={branding.logoUrl} 
                 alt="Logo" 
-                className="h-24 object-contain drop-shadow-sm"
+                className="h-24 md:h-28 object-contain drop-shadow-xl transition-transform hover:scale-105 duration-500"
               />
             ) : (
-              <div className="flex items-center justify-center space-x-2">
-                <div 
-                  className="w-10 h-10 rounded-lg flex items-center justify-center shadow-sm"
-                  style={{ background: `linear-gradient(to bottom right, ${primaryColor}, ${secondaryColor})` }}
-                >
-                  <Leaf className="h-5 w-5 text-white" weight="fill" />
-                </div>
-                <h1 
-                  className="text-2xl font-bold bg-clip-text text-transparent"
-                  style={{ backgroundImage: `linear-gradient(to right, ${primaryColor}, ${secondaryColor})` }}
-                >
-                  GeoTrace
-                </h1>
+              <div 
+                className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-xl shadow-primary/10 rotate-3"
+                style={{ background: `linear-gradient(135deg, ${primaryColor}, ${secondaryColor})` }}
+              >
+                <Leaf className="h-8 w-8 text-white" weight="fill" />
               </div>
             )}
           </div>
           
-          <p className="text-gray-600">Acesse sua conta para continuar</p>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+              {isResetMode ? "Recuperar acesso" : "Bem-vindo de volta"}
+            </h2>
+            <p className="text-slate-400 font-bold text-[10px] uppercase tracking-[0.15em]">
+              {isResetMode ? "Enviaremos um link para seu e-mail" : "Acesse sua conta para continuar"}
+            </p>
+          </div>
         </div>
 
-        {/* Card de Login */}
-        <Card className="border-gray-200 shadow-lg">
-          <CardHeader className="text-center pb-2">
-            <CardTitle className="text-xl text-gray-900">Entrar</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-gray-700">
-                  Email
+        {/* Card de Login Minimalista */}
+        <Card className="border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.04)] bg-white/80 backdrop-blur-xl rounded-[2.5rem] overflow-hidden">
+          <CardContent className="p-10">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              <div className="space-y-3">
+                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">
+                  E-mail Oficial
                 </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="focus:ring-2 border-gray-200"
-                  style={{ '--tw-ring-color': primaryColor, borderColor: 'inherit' } as React.CSSProperties}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-700">
-                  Senha
-                </Label>
-                <div className="relative">
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" style={{ '--primary': primaryColor } as any}>
+                    <Envelope size={20} weight="bold" />
+                  </div>
                   <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Sua senha"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="focus:ring-2 border-gray-200 pr-10"
-                    style={{ '--tw-ring-color': primaryColor, borderColor: 'inherit' } as React.CSSProperties}
+                    id="email"
+                    type="email"
+                    placeholder="nome@exemplo.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-14 pl-12 bg-slate-50/50 border-slate-100 rounded-2xl font-bold focus-visible:ring-primary focus-visible:bg-white transition-all shadow-inner"
+                    style={{ '--primary': primaryColor } as any}
                     required
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeSlash className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
                 </div>
               </div>
 
-              <Button
-                type="submit"
-                className="w-full h-11 text-white font-medium shadow-sm hover:opacity-90 transition-opacity"
-                style={{ backgroundColor: primaryColor }}
-                disabled={loading}
-              >
-                {loading ? "Entrando..." : "Entrar"}
-              </Button>
-            </form>
+              {!isResetMode && (
+                <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-500">
+                  <div className="flex justify-between items-center px-1">
+                    <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      Chave de Acesso
+                    </Label>
+                    <button 
+                      type="button" 
+                      onClick={() => setIsResetMode(true)}
+                      className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline transition-colors" 
+                      style={{ color: primaryColor }}
+                    >
+                      Esqueceu?
+                    </button>
+                  </div>
+                  <div className="relative group">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors" style={{ '--primary': primaryColor } as any}>
+                      <Lock size={20} weight="bold" />
+                    </div>
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Sua senha"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="h-14 pl-12 pr-12 bg-slate-50/50 border-slate-100 rounded-2xl font-bold focus-visible:ring-primary focus-visible:bg-white transition-all shadow-inner"
+                      style={{ '--primary': primaryColor } as any}
+                      required={!isResetMode}
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600 transition-colors"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeSlash size={20} weight="bold" /> : <Eye size={20} weight="bold" />}
+                    </button>
+                  </div>
+                </div>
+              )}
 
+              <div className="space-y-4 pt-2">
+                <Button
+                  type="submit"
+                  className="w-full h-14 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-2xl hover:opacity-95 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 border-0"
+                  style={{ 
+                    backgroundColor: primaryColor,
+                    boxShadow: `0 20px 40px -10px ${primaryColor}30`
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <div className="flex items-center gap-2">
+                      <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      {isResetMode ? "Enviando..." : "Autenticando..."}
+                    </div>
+                  ) : (
+                    isResetMode ? "Enviar Instruções" : "Entrar no Sistema"
+                  )}
+                </Button>
+
+                {isResetMode && (
+                  <button
+                    type="button"
+                    onClick={() => setIsResetMode(false)}
+                    className="w-full text-center text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    Voltar para o login
+                  </button>
+                )}
+              </div>
+            </form>
           </CardContent>
         </Card>
 
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-sm text-gray-500">
-            Sistema de rastreabilidade para produtos com Indicação Geográfica
+        {/* Footer Minimalista */}
+        <div className="text-center pt-4 flex flex-col items-center gap-4">
+          <p className="text-slate-300 font-black uppercase text-[9px] tracking-[0.3em]">
+            {branding.siteTitle?.split(' - ')[0] || "GeoTrace"} &copy; 2026
           </p>
+          <div className="h-px w-12 bg-slate-100" />
         </div>
       </div>
     </div>
   );
 };
 
-export default Login; 
+export default Login;

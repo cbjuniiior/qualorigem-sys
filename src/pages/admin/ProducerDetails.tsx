@@ -55,9 +55,7 @@ import {
 
 const PRODUCER_STEPS = [
   { id: 1, title: "Responsável" },
-  { id: 2, title: "Propriedade" },
-  { id: 3, title: "Localização" },
-  { id: 4, title: "Vínculos" },
+  { id: 2, title: "Vínculos" },
 ];
 
 export default function ProducerDetails() {

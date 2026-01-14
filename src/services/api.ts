@@ -13,6 +13,11 @@ export type SystemConfiguration = Tables<"system_configurations">;
 export type Association = Tables<"associations">;
 export type Brand = Tables<"brands">;
 export type Industry = Tables<"industries">;
+export type Category = Tables<"categories">;
+export type Characteristic = Tables<"characteristics">;
+export type ProductLotCharacteristic = Tables<"product_lot_characteristics">;
+export type SensoryAttribute = Tables<"sensory_attributes">;
+export type ProductLotSensory = Tables<"product_lot_sensory">;
 
 export type ProducerInsert = TablesInsert<"producers">;
 export type ProductLotInsert = TablesInsert<"product_lots">;
@@ -22,6 +27,11 @@ export type SystemConfigurationInsert = TablesInsert<"system_configurations">;
 export type AssociationInsert = TablesInsert<"associations">;
 export type BrandInsert = TablesInsert<"brands">;
 export type IndustryInsert = TablesInsert<"industries">;
+export type CategoryInsert = TablesInsert<"categories">;
+export type CharacteristicInsert = TablesInsert<"characteristics">;
+export type ProductLotCharacteristicInsert = TablesInsert<"product_lot_characteristics">;
+export type SensoryAttributeInsert = TablesInsert<"sensory_attributes">;
+export type ProductLotSensoryInsert = TablesInsert<"product_lot_sensory">;
 
 export type ProducerUpdate = TablesUpdate<"producers">;
 export type ProductLotUpdate = TablesUpdate<"product_lots">;
@@ -31,6 +41,11 @@ export type SystemConfigurationUpdate = TablesUpdate<"system_configurations">;
 export type AssociationUpdate = TablesUpdate<"associations">;
 export type BrandUpdate = TablesUpdate<"brands">;
 export type IndustryUpdate = TablesUpdate<"industries">;
+export type CategoryUpdate = TablesUpdate<"categories">;
+export type CharacteristicUpdate = TablesUpdate<"characteristics">;
+export type ProductLotCharacteristicUpdate = TablesUpdate<"product_lot_characteristics">;
+export type SensoryAttributeUpdate = TablesUpdate<"sensory_attributes">;
+export type ProductLotSensoryUpdate = TablesUpdate<"product_lot_sensory">;
 
 // Serviços para Produtores
 export const producersApi = {
@@ -112,7 +127,23 @@ export const productLotsApi = {
           average_temperature,
           latitude,
           longitude,
-          photos
+          photos,
+          profile_picture_url
+        ),
+        product_lot_characteristics (
+          id,
+          characteristic_id,
+          value,
+          characteristics (
+            id,
+            name
+          )
+        ),
+        product_lot_sensory (
+          id,
+          sensory_attribute_id,
+          value,
+          sensory_attributes (*)
         )
       `)
       .order("created_at", { ascending: false });
@@ -135,6 +166,16 @@ export const productLotsApi = {
             producer_id,
             component_harvest_year,
             association_id,
+            latitude,
+            longitude,
+            altitude,
+            property_name,
+            property_description,
+            photos,
+            address,
+            city,
+            state,
+            cep,
             producers (
               id,
               name,
@@ -143,7 +184,8 @@ export const productLotsApi = {
               state,
               latitude,
               longitude,
-              photos
+              photos,
+              profile_picture_url
             ),
             associations (
               id,
@@ -155,7 +197,9 @@ export const productLotsApi = {
         
         return {
           ...lot,
-          lot_components: components || []
+          lot_components: components || [],
+          characteristics: lot.product_lot_characteristics || [],
+          sensory_analysis: lot.product_lot_sensory || []
         };
       })
     );
@@ -180,7 +224,23 @@ export const productLotsApi = {
           average_temperature,
           latitude,
           longitude,
-          photos
+          photos,
+          profile_picture_url
+        ),
+        product_lot_characteristics (
+          id,
+          characteristic_id,
+          value,
+          characteristics (
+            id,
+            name
+          )
+        ),
+        product_lot_sensory (
+          id,
+          sensory_attribute_id,
+          value,
+          sensory_attributes (*)
         )
       `)
       .eq("code", code)
@@ -201,7 +261,9 @@ export const productLotsApi = {
     
     return {
       ...data,
-      components: components || []
+      components: components || [],
+      characteristics: data.product_lot_characteristics || [],
+      sensory_analysis: data.product_lot_sensory || []
     };
   },
 
@@ -222,7 +284,23 @@ export const productLotsApi = {
           average_temperature,
           latitude,
           longitude,
-          photos
+          photos,
+          profile_picture_url
+        ),
+        product_lot_characteristics (
+          id,
+          characteristic_id,
+          value,
+          characteristics (
+            id,
+            name
+          )
+        ),
+        product_lot_sensory (
+          id,
+          sensory_attribute_id,
+          value,
+          sensory_attributes (*)
         )
       `)
       .eq("id", id)
@@ -242,7 +320,9 @@ export const productLotsApi = {
     
     return {
       ...data,
-      components: components || []
+      components: components || [],
+      characteristics: data.product_lot_characteristics || [],
+      sensory_analysis: data.product_lot_sensory || []
     };
   },
 
@@ -263,8 +343,10 @@ export const productLotsApi = {
           average_temperature,
           latitude,
           longitude,
-          photos
-        )
+          photos,
+          profile_picture_url
+        ),
+        lot_components (*)
       `)
       .eq("producer_id", producerId)
       .order("created_at", { ascending: false });
@@ -291,7 +373,8 @@ export const productLotsApi = {
           average_temperature,
           latitude,
           longitude,
-          photos
+          photos,
+          profile_picture_url
         )
       `)
       .single();
@@ -319,7 +402,8 @@ export const productLotsApi = {
           average_temperature,
           latitude,
           longitude,
-          photos
+          photos,
+          profile_picture_url
         )
       `)
       .single();
@@ -377,7 +461,8 @@ export const productLotsApi = {
           average_temperature,
           latitude,
           longitude,
-          photos
+          photos,
+          profile_picture_url
         )
       `)
       .eq("category", category)
@@ -556,6 +641,16 @@ export const authApi = {
   async updatePassword(newPassword: string) {
     const { data, error } = await supabase.auth.updateUser({
       password: newPassword,
+    });
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Recuperar senha (enviar email)
+  async resetPassword(email: string) {
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset-password`,
     });
     
     if (error) throw error;
@@ -821,7 +916,9 @@ export const systemConfigApi = {
       primaryColor: '#16a34a',
       secondaryColor: '#22c55e',
       accentColor: '#10b981',
-      logoUrl: null
+      logoUrl: null,
+      siteTitle: 'GeoTrace - Sistema de Rastreabilidade',
+      siteDescription: 'Plataforma premium para rastreabilidade de produtos de origem.'
     };
   }
 }; 
@@ -1033,6 +1130,199 @@ export const industriesApi = {
       .delete()
       .eq("id", id);
     
+    if (error) throw error;
+  }
+};
+
+// Serviços para Categorias
+export const categoriesApi = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from("categories")
+      .select("*")
+      .order("name");
+    if (error) throw error;
+    return data;
+  },
+  async create(category: CategoryInsert) {
+    const { data, error } = await supabase
+      .from("categories")
+      .insert(category)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async update(id: string, updates: CategoryUpdate) {
+    const { data, error } = await supabase
+      .from("categories")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async delete(id: string) {
+    const { error } = await supabase
+      .from("categories")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  }
+};
+
+// Serviços para Características
+export const characteristicsApi = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from("characteristics")
+      .select("*")
+      .order("name");
+    if (error) throw error;
+    return data;
+  },
+  async create(characteristic: CharacteristicInsert) {
+    const { data, error } = await supabase
+      .from("characteristics")
+      .insert(characteristic)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async update(id: string, updates: CharacteristicUpdate) {
+    const { data, error } = await supabase
+      .from("characteristics")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async delete(id: string) {
+    const { error } = await supabase
+      .from("characteristics")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  }
+};
+
+// Serviços para Características de Lote
+export const productLotCharacteristicsApi = {
+  async getByLot(lotId: string) {
+    const { data, error } = await supabase
+      .from("product_lot_characteristics")
+      .select(`
+        *,
+        characteristics (*)
+      `)
+      .eq("lot_id", lotId);
+    if (error) throw error;
+    return data;
+  },
+  async create(lotCharacteristic: ProductLotCharacteristicInsert) {
+    const { data, error } = await supabase
+      .from("product_lot_characteristics")
+      .insert(lotCharacteristic)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async update(id: string, updates: ProductLotCharacteristicUpdate) {
+    const { data, error } = await supabase
+      .from("product_lot_characteristics")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async delete(id: string) {
+    const { error } = await supabase
+      .from("product_lot_characteristics")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  },
+  async deleteByLot(lotId: string) {
+    const { error } = await supabase
+      .from("product_lot_characteristics")
+      .delete()
+      .eq("lot_id", lotId);
+    if (error) throw error;
+  }
+};
+
+// Serviços para Atributos Sensoriais
+export const sensoryAttributesApi = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from("sensory_attributes")
+      .select("*")
+      .order("name");
+    if (error) throw error;
+    return data;
+  },
+  async create(attribute: SensoryAttributeInsert) {
+    const { data, error } = await supabase
+      .from("sensory_attributes")
+      .insert(attribute)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async update(id: string, updates: SensoryAttributeUpdate) {
+    const { data, error } = await supabase
+      .from("sensory_attributes")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async delete(id: string) {
+    const { error } = await supabase
+      .from("sensory_attributes")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  }
+};
+
+// Serviços para Análise Sensorial do Lote
+export const productLotSensoryApi = {
+  async getByLot(lotId: string) {
+    const { data, error } = await supabase
+      .from("product_lot_sensory")
+      .select(`
+        *,
+        sensory_attributes (*)
+      `)
+      .eq("lot_id", lotId);
+    if (error) throw error;
+    return data;
+  },
+  async create(lotSensory: ProductLotSensoryInsert) {
+    const { data, error } = await supabase
+      .from("product_lot_sensory")
+      .insert(lotSensory)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async deleteByLot(lotId: string) {
+    const { error } = await supabase
+      .from("product_lot_sensory")
+      .delete()
+      .eq("lot_id", lotId);
     if (error) throw error;
   }
 };

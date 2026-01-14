@@ -100,6 +100,19 @@ export const NotesStep = ({ formData, setFormData, branding }: NotesStepProps) =
               <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                    <ChatCircleText size={18} style={{ color: primaryColor }} /> Texto abaixo do vídeo
+                  </Label>
+                  <Textarea 
+                    value={formData.video_description} 
+                    onChange={e => setFormData({ ...formData, video_description: e.target.value })} 
+                    placeholder="Frase curta de impacto para aparecer logo abaixo do player..." 
+                    className="min-h-[80px] rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-primary"
+                    style={{ '--primary': primaryColor } as any}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
                     <Clock size={18} style={{ color: primaryColor }} /> Delay de Exibição
                   </Label>
                   <div className="flex items-center gap-4">

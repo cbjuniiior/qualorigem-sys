@@ -165,24 +165,27 @@ export const ProducerDashboard = () => {
 
           {/* Quick Actions & Links */}
           <div className="space-y-8">
-            <Card className="border-0 shadow-sm bg-slate-900 text-white rounded-3xl overflow-hidden p-8 relative">
+            <Card 
+              className="border-0 shadow-sm rounded-3xl overflow-hidden p-8 relative transition-all duration-500"
+              style={{ backgroundColor: `${primaryColor}05`, border: `1px solid ${primaryColor}10` }}
+            >
               <div className="relative z-10 space-y-6">
-                <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100">
                   <QrCode size={24} weight="fill" style={{ color: primaryColor }} />
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-xl font-black">Gerar QR Codes</h3>
+                <div className="space-y-2 text-left">
+                  <h3 className="text-xl font-black text-slate-800">Gerar QR Codes</h3>
                   <p className="text-sm text-slate-400 font-medium">Baixe as etiquetas de rastreabilidade para suas embalagens.</p>
                 </div>
                 <Button 
                   asChild 
                   className="w-full rounded-xl font-black text-white hover:opacity-90 h-12 transition-all shadow-lg"
-                  style={{ backgroundColor: primaryColor, shadowColor: `${primaryColor}40` } as any}
+                  style={{ backgroundColor: primaryColor }}
                 >
                   <Link to="/produtor/qrcodes">Acessar Etiquetas</Link>
                 </Button>
               </div>
-              <QrCode size={140} weight="thin" className="absolute -bottom-10 -right-10 text-white/5 rotate-12" />
+              <QrCode size={140} weight="thin" className="absolute -bottom-10 -right-10 text-primary/5 rotate-12" style={{ color: primaryColor }} />
             </Card>
 
             <Card className="border-0 shadow-sm bg-white rounded-3xl overflow-hidden">

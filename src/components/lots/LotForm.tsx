@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { BasicInfoStep } from "./steps/BasicInfoStep";
 import { ProductionStep } from "./steps/ProductionStep";
+import { VolumeStep } from "./steps/VolumeStep";
 import { SensoryAnalysisStep } from "./steps/SensoryAnalysisStep";
 import { NotesStep } from "./steps/NotesStep";
 
@@ -39,9 +40,10 @@ interface LotFormProps {
 
 export const LOT_STEPS = [
   { id: 1, title: "Identificação", description: "Dados básicos", icon: Package },
-  { id: 2, title: "Produção", description: "Origem e composição", icon: Medal },
-  { id: 3, title: "Análise", description: "Perfil sensorial", icon: Eye },
-  { id: 4, title: "História", description: "Relatos e mídia", icon: Quotes }
+  { id: 2, title: "Origem", description: "Propriedade e localização", icon: Medal },
+  { id: 3, title: "Volume", description: "Métricas de produção", icon: Package },
+  { id: 4, title: "Análise", description: "Perfil sensorial", icon: Eye },
+  { id: 5, title: "História", description: "Relatos e mídia", icon: Quotes }
 ];
 
 export const LotForm = ({
@@ -60,33 +62,9 @@ export const LotForm = ({
   isEditing = false,
   branding
 }: LotFormProps) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const primaryColor = branding?.primaryColor || '#16a34a';
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
-      if (!allowedTypes.includes(file.type)) {
-        toast.error("Tipo de arquivo não suportado. Use JPG, PNG ou GIF.");
-        return;
-      }
-      const maxSize = 5 * 1024 * 1024;
-      if (file.size > maxSize) {
-        toast.error("Arquivo muito grande. Tamanho máximo: 5MB.");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        setFormData({ ...formData, image_url: ev.target?.result });
-        toast.success("Foto carregada com sucesso!");
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const removeImage = () => setFormData({ ...formData, image_url: "" });
-  const qrValue = `${window.location.origin}/produto/${formData.code}`;
+  const qrValue = `${window.location.origin}/lote/${formData.code}`;
 
   const nextStep = () => { if (currentStep < totalSteps) setCurrentStep(currentStep + 1); };
   const prevStep = () => { if (currentStep > 1) setCurrentStep(currentStep - 1); };
@@ -101,11 +79,11 @@ export const LotForm = ({
               setFormData={setFormData}
               isBlendMode={isBlendMode}
               setIsBlendMode={setIsBlendMode}
-              fileInputRef={fileInputRef}
-              handleImageUpload={handleImageUpload}
-              removeImage={removeImage}
               qrValue={qrValue}
               branding={branding}
+              producers={producers}
+              associations={associations}
+              industries={industries}
             />
           )}
 
@@ -123,6 +101,16 @@ export const LotForm = ({
           )}
 
           {currentStep === 3 && (
+            <VolumeStep
+              formData={formData}
+              setFormData={setFormData}
+              isBlendMode={isBlendMode}
+              producers={producers}
+              branding={branding}
+            />
+          )}
+
+          {currentStep === 4 && (
             <SensoryAnalysisStep
               formData={formData}
               setFormData={setFormData}
@@ -130,7 +118,7 @@ export const LotForm = ({
             />
           )}
 
-          {currentStep === 4 && (
+          {currentStep === 5 && (
             <NotesStep
               formData={formData}
               setFormData={setFormData}

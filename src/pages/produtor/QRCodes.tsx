@@ -227,14 +227,17 @@ export const ProducerQRCodes = () => {
         )}
 
         {/* Knowledge Card */}
-        <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white relative overflow-hidden">
-          <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+        <div 
+          className="rounded-[2.5rem] p-10 relative overflow-hidden border transition-all duration-500"
+          style={{ backgroundColor: `${primaryColor}05`, borderColor: `${primaryColor}10` }}
+        >
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-12 items-center text-left">
             <div className="space-y-6">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full border border-white/5">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full border border-slate-100 shadow-sm">
                 <Info size={18} style={{ color: primaryColor }} weight="fill" />
-                <span className="text-xs font-black uppercase tracking-widest">Guia de Uso</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Guia de Uso</span>
               </div>
-              <h3 className="text-3xl font-black tracking-tight leading-tight">Como utilizar suas etiquetas de rastreabilidade?</h3>
+              <h3 className="text-3xl font-black tracking-tight leading-tight text-slate-800">Como utilizar suas etiquetas de rastreabilidade?</h3>
               <div className="space-y-4">
                 {[
                   { title: "Impressão de Qualidade", desc: "Use papel adesivo fosco para evitar reflexos no escaneamento." },
@@ -249,7 +252,7 @@ export const ProducerQRCodes = () => {
                       {i+1}
                     </div>
                     <div className="space-y-1">
-                      <p className="font-black text-sm">{item.title}</p>
+                      <p className="font-black text-sm text-slate-700">{item.title}</p>
                       <p className="text-xs text-slate-400 font-medium">{item.desc}</p>
                     </div>
                   </div>
@@ -257,13 +260,13 @@ export const ProducerQRCodes = () => {
               </div>
             </div>
             <div className="hidden md:flex justify-end">
-              <div className="w-64 h-64 bg-white rounded-3xl p-6 shadow-2xl rotate-3 flex items-center justify-center">
+              <div className="w-64 h-64 bg-white rounded-3xl p-6 shadow-2xl rotate-3 flex items-center justify-center ring-1 ring-slate-100">
                 <QRCodeSVG value={window.location.origin} size={200} />
               </div>
             </div>
           </div>
           <div 
-            className="absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full -mr-48 -mt-48 opacity-20" 
+            className="absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full -mr-48 -mt-48 opacity-10" 
             style={{ backgroundColor: primaryColor }}
           />
         </div>

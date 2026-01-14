@@ -11,6 +11,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -139,6 +140,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  const resetPassword = async (email: string) => {
+    try {
+      setLoading(true);
+      await authApi.resetPassword(email);
+      toast.success("Email de recuperação enviado com sucesso!");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao enviar email de recuperação");
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     user,
     session,
@@ -146,6 +160,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     signIn,
     signUp,
     signOut,
+    resetPassword,
   };
 
   return (

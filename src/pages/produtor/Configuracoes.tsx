@@ -147,7 +147,7 @@ export const ProducerConfiguracoes = () => {
               <Gear size={32} style={{ color: primaryColor }} weight="fill" />
               Configurações
             </h2>
-            <p className="text-slate-500 font-medium text-sm">Gerencie os dados da sua fazenda e sua conta GeoTrace.</p>
+            <p className="text-slate-500 font-medium text-sm">Gerencie os dados da sua fazenda e sua conta {branding?.siteTitle?.split(' - ')[0] || "GeoTrace"}.</p>
           </div>
           <Button 
             onClick={handleSave} 

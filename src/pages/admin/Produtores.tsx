@@ -101,9 +101,7 @@ const stateOptions = [
 
 const PRODUCER_STEPS = [
   { id: 1, title: "Responsável" },
-  { id: 2, title: "Propriedade" },
-  { id: 3, title: "Localização" },
-  { id: 4, title: "Vínculos" },
+  { id: 2, title: "Vínculos" },
 ];
 
 const Produtores = () => {
@@ -498,18 +496,6 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
         return false;
       }
     }
-    if (currentStep === 2) {
-      if (!watch("property_name")) {
-        toast.error("Nome da propriedade é obrigatório");
-        return false;
-      }
-    }
-    if (currentStep === 3) {
-      if (!watch("city") || !watch("state")) {
-        toast.error("Cidade e Estado são obrigatórios");
-        return false;
-      }
-    }
     return true;
   };
 
@@ -602,176 +588,10 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
           </FormSection>
 
           <FormSection 
-            title="Sobre a Propriedade" 
-            icon={Buildings} 
-            description="História e visual da fazenda"
-            active={currentStep === 2}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 text-left">
-              <div className="space-y-2 md:col-span-2">
-                <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                  <Buildings size={16} style={{ color: primaryColor }} /> Nome da Propriedade *
-                </Label>
-                <Input {...register("property_name")} placeholder="Fazenda Vale Verde" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                  <Mountains size={16} style={{ color: primaryColor }} /> Altitude Média
-                </Label>
-                <Input type="number" {...register("altitude")} placeholder="Ex: 1100" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                  <Thermometer size={16} style={{ color: primaryColor }} /> Temperatura Média
-                </Label>
-                <Input type="number" {...register("average_temperature")} placeholder="Ex: 22" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
-              </div>
-            </div>
-
-            <div className="space-y-4 text-left">
-              <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                <ChatCircleText size={16} style={{ color: primaryColor }} /> História da Propriedade
-              </Label>
-              <Textarea {...register("property_description")} placeholder="Conte um pouco sobre a origem, tradição e processos únicos da sua fazenda..." className="min-h-[120px] focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
-            </div>
-
-            <div className="space-y-4 text-left">
-              <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                <ImageIcon size={16} style={{ color: primaryColor }} /> Galeria de Fotos
-              </Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
-                {photoPreviews.map((p, i) => (
-                  <div key={i} className="group relative aspect-square rounded-[2rem] overflow-hidden border-4 border-white shadow-lg transition-all hover:scale-105 duration-300">
-                    <img src={p.url} className="w-full h-full object-cover" alt={`Propriedade ${i}`} />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <button 
-                        type="button" 
-                        className="p-3 bg-white/90 text-rose-600 rounded-2xl shadow-xl hover:scale-110 transition-all"
-                        onClick={() => {
-                          const newPhotos = watch("photos").filter((_: any, idx: number) => idx !== i);
-                          setValue("photos", newPhotos);
-                          setPhotoPreviews(prev => prev.filter((_, idx) => idx !== i));
-                        }}
-                      >
-                        <Trash size={20} weight="fill" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                <button 
-                  type="button" 
-                  onClick={() => document.getElementById('property-up')?.click()} 
-                  className="aspect-square rounded-[2rem] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center gap-3 text-slate-400 hover:bg-slate-50 transition-all group shadow-sm"
-                >
-                  <div 
-                    className="p-3 bg-slate-100 rounded-2xl text-slate-400 group-hover:text-primary transition-colors"
-                    style={{ '--primary': primaryColor } as any}
-                  >
-                    <Plus size={24} weight="bold" />
-                  </div>
-                  <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Foto</span>
-                </button>
-                <input id="property-up" type="file" multiple className="hidden" accept="image/*" onChange={e => handlePhotoUpload(e, "property")} />
-              </div>
-            </div>
-          </FormSection>
-
-          <FormSection 
-            title="Endereço & Localização" 
-            icon={MapPin} 
-            description="Onde a produção acontece"
-            active={currentStep === 3}
-          >
-            <div 
-              className="flex items-center justify-between p-6 rounded-[1.5rem] border shadow-sm"
-              style={{ backgroundColor: `${primaryColor}05`, borderColor: `${primaryColor}10` }}
-            >
-              <div className="flex items-center gap-4 text-left">
-                <div 
-                  className="p-3 rounded-2xl shadow-sm bg-white"
-                  style={{ color: primaryColor }}
-                >
-                  {watch("address_internal_only") ? <Lock size={24} weight="fill" /> : <LockOpen size={24} weight="fill" />}
-                </div>
-                <div>
-                  <Label className="font-black text-slate-800 text-base">Privacidade do Endereço</Label>
-                  <p className="text-xs text-slate-500 font-medium">
-                    {watch("address_internal_only") 
-                      ? "Endereço INTERNO (apenas cidade/estado no QR Code)" 
-                      : "Endereço VISÍVEL para o consumidor no QR Code"}
-                  </p>
-                </div>
-              </div>
-              <Switch 
-                checked={watch("address_internal_only")} 
-                onCheckedChange={v => setValue("address_internal_only", v)}
-                style={{ '--primary': primaryColor } as any}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-x-8 gap-y-6 text-left">
-              <div className="space-y-2">
-                <Label className="font-black text-slate-700 ml-1 mb-1">CEP</Label>
-                <Input {...register("cep")} placeholder="00000-000" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label className="font-black text-slate-700 ml-1 mb-1">Cidade *</Label>
-                <Input {...register("city")} placeholder="Cidade" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
-              </div>
-              <div className="space-y-2">
-                <Label className="font-black text-slate-700 ml-1 mb-1">Estado *</Label>
-                <Select value={watch("state")} onValueChange={v => setValue("state", v)}>
-                  <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-0 focus:ring-primary" style={{ '--primary': primaryColor } as any}>
-                    <SelectValue placeholder="UF" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stateOptions.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 md:col-span-4">
-                <Label className="font-black text-slate-700 ml-1 mb-1">Endereço Completo</Label>
-                <Input {...register("address")} placeholder="Rua, número, bairro, zona rural..." className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
-              </div>
-            </div>
-
-            <Separator className="bg-slate-100" />
-
-            <div className="space-y-6 text-left">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-black text-slate-800">Coordenadas Geográficas</h4>
-                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Para exibição exata no mapa</p>
-                </div>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => window.open("https://www.google.com/maps", "_blank")}
-                  className="rounded-xl font-bold gap-2 bg-slate-50 border-slate-200 text-slate-600 hover:bg-white"
-                >
-                  <MapTrifold size={16} style={{ color: primaryColor }} /> Abrir Google Maps
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <Label className="font-black text-slate-500 text-[10px] uppercase tracking-widest ml-1">Latitude</Label>
-                  <Input type="number" step="any" {...register("latitude")} placeholder="-23.123456" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
-                </div>
-                <div className="space-y-2">
-                  <Label className="font-black text-slate-500 text-[10px] uppercase tracking-widest ml-1">Longitude</Label>
-                  <Input type="number" step="any" {...register("longitude")} placeholder="-46.123456" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
-                </div>
-              </div>
-            </div>
-          </FormSection>
-
-          <FormSection 
             title="Vínculos Institucionais" 
             icon={Users} 
             description="Associações e cooperativas parceiras"
-            active={currentStep === 4}
+            active={currentStep === 2}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
               {allAssociations.map(assoc => {
@@ -827,7 +647,7 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
               <Button type="button" variant="outline" onClick={() => setCurrentStep(currentStep - 1)} className="flex-1 rounded-2xl h-14 font-black border-slate-200 text-slate-700 hover:bg-slate-50 transition-all gap-2"><ArrowLeft size={20} weight="bold" /> Voltar</Button>
             )}
 
-            {currentStep < 4 ? (
+            {currentStep < 2 ? (
               <Button 
                 type="button" 
                 onClick={() => validateCurrentStep() && setCurrentStep(currentStep + 1)} 

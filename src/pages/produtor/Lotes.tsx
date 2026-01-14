@@ -73,7 +73,6 @@ export const ProducerLotes = () => {
     code: "",
     name: "",
     category: "",
-    variety: "",
     harvest_year: "",
     quantity: "",
     unit: "Kg",
@@ -95,7 +94,18 @@ export const ProducerLotes = () => {
     video_delay_seconds: 10,
     latitude: "",
     longitude: "",
-    components: [],
+    property_name: "",
+    property_description: "",
+    altitude: "",
+    average_temperature: "",
+    address: "",
+    city: "",
+    state: "",
+    cep: "",
+    address_internal_only: false,
+    photos: [] as string[],
+    components: [] as any[],
+    characteristics: [] as { characteristic_id: string; value: string }[],
   });
 
   const [isBlendMode, setIsBlendMode] = useState(false);
@@ -145,7 +155,6 @@ export const ProducerLotes = () => {
         code: newCode,
         name: "",
         category: "",
-        variety: "",
         harvest_year: new Date().getFullYear().toString(),
         quantity: "",
         unit: "Kg",
@@ -165,9 +174,21 @@ export const ProducerLotes = () => {
         lot_observations: "",
         youtube_video_url: "",
         video_delay_seconds: 10,
+        video_description: "",
         latitude: "",
         longitude: "",
-        components: [],
+        property_name: "",
+        property_description: "",
+        altitude: "",
+        average_temperature: "",
+        address: "",
+        city: "",
+        state: "",
+        cep: "",
+        address_internal_only: false,
+        photos: [],
+        components: [] as any[],
+        characteristics: [] as { characteristic_id: string; value: string }[],
       });
       setIsBlendMode(false);
       setCurrentStep(1);
@@ -182,13 +203,50 @@ export const ProducerLotes = () => {
 
   const handleEdit = (lot: any) => {
     setEditingLot(lot);
+    const rawCharacteristics = (lot as any).characteristics || [];
     setFormData({
       ...lot,
       quantity: lot.quantity?.toString() || "",
       seals_quantity: lot.seals_quantity?.toString() || "",
+      video_description: (lot as any).video_description || "",
       latitude: lot.latitude?.toString() || "",
       longitude: lot.longitude?.toString() || "",
-      components: lot.lot_components || [],
+      property_name: lot.property_name || "",
+      property_description: lot.property_description || "",
+      altitude: lot.altitude?.toString() || "",
+      average_temperature: lot.average_temperature?.toString() || "",
+      address: lot.address || "",
+      city: lot.city || "",
+      state: lot.state || "",
+      cep: lot.cep || "",
+      address_internal_only: lot.address_internal_only || false,
+      photos: lot.photos || [],
+      characteristics: rawCharacteristics.map((c: any) => ({
+        characteristic_id: c.characteristic_id,
+        value: c.value
+      })),
+      components: (lot.lot_components || []).map((c: any) => ({
+        id: c.id,
+        component_name: c.component_name || "",
+        component_variety: c.component_variety || "",
+        component_percentage: c.component_percentage || 0,
+        component_quantity: c.component_quantity || 0,
+        component_unit: c.component_unit || "g",
+        component_origin: c.component_origin || "",
+        producer_id: c.producer_id,
+        component_harvest_year: c.component_harvest_year || "",
+        association_id: c.association_id,
+        latitude: c.latitude,
+        longitude: c.longitude,
+        altitude: c.altitude,
+        property_name: c.property_name,
+        property_description: c.property_description,
+        photos: c.photos || [],
+        address: c.address,
+        city: c.city,
+        state: c.state,
+        cep: c.cep
+      })),
     });
     setIsBlendMode((lot.lot_components?.length || 0) > 0);
     setCurrentStep(1);
@@ -197,7 +255,7 @@ export const ProducerLotes = () => {
 
   const handleSubmit = async () => {
     try {
-      if (!formData.name || !formData.category || !formData.image_url) {
+      if (!formData.name || !formData.category) {
         toast.error("Preencha os campos obrigatórios!");
         return;
       }
@@ -206,14 +264,66 @@ export const ProducerLotes = () => {
         ...formData,
         quantity: formData.quantity ? parseFloat(formData.quantity) : null,
         seals_quantity: formData.seals_quantity ? parseInt(formData.seals_quantity) : null,
-        producer_id: user?.id
+        latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+        longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+        altitude: formData.altitude ? parseInt(formData.altitude) : null,
+        average_temperature: formData.average_temperature ? parseFloat(formData.average_temperature) : null,
+        producer_id: user?.id,
       };
 
+      const { components, characteristics, ...cleanLotData } = lotData;
+
       if (editingLot) {
-        await productLotsApi.update(editingLot.id, lotData as any);
+        await productLotsApi.update(editingLot.id, cleanLotData as any);
+        if (editingLot.id) {
+          // Atualizar componentes
+          await productLotsApi.deleteComponentsByLot(editingLot.id);
+          if (isBlendMode && components.length > 0) {
+            await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: editingLot.id })));
+          }
+
+          // Atualizar características
+          await productLotCharacteristicsApi.deleteByLot(editingLot.id);
+          if (characteristics && characteristics.length > 0) {
+            await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: editingLot.id })));
+          }
+        }
         toast.success("Lote atualizado!");
       } else {
-        await productLotsApi.create(lotData as any);
+        // NEW LOT
+        let finalCode = formData.code;
+        const config = await systemConfigApi.getLotIdConfig();
+        
+        if (config.mode !== 'manual' && formData.code) {
+          const { generateLotCode } = await import("@/utils/lot-code-generator");
+          let prefix = "";
+          if (config.mode === 'producer_brand') {
+            const producer = producers.find(p => p.id === user?.id);
+            if (producer) {
+              if (formData.brand_id && formData.brand_id !== "none") {
+                const brand = (await brandsApi.getByProducer(user?.id)).find(b => b.id === formData.brand_id);
+                if (brand) {
+                  const { generateSlug } = await import("@/utils/slug-generator");
+                  prefix = generateSlug(brand.name).toUpperCase();
+                }
+              } else {
+                const { generateSlug } = await import("@/utils/slug-generator");
+                prefix = generateSlug(producer.name).toUpperCase();
+              }
+            }
+          }
+          finalCode = await generateLotCode(prefix || undefined, true);
+        }
+
+        const newLot = await productLotsApi.create({ ...cleanLotData, code: finalCode } as any);
+        // Criar componentes
+        if (isBlendMode && components.length > 0) {
+          await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: newLot.id })));
+        }
+        // Criar características
+        if (characteristics && characteristics.length > 0) {
+          await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: newLot.id })));
+        }
         toast.success("Lote registrado!");
       }
 
@@ -344,9 +454,9 @@ export const ProducerLotes = () => {
                           <img src={lote.image_url || "/placeholder.svg"} className="h-16 w-16 rounded-2xl object-cover shadow-sm group-hover:scale-105 transition-transform" />
                           <div 
                             className="absolute -top-2 -left-2 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md shadow-lg uppercase"
-                            style={{ backgroundColor: primaryColor }}
+                            style={{ backgroundColor: (lote.lot_components?.length || 0) > 0 ? '#7c3aed' : primaryColor }}
                           >
-                            {lote.harvest_year}
+                            {(lote.lot_components?.length || 0) > 0 ? 'BLEND' : 'UNICO'}
                           </div>
                         </div>
                         <div className="space-y-1">
@@ -429,7 +539,7 @@ export const ProducerLotes = () => {
                   setIsBlendMode={setIsBlendMode}
                   currentStep={currentStep}
                   setCurrentStep={setCurrentStep}
-                  totalSteps={4}
+                  totalSteps={5}
                   onSubmit={handleSubmit}
                   onCancel={() => setIsSheetOpen(false)}
                   isEditing={!!editingLot}

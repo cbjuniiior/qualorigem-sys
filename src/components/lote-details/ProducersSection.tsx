@@ -5,24 +5,27 @@ import { useState, useEffect, useCallback } from "react";
 import { SlideshowLightbox } from 'lightbox.js-react';
 import useEmblaCarousel from 'embla-carousel-react';
 
-interface Producer {
-  id: string;
-  name: string;
-  property_name: string;
+interface PropertyInfo {
+  property_name?: string | null;
   property_description?: string | null;
-  city: string;
-  state: string;
+  city?: string | null;
+  state?: string | null;
   address?: string | null;
   altitude?: number | null;
   average_temperature?: number | null;
-  latitude?: string;
-  longitude?: string;
-  photos?: string[];
-  profile_picture_url?: string | null;
-  address_internal_only?: boolean;
+  latitude?: string | number | null;
+  longitude?: string | number | null;
+  photos?: string[] | null;
+  address_internal_only?: boolean | null;
 }
 
-interface BlendComponent {
+interface Producer extends PropertyInfo {
+  id: string;
+  name: string;
+  profile_picture_url?: string | null;
+}
+
+interface BlendComponent extends PropertyInfo {
   id: string;
   component_percentage: number;
   producers?: Producer;
@@ -32,6 +35,7 @@ interface ProducersSectionProps {
   isBlend: boolean;
   blendComponents: BlendComponent[];
   producer?: Producer;
+  loteData?: PropertyInfo;
   branding?: {
     primaryColor: string;
     secondaryColor: string;
@@ -39,7 +43,7 @@ interface ProducersSectionProps {
   };
 }
 
-export const ProducersSection = ({ isBlend, blendComponents, producer, branding }: ProducersSectionProps) => {
+export const ProducersSection = ({ isBlend, blendComponents, producer, loteData, branding }: ProducersSectionProps) => {
   const [activeTab, setActiveTab] = useState("0");
   const primaryColor = branding?.primaryColor || '#16a34a';
   const secondaryColor = branding?.secondaryColor || '#22c55e';
@@ -50,12 +54,12 @@ export const ProducersSection = ({ isBlend, blendComponents, producer, branding 
       <div className="mb-12 lg:mb-16">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
           {/* Header */}
-          <div className="p-6 sm:p-8 border-b border-gray-100">
+          <div className="p-6 sm:p-8 border-b border-gray-100 text-left">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-2 rounded-lg bg-gray-50">
                 <Users className="h-6 w-6 text-gray-700" weight="duotone" />
               </div>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Propriedades dos Produtores</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Origens da Mistura</h2>
             </div>
             <p className="text-gray-500 ml-12 max-w-2xl text-sm sm:text-base">
               Conheça a origem de cada parte deste blend e as histórias por trás de quem produz.
@@ -77,7 +81,7 @@ export const ProducersSection = ({ isBlend, blendComponents, producer, branding 
                   >
                     <div className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${activeTab === index.toString() ? 'bg-white' : 'bg-gray-300'}`}></div>
                     <span className="truncate max-w-[120px] sm:max-w-[150px]">
-                      {component.producers?.name || `Produtor ${index + 1}`}
+                      {component.producers?.name || `Origem ${index + 1}`}
                     </span>
                   </TabsTrigger>
                 ))}
@@ -86,7 +90,8 @@ export const ProducersSection = ({ isBlend, blendComponents, producer, branding 
               {blendComponents.map((component, index) => (
                 <TabsContent key={component.id} value={index.toString()} className="mt-0 animate-fade-in">
                   <ProducerDetailsContent 
-                    producer={component.producers} 
+                    data={component} 
+                    producer={component.producers}
                     primaryColor={primaryColor} 
                     secondaryColor={secondaryColor} 
                     accentColor={accentColor}
@@ -106,12 +111,12 @@ export const ProducersSection = ({ isBlend, blendComponents, producer, branding 
     <div className="mb-12 lg:mb-16">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
         {/* Header */}
-        <div className="p-6 sm:p-8 border-b border-gray-100">
+        <div className="p-6 sm:p-8 border-b border-gray-100 text-left">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-lg bg-gray-50">
               <User className="h-6 w-6 text-gray-700" weight="duotone" />
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Sobre a Fazenda</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Sobre a Origem</h2>
           </div>
           <p className="text-gray-500 ml-12 max-w-2xl text-sm sm:text-base">
             Explore a propriedade onde este lote foi cultivado com dedicação e cuidado.
@@ -120,7 +125,8 @@ export const ProducersSection = ({ isBlend, blendComponents, producer, branding 
         
         <div className="p-4 sm:p-8 bg-gray-50/30">
           <ProducerDetailsContent 
-            producer={producer} 
+            data={loteData || producer} 
+            producer={producer}
             primaryColor={primaryColor} 
             secondaryColor={secondaryColor} 
             accentColor={accentColor}
@@ -131,9 +137,9 @@ export const ProducersSection = ({ isBlend, blendComponents, producer, branding 
   );
 };
 
-// Componente auxiliar para o conteúdo dos detalhes do produtor
-const ProducerDetailsContent = ({ producer, primaryColor, secondaryColor, accentColor, percentage }: { 
-  producer?: Producer, 
+const ProducerDetailsContent = ({ data, producer, primaryColor, secondaryColor, accentColor, percentage }: { 
+  data?: PropertyInfo, 
+  producer?: Producer,
   primaryColor: string, 
   secondaryColor: string, 
   accentColor: string,
@@ -145,7 +151,7 @@ const ProducerDetailsContent = ({ producer, primaryColor, secondaryColor, accent
   const [lightboxIndex, setLightboxIndex] = useState(0);
   
   const [emblaRef, emblaApi] = useEmblaCarousel({ 
-    loop: producer?.photos && producer.photos.length > 4,
+    loop: data?.photos && data.photos.length > 4,
     align: 'start',
     containScroll: 'trimSnaps'
   });
@@ -159,49 +165,35 @@ const ProducerDetailsContent = ({ producer, primaryColor, secondaryColor, accent
   }, [emblaApi]);
 
   useEffect(() => {
-    if (!emblaApi || !producer?.photos || producer.photos.length <= 4) return;
+    if (!emblaApi || !data?.photos || data.photos.length <= 4) return;
 
     const autoplay = setInterval(() => {
       emblaApi.scrollNext();
     }, 4000);
 
     return () => clearInterval(autoplay);
-  }, [emblaApi, producer?.photos]);
+  }, [emblaApi, data?.photos]);
 
   useEffect(() => {
-    if (!producer) return;
+    if (!data) return;
 
-    const lat = producer.latitude ? Number(producer.latitude.toString().replace(',', '.')) : 0;
-    const lng = producer.longitude ? Number(producer.longitude.toString().replace(',', '.')) : 0;
+    const lat = data.latitude ? Number(data.latitude.toString().replace(',', '.')) : 0;
+    const lng = data.longitude ? Number(data.longitude.toString().replace(',', '.')) : 0;
 
     if (lat !== 0 && lng !== 0 && !isNaN(lat) && !isNaN(lng)) {
       setMapCoords({ lat, lng });
-    } else if (producer.city || producer.state) {
-      // Tentar buscar coordenadas pelo endereço se não tiver latitude/longitude salvas
+    } else if (data.city || data.state) {
       setLoadingMap(true);
       
       const fetchCoordinates = async () => {
         try {
-          // Tenta primeiro com endereço completo
-          const fullQuery = `${producer.address ? producer.address + ', ' : ''}${producer.city ? producer.city + ', ' : ''}${producer.state || ''}, Brazil`;
+          const fullQuery = `${data.address ? data.address + ', ' : ''}${data.city ? data.city + ', ' : ''}${data.state || ''}, Brazil`;
           let response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullQuery)}`);
-          let data = await response.json();
+          let resData = await response.json();
 
-          if (data && data.length > 0) {
-            setMapCoords({ lat: Number(data[0].lat), lng: Number(data[0].lon) });
+          if (resData && resData.length > 0) {
+            setMapCoords({ lat: Number(resData[0].lat), lng: Number(resData[0].lon) });
             return;
-          }
-
-          // Se falhar e tiver endereço específico, tenta apenas Cidade + Estado
-          if (producer.address) {
-            const cityQuery = `${producer.city ? producer.city + ', ' : ''}${producer.state || ''}, Brazil`;
-            response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cityQuery)}`);
-            data = await response.json();
-            
-            if (data && data.length > 0) {
-              setMapCoords({ lat: Number(data[0].lat), lng: Number(data[0].lon) });
-              return;
-            }
           }
           
           setMapCoords(null);
@@ -217,72 +209,72 @@ const ProducerDetailsContent = ({ producer, primaryColor, secondaryColor, accent
     } else {
       setMapCoords(null);
     }
-  }, [producer]);
+  }, [data]);
 
-  if (!producer) return <div className="text-center py-12 text-gray-500">Informações do produtor não disponíveis.</div>;
+  const photos = data?.photos || [];
+  const propertyName = data?.property_name || producer?.property_name || 'Propriedade não informada';
+  const propertyDescription = data?.property_description || producer?.property_description || '';
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 text-left">
       {/* Header da propriedade */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
         <div className="flex items-center gap-4">
-          {producer.profile_picture_url && (
+          {producer?.profile_picture_url && (
             <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-md flex-shrink-0">
               <img src={producer.profile_picture_url} alt={producer.name} className="w-full h-full object-cover" />
             </div>
           )}
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h3 className="text-2xl font-bold text-gray-900">
-                {producer.property_name}
+              <h3 className="text-2xl font-bold text-gray-900 leading-tight">
+                {propertyName}
               </h3>
               {percentage !== undefined && (
-                <Badge className="bg-gray-900 text-white hover:bg-gray-800">{percentage}% do Blend</Badge>
+                <Badge className="bg-gray-900 text-white hover:bg-gray-800 whitespace-nowrap">{percentage}% do Blend</Badge>
               )}
             </div>
-            <div className="flex items-center gap-2 text-gray-600">
-              <User className="w-4 h-4" weight="bold" />
-              <span className="font-medium">{producer.name}</span>
-            </div>
+            {producer && (
+              <div className="flex items-center gap-2 text-gray-600">
+                <User className="w-4 h-4" weight="bold" />
+                <span className="font-medium">{producer.name}</span>
+              </div>
+            )}
           </div>
         </div>
         
         <div className="flex flex-wrap gap-3">
-          {producer.city && producer.state && (
-            <InfoBadge icon={<MapPin weight="duotone" />} text={`${producer.city}, ${producer.state}`} color={primaryColor} />
+          {data?.city && data?.state && (
+            <InfoBadge icon={<MapPin weight="duotone" />} text={`${data.city}, ${data.state}`} color={primaryColor} />
           )}
-          {producer.altitude && (
-            <InfoBadge icon={<Mountains weight="duotone" />} text={`${producer.altitude}m`} color={secondaryColor} />
+          {data?.altitude && (
+            <InfoBadge icon={<Mountains weight="duotone" />} text={`${data.altitude}m`} color={secondaryColor} />
           )}
-          {producer.average_temperature && (
-            <InfoBadge icon={<Thermometer weight="duotone" />} text={`${producer.average_temperature}°C`} color={accentColor} />
+          {data?.average_temperature && (
+            <InfoBadge icon={<Thermometer weight="duotone" />} text={`${data.average_temperature}°C`} color={accentColor} />
           )}
         </div>
       </div>
       
       {/* Grid de Conteúdo */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
-        {/* Coluna Principal: Descrição */}
         <div className="lg:col-span-8 space-y-8">
-          {/* Descrição */}
-          {producer.property_description && (
+          {propertyDescription && (
             <div className="prose prose-gray max-w-none">
-              <p className="text-gray-600 leading-relaxed whitespace-pre-line">
-                {producer.property_description}
+              <p className="text-gray-600 leading-relaxed whitespace-pre-line text-base sm:text-lg">
+                {propertyDescription}
               </p>
             </div>
           )}
         </div>
         
-        {/* Coluna Lateral: Mapa e Infos Adicionais */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white p-1 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="bg-white p-1 rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="relative w-full h-72 md:h-80 lg:h-auto lg:aspect-square rounded-xl overflow-hidden bg-gray-100 min-h-[300px]">
-              {/* Forçar altura mínima e posicionamento absoluto para garantir renderização */}
               {mapCoords && (
                 <div className="absolute inset-0 w-full h-full z-0">
                   <iframe
-                    title={`Mapa de ${producer.property_name}`}
+                    title={`Mapa de ${propertyName}`}
                     width="100%"
                     height="100%"
                     frameBorder="0"
@@ -300,21 +292,19 @@ const ProducerDetailsContent = ({ producer, primaryColor, secondaryColor, accent
                   <span className="text-sm">Carregando mapa...</span>
                 </div>
               ) : mapCoords ? (
-                <>
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${mapCoords.lat},${mapCoords.lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="absolute bottom-3 right-3 bg-white text-gray-900 px-3 py-1.5 rounded-lg shadow-md text-xs font-bold transition hover:bg-gray-50 flex items-center gap-1.5 z-10"
-                  >
-                    <MapTrifold className="w-4 h-4" weight="duotone" />
-                    Ver no Google Maps
-                  </a>
-                </>
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${mapCoords.lat},${mapCoords.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute bottom-3 right-3 bg-white text-gray-900 px-3 py-1.5 rounded-lg shadow-md text-xs font-bold transition hover:bg-gray-50 flex items-center gap-1.5 z-10"
+                >
+                  <MapTrifold className="w-4 h-4" weight="duotone" />
+                  Ver no Google Maps
+                </a>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-gray-400 p-6 text-center relative z-10 bg-gray-100">
                   <MapPin className="w-8 h-8 mb-2 opacity-50" weight="duotone" />
-                  <span className="text-sm">Localização exata não disponível</span>
+                  <span className="text-sm px-4">Localização exata não informada para este lote</span>
                 </div>
               )}
             </div>
@@ -322,8 +312,8 @@ const ProducerDetailsContent = ({ producer, primaryColor, secondaryColor, accent
         </div>
       </div>
 
-      {/* Galeria - 100% width */}
-      {producer.photos && producer.photos.length > 0 && (
+      {/* Galeria */}
+      {photos.length > 0 && (
         <div className="w-full group/gallery">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 text-gray-900 font-semibold">
@@ -331,7 +321,6 @@ const ProducerDetailsContent = ({ producer, primaryColor, secondaryColor, accent
               <h4>Galeria da Propriedade</h4>
             </div>
             
-            {/* Controles de Navegação */}
             <div className="flex gap-2">
               <button 
                 onClick={scrollPrev}
@@ -352,7 +341,7 @@ const ProducerDetailsContent = ({ producer, primaryColor, secondaryColor, accent
           
           <div className="overflow-hidden" ref={emblaRef}>
             <div className="flex -ml-4">
-              {producer.photos.map((photo, idx) => (
+              {photos.map((photo, idx) => (
                 <div 
                   key={idx} 
                   className="flex-[0_0_85%] sm:flex-[0_0_50%] lg:flex-[0_0_25%] min-w-0 pl-4"
@@ -366,7 +355,7 @@ const ProducerDetailsContent = ({ producer, primaryColor, secondaryColor, accent
                   >
                     <img
                       src={photo}
-                      alt={`${producer.property_name} ${idx + 1}`}
+                      alt={`${propertyName} ${idx + 1}`}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     />
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
@@ -379,7 +368,7 @@ const ProducerDetailsContent = ({ producer, primaryColor, secondaryColor, accent
           </div>
 
           <SlideshowLightbox
-            images={producer.photos.map(src => ({ src, alt: producer.property_name }))}
+            images={photos.map(src => ({ src, alt: propertyName }))}
             showThumbnails={true} 
             open={lightboxOpen} 
             startingSlideIndex={lightboxIndex} 
@@ -393,7 +382,6 @@ const ProducerDetailsContent = ({ producer, primaryColor, secondaryColor, accent
   );
 };
 
-// Componente auxiliar para badges de informação
 const InfoBadge = ({ icon, text, color }: { icon: React.ReactNode, text: string, color: string }) => (
   <div 
     className="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors"
@@ -404,6 +392,6 @@ const InfoBadge = ({ icon, text, color }: { icon: React.ReactNode, text: string,
     }}
   >
     <div className="w-4 h-4">{icon}</div>
-    <span className="text-sm font-semibold text-gray-700">{text}</span>
+    <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">{text}</span>
   </div>
 );

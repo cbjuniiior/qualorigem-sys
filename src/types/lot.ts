@@ -61,4 +61,13 @@ export interface ProductLot {
   lot_observations?: string | null;
   youtube_video_url?: string | null;
   video_delay_seconds?: number | null;
+  characteristics?: Array<{
+    id: string;
+    characteristic_id: string;
+    value: string;
+    characteristics: {
+      id: string;
+      name: string;
+    };
+  }>;
 }

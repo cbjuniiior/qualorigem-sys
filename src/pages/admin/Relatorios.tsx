@@ -20,7 +20,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { producersApi, productLotsApi, systemConfigApi, associationsApi, sealControlsApi } from "@/services/api";
+import { producersApi, productLotsApi, associationsApi, sealControlsApi } from "@/services/api";
+import { useBranding } from "@/hooks/use-branding";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -75,7 +76,7 @@ const Relatorios = () => {
     associationData: [],
   });
   const [loading, setLoading] = useState(true);
-  const [branding, setBranding] = useState<any>(null);
+  const { branding } = useBranding();
 
   const [filters, setFilters] = useState({
     associationId: "all",
@@ -92,16 +93,7 @@ const Relatorios = () => {
   const [rawSeals, setRawSeals] = useState<any[]>([]);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const config = await systemConfigApi.getBrandingConfig();
-        setBranding(config);
-        await fetchAllData();
-      } catch (error) {
-        console.error("Erro ao carregar branding:", error);
-      }
-    };
-    loadData();
+    fetchAllData();
   }, []);
 
   const fetchAllData = async () => {
@@ -233,7 +225,7 @@ const Relatorios = () => {
               <ChartBar size={32} style={{ color: primaryColor }} weight="fill" />
               Relatórios Analíticos
             </h2>
-            <p className="text-slate-500 font-medium text-sm">Dados e insights detalhados do sistema GeoTrace.</p>
+            <p className="text-slate-500 font-medium text-sm">Dados e insights detalhados do sistema {branding?.siteTitle?.split(' - ')[0] || "GeoTrace"}.</p>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

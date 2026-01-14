@@ -17,7 +17,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { producersApi, productLotsApi, systemConfigApi, associationsApi, industriesApi } from "@/services/api";
+import { producersApi, productLotsApi, associationsApi, industriesApi, productLotCharacteristicsApi } from "@/services/api";
+import { useBranding } from "@/hooks/use-branding";
+import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
 import { ProducerForm } from "./Produtores";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -37,9 +39,7 @@ interface DashboardStats {
 
 const PRODUCER_STEPS = [
   { id: 1, title: "Responsável" },
-  { id: 2, title: "Propriedade" },
-  { id: 3, title: "Localização" },
-  { id: 4, title: "Vínculos" },
+  { id: 2, title: "Vínculos" },
 ];
 
 const Dashboard = () => {
@@ -52,11 +52,8 @@ const Dashboard = () => {
     totalSeals30Days: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [branding, setBranding] = useState<{
-    primaryColor: string;
-    secondaryColor: string;
-    accentColor: string;
-  } | null>(null);
+  const { branding } = useBranding();
+  const { user } = useAuth();
   const [showProducerSheet, setShowProducerSheet] = useState(false);
   const [showLotSheet, setShowLotSheet] = useState(false);
   const [lotCurrentStep, setLotCurrentStep] = useState(1);
@@ -65,7 +62,6 @@ const Dashboard = () => {
     code: "",
     name: "",
     category: "",
-    variety: "",
     harvest_year: "",
     quantity: "",
     unit: "",
@@ -80,23 +76,27 @@ const Dashboard = () => {
     finish_score: 5,
     acidity_score: 5,
     body_score: 5,
-    sensory_notes: "",
+    latitude: "",
+    longitude: "",
+    property_name: "",
+    property_description: "",
+    altitude: "",
+    average_temperature: "",
+    address: "",
+    city: "",
+    state: "",
+    cep: "",
+    address_internal_only: false,
+    photos: [] as string[],
+    components: [] as any[],
+    characteristics: [] as { characteristic_id: string; value: string }[],
+    youtube_video_url: "",
+    video_delay_seconds: 10,
+    video_description: "",
   });
   const [lotProducers, setLotProducers] = useState<any[]>([]);
   const [lotAssociations, setLotAssociations] = useState<any[]>([]);
   const [lotIndustries, setLotIndustries] = useState<any[]>([]);
-
-  useEffect(() => {
-    const loadBranding = async () => {
-      try {
-        const config = await systemConfigApi.getBrandingConfig();
-        setBranding(config);
-      } catch (error) {
-        console.error("Erro ao carregar branding:", error);
-      }
-    };
-    loadBranding();
-  }, []);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -179,8 +179,24 @@ const Dashboard = () => {
       const lotData = {
         ...lotFormData,
         quantity: lotFormData.quantity ? parseFloat(lotFormData.quantity) : null,
+        seals_quantity: lotFormData.seals_quantity ? parseInt(lotFormData.seals_quantity) : null,
+        latitude: lotFormData.latitude ? parseFloat(lotFormData.latitude) : null,
+        longitude: lotFormData.longitude ? parseFloat(lotFormData.longitude) : null,
+        altitude: lotFormData.altitude ? parseInt(lotFormData.altitude) : null,
+        average_temperature: lotFormData.average_temperature ? parseFloat(lotFormData.average_temperature) : null,
       };
-      await productLotsApi.create(lotData as any);
+
+      const { components, characteristics, ...cleanLotData } = lotData;
+      const newLot = await productLotsApi.create(cleanLotData as any);
+      
+      if (lotFormData.components && lotFormData.components.length > 0) {
+        await Promise.all(lotFormData.components.map(c => productLotsApi.createComponent({ ...c, lot_id: newLot.id })));
+      }
+
+      if (characteristics && characteristics.length > 0) {
+        await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: newLot.id })));
+      }
+
       toast.success("Lote criado com sucesso!");
       setShowLotSheet(false);
     } catch (error) {
@@ -259,8 +275,10 @@ const Dashboard = () => {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 text-left">
           <div className="space-y-1">
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Bem-vindo, Admin! 👋</h2>
-            <p className="text-slate-500 font-medium">Aqui está o que está acontecendo no GeoTrace hoje.</p>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+              Bem-vindo, {user?.user_metadata?.full_name?.split(' ')[0] || "Admin"}! 👋
+            </h2>
+            <p className="text-slate-500 font-medium">Aqui está o que está acontecendo no {branding?.siteTitle?.split(' - ')[0] || "GeoTrace"} hoje.</p>
           </div>
           <div className="flex items-center gap-3">
             <Button 
@@ -527,7 +545,7 @@ const Dashboard = () => {
                 setIsBlendMode={() => {}}
                 currentStep={lotCurrentStep}
                 setCurrentStep={setLotCurrentStep}
-                totalSteps={4}
+                totalSteps={5}
                 branding={branding}
               />
             </div>

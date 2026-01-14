@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi } from "@/services/api";
+import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotCharacteristicsApi, productLotSensoryApi } from "@/services/api";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -77,7 +77,6 @@ const Lotes = () => {
     code: "",
     name: "",
     category: "",
-    variety: "",
     harvest_year: "",
     quantity: "",
     unit: "Kg",
@@ -97,9 +96,22 @@ const Lotes = () => {
     lot_observations: "",
     youtube_video_url: "",
     video_delay_seconds: 10,
+    video_description: "",
     latitude: "",
     longitude: "",
+    property_name: "",
+    property_description: "",
+    altitude: "",
+    average_temperature: "",
+    address: "",
+    city: "",
+    state: "",
+    cep: "",
+    address_internal_only: false,
+    photos: [] as string[],
     components: [] as any[],
+    characteristics: [] as { characteristic_id: string; value: string }[],
+    sensory_analysis: [] as { sensory_attribute_id: string; value: number }[],
   });
 
   const [isBlendMode, setIsBlendMode] = useState(false);
@@ -143,7 +155,6 @@ const Lotes = () => {
       code: "",
       name: "",
       category: "",
-      variety: "",
       harvest_year: new Date().getFullYear().toString(),
       quantity: "",
       unit: "Kg",
@@ -163,9 +174,22 @@ const Lotes = () => {
       lot_observations: "",
       youtube_video_url: "",
       video_delay_seconds: 10,
+      video_description: "",
       latitude: "",
       longitude: "",
+      property_name: "",
+      property_description: "",
+      altitude: "",
+      average_temperature: "",
+      address: "",
+      city: "",
+      state: "",
+      cep: "",
+      address_internal_only: false,
+      photos: [],
       components: [],
+      characteristics: [],
+      sensory_analysis: [],
     });
     setIsBlendMode(false);
     setCurrentStep(1);
@@ -185,11 +209,12 @@ const Lotes = () => {
   const handleEdit = (lot: ProductLot) => {
     setEditingLot(lot);
     const rawComponents = (lot as any).components || (lot as any).lot_components || [];
+    const rawCharacteristics = (lot as any).characteristics || [];
+    const rawSensory = (lot as any).sensory_analysis || [];
     setFormData({
       code: lot.code,
       name: lot.name,
       category: lot.category || "",
-      variety: lot.variety || "",
       harvest_year: lot.harvest_year || "",
       quantity: lot.quantity?.toString() || "",
       unit: lot.unit || "",
@@ -211,6 +236,24 @@ const Lotes = () => {
       video_delay_seconds: (lot as any).video_delay_seconds || 10,
       latitude: (lot as any).latitude?.toString() || "",
       longitude: (lot as any).longitude?.toString() || "",
+      property_name: (lot as any).property_name || "",
+      property_description: (lot as any).property_description || "",
+      altitude: (lot as any).altitude?.toString() || "",
+      average_temperature: (lot as any).average_temperature?.toString() || "",
+      address: (lot as any).address || "",
+      city: (lot as any).city || "",
+      state: (lot as any).state || "",
+      cep: (lot as any).cep || "",
+      address_internal_only: (lot as any).address_internal_only || false,
+      photos: (lot as any).photos || [],
+      characteristics: rawCharacteristics.map((c: any) => ({
+        characteristic_id: c.characteristic_id,
+        value: c.value
+      })),
+      sensory_analysis: rawSensory.map((s: any) => ({
+        sensory_attribute_id: s.sensory_attribute_id,
+        value: Number(s.value)
+      })),
       components: rawComponents.map((c: any) => ({
         id: c.id,
         component_name: c.component_name || "",
@@ -221,7 +264,17 @@ const Lotes = () => {
         component_origin: c.component_origin || "",
         producer_id: c.producer_id,
         component_harvest_year: c.component_harvest_year || "",
-        association_id: c.association_id
+        association_id: c.association_id,
+        latitude: c.latitude,
+        longitude: c.longitude,
+        altitude: c.altitude,
+        property_name: c.property_name,
+        property_description: c.property_description,
+        photos: c.photos || [],
+        address: c.address,
+        city: c.city,
+        state: c.state,
+        cep: c.cep
       })),
     });
     setIsBlendMode(rawComponents.length > 0);
@@ -231,8 +284,8 @@ const Lotes = () => {
 
   const handleSubmit = async () => {
     try {
-      if (!formData.name || !formData.category || !formData.image_url) {
-        toast.error("Preencha os campos obrigatórios e adicione uma imagem!");
+      if (!formData.name || !formData.category) {
+        toast.error("Preencha os campos obrigatórios!");
         return;
       }
 
@@ -242,24 +295,76 @@ const Lotes = () => {
         seals_quantity: formData.seals_quantity ? parseInt(formData.seals_quantity) : null,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
         longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+        altitude: formData.altitude ? parseInt(formData.altitude) : null,
+        average_temperature: formData.average_temperature ? parseFloat(formData.average_temperature) : null,
         producer_id: isBlendMode ? null : formData.producer_id,
       };
 
-      const { components, ...cleanLotData } = lotData;
+      const { components, characteristics, sensory_analysis, ...cleanLotData } = lotData;
 
       if (editingLot) {
         await productLotsApi.update(editingLot.id, cleanLotData as any);
         if (editingLot.id) {
+          // Atualizar componentes
           await productLotsApi.deleteComponentsByLot(editingLot.id);
           if (isBlendMode && components.length > 0) {
             await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: editingLot.id })));
           }
+
+          // Atualizar características
+          await productLotCharacteristicsApi.deleteByLot(editingLot.id);
+          if (characteristics && characteristics.length > 0) {
+            await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: editingLot.id })));
+          }
+
+          // Atualizar análise sensorial
+          await productLotSensoryApi.deleteByLot(editingLot.id);
+          if (sensory_analysis && sensory_analysis.length > 0) {
+            await Promise.all(sensory_analysis.map(s => productLotSensoryApi.create({ ...s, lot_id: editingLot.id })));
+          }
         }
         toast.success("Lote atualizado com sucesso!");
       } else {
-        const newLot = await productLotsApi.create(cleanLotData as any);
+        // NEW LOT
+        let finalCode = formData.code;
+        const config = await systemConfigApi.getLotIdConfig();
+        
+        // Se estiver em modo automático ou produtor/marca, e o código atual parecer ser o sugerido (não alterado manualmente)
+        // ou se o usuário simplesmente quer usar o próximo disponível
+        if (config.mode !== 'manual' && formData.code) {
+          const { generateLotCode } = await import("@/utils/lot-code-generator");
+          let prefix = "";
+          if (config.mode === 'producer_brand') {
+            const producer = producers.find(p => p.id === formData.producer_id);
+            if (producer) {
+              if (formData.brand_id && formData.brand_id !== "none") {
+                const brand = (await brandsApi.getByProducer(formData.producer_id)).find(b => b.id === formData.brand_id);
+                if (brand) {
+                  const { generateSlug } = await import("@/utils/slug-generator");
+                  prefix = generateSlug(brand.name).toUpperCase();
+                }
+              } else {
+                const { generateSlug } = await import("@/utils/slug-generator");
+                prefix = generateSlug(producer.name).toUpperCase();
+              }
+            }
+          }
+          // Gera o código final e incrementa no banco
+          finalCode = await generateLotCode(prefix || undefined, true);
+        }
+
+        const newLot = await productLotsApi.create({ ...cleanLotData, code: finalCode } as any);
+        // Criar componentes
         if (isBlendMode && components.length > 0) {
           await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: newLot.id })));
+        }
+        // Criar características
+        if (characteristics && characteristics.length > 0) {
+          await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: newLot.id })));
+        }
+        // Criar análise sensorial
+        if (sensory_analysis && sensory_analysis.length > 0) {
+          await Promise.all(sensory_analysis.map(s => productLotSensoryApi.create({ ...s, lot_id: newLot.id })));
         }
         toast.success("Lote registrado com sucesso!");
       }
@@ -411,9 +516,9 @@ const Lotes = () => {
                           />
                           <div 
                             className="absolute -top-2 -left-2 text-white text-[10px] font-black px-2 py-1 rounded-lg shadow-lg uppercase tracking-tighter"
-                            style={{ backgroundColor: primaryColor }}
+                            style={{ backgroundColor: (lot as any).lot_components?.length > 0 ? '#7c3aed' : primaryColor }}
                           >
-                            {lot.harvest_year}
+                            {(lot as any).lot_components?.length > 0 ? 'BLEND' : 'UNICO'}
                           </div>
                         </div>
                         <div className="space-y-1">
@@ -537,7 +642,7 @@ const Lotes = () => {
                   setIsBlendMode={setIsBlendMode}
                   currentStep={currentStep}
                   setCurrentStep={setCurrentStep}
-                  totalSteps={4}
+                  totalSteps={5}
                   onSubmit={handleSubmit}
                   onCancel={() => setIsSheetOpen(false)}
                   isEditing={!!editingLot}

@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Scales, Leaf, Tag, Users, User, Building } from "@phosphor-icons/react";
+import { Calendar, Scales, Leaf, Tag, Users, User, Building, Info, Mountains, Thermometer } from "@phosphor-icons/react";
 
 interface LotInfoSectionProps {
   loteData: {
@@ -12,6 +12,15 @@ interface LotInfoSectionProps {
     variety?: string;
     seals_quantity?: number | null;
     image_url: string | null;
+    altitude?: number | null;
+    average_temperature?: number | null;
+    characteristics?: Array<{
+      id: string;
+      value: string;
+      characteristics: {
+        name: string;
+      };
+    }>;
   };
   isBlend: boolean;
   blendComponents: Array<{
@@ -155,6 +164,40 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producer, p
                 </div>
               </div>
               
+              {(loteData as any).altitude && (
+                <div className="group p-5 bg-white border border-gray-100 hover:border-gray-200 rounded-2xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.1)] transition-all duration-300">
+                  <div className="flex items-start gap-4">
+                    <div 
+                      className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors duration-300"
+                      style={{ backgroundColor: `${accentColor}10`, color: accentColor }}
+                    >
+                      <Mountains className="h-6 w-6" weight="duotone" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Altitude</div>
+                      <div className="text-lg font-semibold text-gray-900">{(loteData as any).altitude}m</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {(loteData as any).average_temperature && (
+                <div className="group p-5 bg-white border border-gray-100 hover:border-gray-200 rounded-2xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.1)] transition-all duration-300">
+                  <div className="flex items-start gap-4">
+                    <div 
+                      className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors duration-300"
+                      style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
+                    >
+                      <Thermometer className="h-6 w-6" weight="duotone" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Temp. Média</div>
+                      <div className="text-lg font-semibold text-gray-900">{(loteData as any).average_temperature}°C</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {loteData.variety && (
                 <div className="group p-5 bg-white border border-gray-100 hover:border-gray-200 rounded-2xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.1)] transition-all duration-300">
                   <div className="flex items-start gap-4">
@@ -171,6 +214,24 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producer, p
                   </div>
                 </div>
               )}
+
+              {/* Novas Características Dinâmicas */}
+              {loteData.characteristics?.map((char) => (
+                <div key={char.id} className="group p-5 bg-white border border-gray-100 hover:border-gray-200 rounded-2xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.1)] transition-all duration-300">
+                  <div className="flex items-start gap-4">
+                    <div 
+                      className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors duration-300"
+                      style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
+                    >
+                      <Tag className="h-6 w-6" weight="duotone" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">{char.characteristics.name}</div>
+                      <div className="text-lg font-semibold text-gray-900">{char.value}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
               
               {loteData.seals_quantity && (
                 <div className="group p-5 bg-white border border-gray-100 hover:border-gray-200 rounded-2xl shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.1)] transition-all duration-300">
@@ -182,18 +243,9 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producer, p
                       <Tag className="h-6 w-6" weight="duotone" />
                     </div>
                     <div>
-                      <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Selos</div>
-                      <div className="text-sm font-semibold text-gray-900 leading-snug">
-                        {(() => {
-                          const packageSize = loteData.quantity! / loteData.seals_quantity!;
-                          const roundedSize = Math.round(packageSize * 100) / 100;
-                          
-                          if (loteData.unit === 'Kg' && roundedSize < 1) {
-                            const grams = Math.round(roundedSize * 1000);
-                            return `${loteData.seals_quantity} Selos em embalagens de ${grams}g`;
-                          }
-                          return `${loteData.seals_quantity} Selos em embalagens de ${roundedSize}${loteData.unit}`;
-                        })()}
+                      <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Selos de Autenticidade</div>
+                      <div className="text-lg font-semibold text-gray-900 leading-snug">
+                        {loteData.seals_quantity} selos emitidos
                       </div>
                     </div>
                   </div>

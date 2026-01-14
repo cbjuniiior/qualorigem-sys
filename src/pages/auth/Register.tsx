@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeSlash, Leaf, ArrowLeft, Check } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/use-auth";
+import { useBranding } from "@/hooks/use-branding";
 import { toast } from "sonner";
 
 const Register = () => {
@@ -15,6 +16,7 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { branding } = useBranding();
   const { signUp, loading } = useAuth();
   const navigate = useNavigate();
 
@@ -55,31 +57,54 @@ const Register = () => {
     }
   };
 
+  const primaryColor = branding.primaryColor;
+  const secondaryColor = branding.secondaryColor;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <Link to="/" className="inline-flex items-center text-green-700 hover:text-green-800 mb-4">
+          <Link 
+            to="/" 
+            className="inline-flex items-center mb-4 font-medium transition-colors"
+            style={{ color: primaryColor }}
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar ao site
           </Link>
           
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-lg flex items-center justify-center">
-              <Leaf className="h-5 w-5 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-green-700 to-emerald-700 bg-clip-text text-transparent">
-              GeoTrace
-            </h1>
+          <div className="flex flex-col items-center justify-center gap-4 mb-4">
+            {branding?.logoUrl ? (
+              <img 
+                src={branding.logoUrl} 
+                alt="Logo" 
+                className="h-24 object-contain drop-shadow-sm"
+              />
+            ) : (
+              <div className="flex items-center justify-center space-x-2">
+                <div 
+                  className="w-10 h-10 rounded-lg flex items-center justify-center shadow-sm"
+                  style={{ background: `linear-gradient(to bottom right, ${primaryColor}, ${secondaryColor})` }}
+                >
+                  <Leaf className="h-5 w-5 text-white" weight="fill" />
+                </div>
+                <h1 
+                  className="text-2xl font-bold bg-clip-text text-transparent"
+                  style={{ backgroundImage: `linear-gradient(to right, ${primaryColor}, ${secondaryColor})` }}
+                >
+                  {branding.siteTitle?.split(' - ')[0] || "GeoTrace"}
+                </h1>
+              </div>
+            )}
           </div>
           
           <p className="text-gray-600">Crie sua conta para começar</p>
         </div>
 
         {/* Card de Cadastro */}
-        <Card className="border-green-100 shadow-lg">
-          <CardHeader className="text-center">
+        <Card className="border-gray-200 shadow-lg">
+          <CardHeader className="text-center pb-2">
             <CardTitle className="text-xl text-gray-900">Criar Conta</CardTitle>
           </CardHeader>
           <CardContent>
@@ -94,7 +119,8 @@ const Register = () => {
                   placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="border-green-200 focus:border-green-500"
+                  className="focus:ring-2 border-gray-200"
+                  style={{ '--tw-ring-color': primaryColor, borderColor: 'inherit' } as React.CSSProperties}
                   required
                 />
               </div>
@@ -110,20 +136,21 @@ const Register = () => {
                     placeholder="Sua senha"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="border-green-200 focus:border-green-500 pr-10"
+                    className="focus:ring-2 border-gray-200 pr-10"
+                    style={{ '--tw-ring-color': primaryColor, borderColor: 'inherit' } as React.CSSProperties}
                     required
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-gray-400 hover:text-gray-600"
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeSlash className="h-4 w-4 text-gray-500" />
+                      <EyeSlash className="h-4 w-4" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-500" />
+                      <Eye className="h-4 w-4" />
                     )}
                   </Button>
                 </div>
@@ -132,13 +159,14 @@ const Register = () => {
                 {password && (
                   <div className="mt-2 space-y-1">
                     {passwordValidations.map((validation, index) => (
-                      <div key={index} className="flex items-center text-xs">
+                      <div key={index} className="flex items-center text-[10px] font-bold uppercase tracking-wider">
                         <Check 
                           className={`h-3 w-3 mr-2 ${
                             validation.valid ? "text-green-500" : "text-gray-300"
                           }`} 
+                          weight="bold"
                         />
-                        <span className={validation.valid ? "text-green-600" : "text-gray-500"}>
+                        <span className={validation.valid ? "text-green-600" : "text-gray-400"}>
                           {validation.label}
                         </span>
                       </div>
@@ -158,33 +186,35 @@ const Register = () => {
                     placeholder="Confirme sua senha"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className={`border-green-200 focus:border-green-500 pr-10 ${
+                    className={`focus:ring-2 border-gray-200 pr-10 ${
                       confirmPassword && !passwordsMatch ? "border-red-300 focus:border-red-500" : ""
                     }`}
+                    style={{ '--tw-ring-color': primaryColor, borderColor: 'inherit' } as React.CSSProperties}
                     required
                   />
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-gray-400 hover:text-gray-600"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     {showConfirmPassword ? (
-                      <EyeSlash className="h-4 w-4 text-gray-500" />
+                      <EyeSlash className="h-4 w-4" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-500" />
+                      <Eye className="h-4 w-4" />
                     )}
                   </Button>
                 </div>
                 {confirmPassword && !passwordsMatch && (
-                  <p className="text-xs text-red-500">As senhas não coincidem</p>
+                  <p className="text-[10px] font-bold uppercase text-red-500">As senhas não coincidem</p>
                 )}
               </div>
 
               <Button
                 type="submit"
-                className="w-full bg-green-600 hover:bg-green-700 h-11"
+                className="w-full h-11 text-white font-medium shadow-sm hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: primaryColor }}
                 disabled={loading || !isPasswordValid || !passwordsMatch}
               >
                 {loading ? "Criando conta..." : "Criar Conta"}

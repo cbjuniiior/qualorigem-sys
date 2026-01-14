@@ -412,7 +412,7 @@ export default function Associacoes() {
           <SheetContent className="w-full sm:max-w-[80vw] sm:rounded-l-[2.5rem] border-0 p-0 overflow-hidden shadow-2xl">
             <div className="h-full flex flex-col bg-slate-50/50">
               <SheetHeader className="p-8 border-b border-slate-100 bg-white">
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 text-left">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8 text-left">
                   <div className="flex items-center gap-4">
                     <div 
                       className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm text-white"
