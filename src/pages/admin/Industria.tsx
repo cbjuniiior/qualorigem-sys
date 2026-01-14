@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,37 +6,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { associationsApi, systemConfigApi } from "@/services/api";
+import { industriesApi, systemConfigApi } from "@/services/api";
 import { uploadImageToSupabase } from "@/services/upload";
 import { toast } from "sonner";
 import { 
   Plus, 
   PencilSimple, 
-  Image as ImageIcon, 
-  Upload, 
-  MagnifyingGlass, 
-  FunnelSimple, 
-  MapPin, 
-  Envelope, 
-  Phone, 
-  Globe, 
   Trash, 
-  Eye, 
-  Buildings, 
-  Users, 
-  X,
+  Tag, 
+  MapPin, 
+  Phone, 
+  Envelope, 
+  Buildings,
+  MagnifyingGlass,
+  Upload,
   DotsThreeOutlineVertical,
   Export,
+  Image as ImageIcon,
   IdentificationCard,
   At,
   ChatCircleText,
-  CheckCircle,
   Camera,
-  MapTrifold,
-  Tag,
+  CheckCircle,
+  Globe,
   ArrowRight,
   ArrowLeft
 } from "@phosphor-icons/react";
@@ -48,7 +40,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -60,60 +51,55 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 
-interface AssociationFormData {
+interface IndustryFormData {
   id?: string;
   name: string;
-  type: string;
+  document_number: string;
+  address: string;
   city: string;
   state: string;
-  cep: string;
+  zip_code: string;
+  contact_phone: string;
+  contact_email: string;
+  logo_url: string;
   description: string;
-  contact_info: {
-    email?: string;
-    phone?: string;
-    website?: string;
-    address?: string;
-  };
-  logo_url?: string;
 }
 
-const defaultForm: AssociationFormData = {
+const defaultForm: IndustryFormData = {
   name: "",
-  type: "associacao",
+  document_number: "",
+  address: "",
   city: "",
   state: "",
-  cep: "",
-  description: "",
-  contact_info: {
-    email: "",
-    phone: "",
-    website: "",
-    address: "",
-  },
+  zip_code: "",
+  contact_phone: "",
+  contact_email: "",
   logo_url: "",
+  description: "",
 };
 
 const stateOptions = [
   "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"
 ];
 
-const ASSOCIATION_STEPS = [
-  { id: 1, title: "Identificação" },
-  { id: 2, title: "Endereço & Contato" }
+const INDUSTRY_STEPS = [
+  { id: 1, title: "Dados Industriais" },
+  { id: 2, title: "Localização & Contato" }
 ];
 
-export default function Associacoes() {
+export default function Industria() {
   const [loading, setLoading] = useState(true);
-  const [items, setItems] = useState<any[]>([]);
+  const [industries, setIndustries] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const [editing, setEditing] = useState<any | null>(null);
-  const [form, setForm] = useState<AssociationFormData>(defaultForm);
+  const [editingIndustry, setEditingIndustry] = useState<any | null>(null);
+  const [form, setForm] = useState<IndustryFormData>(defaultForm);
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState("all");
-  const [assocToDelete, setAssocToDelete] = useState<string | null>(null);
+  const [industryToDelete, setIndustryToDelete] = useState<string | null>(null);
   const [branding, setBranding] = useState<any>(null);
 
   useEffect(() => {
@@ -121,7 +107,7 @@ export default function Associacoes() {
       try {
         const config = await systemConfigApi.getBrandingConfig();
         setBranding(config);
-        await fetchAll();
+        await fetchIndustries();
       } catch (error) {
         console.error("Erro ao carregar dados:", error);
       }
@@ -129,40 +115,32 @@ export default function Associacoes() {
     loadData();
   }, []);
 
-  const fetchAll = async () => {
+  const fetchIndustries = async () => {
     try {
       setLoading(true);
-      const data = await associationsApi.getAll();
-      const dataWithCounts = await Promise.all(
-        (data || []).map(async (association) => {
-          try {
-            const count = await associationsApi.getProducerCount(association.id);
-            return { ...association, producer_count: count };
-          } catch (e) {
-            return { ...association, producer_count: 0 };
-          }
-        })
-      );
-      setItems(dataWithCounts);
+      const data = await industriesApi.getAll();
+      setIndustries(data || []);
     } catch (e) {
-      toast.error("Erro ao carregar associações");
+      toast.error("Erro ao carregar indústrias");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEdit = (item: any) => {
-    setEditing(item);
+  const handleEdit = (industry: any) => {
+    setEditingIndustry(industry);
     setForm({
-      id: item.id,
-      name: item.name || "",
-      type: item.type || "associacao",
-      city: item.city || "",
-      state: item.state || "",
-      cep: item.cep || "",
-      description: item.description || "",
-      contact_info: item.contact_info || { email: "", phone: "", website: "", address: "" },
-      logo_url: item.logo_url || "",
+      id: industry.id,
+      name: industry.name || "",
+      document_number: industry.document_number || "",
+      address: industry.address || "",
+      city: industry.city || "",
+      state: industry.state || "",
+      zip_code: industry.zip_code || "",
+      contact_phone: industry.contact_phone || "",
+      contact_email: industry.contact_email || "",
+      logo_url: industry.logo_url || "",
+      description: industry.description || "",
     });
     setCurrentStep(1);
     setIsSheetOpen(true);
@@ -175,7 +153,7 @@ export default function Associacoes() {
       setForm(prev => ({ ...prev, logo_url: url }));
       toast.success("Logo atualizado!");
     } catch (e) {
-      toast.error("Erro ao enviar imagem");
+      toast.error("Erro no upload");
     } finally {
       setUploadingLogo(false);
     }
@@ -183,51 +161,50 @@ export default function Associacoes() {
 
   const validateStep1 = () => {
     if (!form.name.trim()) {
-      toast.error("Nome da organização é obrigatório");
+      toast.error("Nome da indústria é obrigatório");
       return false;
     }
     return true;
   };
 
-  const handleSubmit = async () => {
+  const handleSave = async () => {
     try {
       if (!form.name.trim()) {
         toast.error("Nome é obrigatório");
         return;
       }
-      if (editing) {
-        await associationsApi.update(editing.id, form as any);
-        toast.success("Associação atualizada!");
+      if (editingIndustry) {
+        await industriesApi.update(editingIndustry.id, form);
+        toast.success("Indústria atualizada!");
       } else {
-        await associationsApi.create(form as any);
-        toast.success("Associação criada!");
+        await industriesApi.create(form);
+        toast.success("Indústria cadastrada!");
       }
       setIsSheetOpen(false);
-      fetchAll();
+      fetchIndustries();
     } catch (e) {
       toast.error("Erro ao salvar");
     }
   };
 
   const confirmDelete = async () => {
-    if (!assocToDelete) return;
+    if (!industryToDelete) return;
     try {
-      await associationsApi.delete(assocToDelete);
-      toast.success("Associação removida!");
-      fetchAll();
+      await industriesApi.delete(industryToDelete);
+      toast.success("Indústria removida!");
+      fetchIndustries();
     } catch (error) {
       toast.error("Erro ao remover");
     } finally {
-      setAssocToDelete(null);
+      setIndustryToDelete(null);
     }
   };
 
-  const filteredItems = items.filter(item => {
-    const search = searchTerm.toLowerCase();
-    const matchesSearch = item.name.toLowerCase().includes(search) || item.city?.toLowerCase().includes(search);
-    const matchesType = filterType === "all" || item.type === filterType;
-    return matchesSearch && matchesType;
-  });
+  const filteredIndustries = industries.filter(i => 
+    i.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    i.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    i.document_number?.includes(searchTerm)
+  );
 
   const primaryColor = branding?.primaryColor || '#16a34a';
 
@@ -244,10 +221,6 @@ export default function Associacoes() {
               </div>
             </div>
             <Skeleton className="h-20 w-full rounded-xl" />
-            <div className="flex justify-between items-center">
-              <Skeleton className="h-8 w-24 rounded-full" />
-              <Skeleton className="h-8 w-8 rounded-full" />
-            </div>
           </CardContent>
         </Card>
       ))}
@@ -280,74 +253,56 @@ export default function Associacoes() {
   return (
     <AdminLayout>
       <div className="space-y-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-1 text-left">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 text-left">
+          <div className="space-y-1">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-              <Buildings size={32} style={{ color: primaryColor }} weight="fill" />
-              Associações & Cooperativas
+              <Tag size={32} style={{ color: primaryColor }} weight="fill" />
+              Indústria & Processamento
             </h2>
-            <p className="text-slate-500 font-medium text-sm">Entidades que organizam e apoiam os produtores.</p>
+            <p className="text-slate-500 font-medium text-sm">Gerencie os parceiros de industrialização e processamento.</p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline" className="rounded-xl font-bold gap-2 text-slate-600 border-slate-200">
               <Export size={18} weight="bold" /> Exportar
             </Button>
             <Button 
-              onClick={() => { setEditing(null); setForm(defaultForm); setCurrentStep(1); setIsSheetOpen(true); }} 
+              onClick={() => { setEditingIndustry(null); setForm(defaultForm); setCurrentStep(1); setIsSheetOpen(true); }} 
               className="rounded-xl font-bold text-white hover:opacity-90 shadow-lg gap-2"
               style={{ backgroundColor: primaryColor }}
             >
-              <Plus size={20} weight="bold" /> Nova Entidade
+              <Plus size={20} weight="bold" /> Nova Indústria
             </Button>
           </div>
         </div>
 
         <Card className="border-0 shadow-sm bg-white rounded-2xl">
           <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="relative flex-1">
-                <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <Input
-                  placeholder="Buscar por nome ou cidade..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-12 h-12 bg-slate-50 border-0 rounded-xl focus-visible:ring-primary font-medium"
-                  style={{ '--primary': primaryColor } as any}
-                />
-              </div>
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger 
-                  className="w-full sm:w-56 h-12 bg-slate-50 border-0 rounded-xl font-bold text-slate-600 focus:ring-primary"
-                  style={{ '--primary': primaryColor } as any}
-                >
-                  <div className="flex items-center gap-2">
-                    <FunnelSimple size={18} weight="bold" style={{ color: primaryColor }} />
-                    <SelectValue placeholder="Tipo" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent className="rounded-xl border-slate-100 shadow-xl">
-                  <SelectItem value="all" className="font-bold">Todos os Tipos</SelectItem>
-                  <SelectItem value="associacao" className="font-medium">Associação</SelectItem>
-                  <SelectItem value="cooperativa" className="font-medium">Cooperativa</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="relative">
+              <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <Input
+                placeholder="Buscar por nome, CNPJ ou cidade..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-12 h-12 bg-slate-50 border-0 rounded-xl focus-visible:ring-primary font-medium"
+                style={{ '--primary': primaryColor } as any}
+              />
             </div>
           </CardContent>
         </Card>
 
         {loading ? (
           <TableSkeleton />
-        ) : filteredItems.length === 0 ? (
+        ) : filteredIndustries.length === 0 ? (
           <Card className="border-0 shadow-sm bg-white rounded-3xl p-20 text-center">
             <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <Buildings size={48} className="text-slate-200" />
             </div>
-            <h3 className="text-xl font-black text-slate-900 mb-2">Nenhuma entidade encontrada</h3>
-            <p className="text-slate-400 font-medium">Cadastre associações para organizar seus produtores.</p>
+            <h3 className="text-xl font-black text-slate-900 mb-2">Nenhuma indústria encontrada</h3>
+            <p className="text-slate-400 font-medium">Cadastre indústrias parceiras para vincular aos lotes.</p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
-            {filteredItems.map((item) => (
+            {filteredIndustries.map((item) => (
               <Card key={item.id} className="group border-0 shadow-sm bg-white rounded-2xl hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 overflow-hidden">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-6">
@@ -360,9 +315,9 @@ export default function Associacoes() {
                       </Avatar>
                       <div>
                         <h4 className="text-lg font-black text-slate-900 line-clamp-1">{item.name}</h4>
-                        <Badge className={`${item.type === 'cooperativa' ? 'bg-purple-50 text-purple-600' : 'bg-emerald-50 text-emerald-600'} border-0 font-black text-[10px] uppercase rounded-md mt-1`}>
-                          {item.type}
-                        </Badge>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                          {item.document_number || "Sem CNPJ"}
+                        </p>
                       </div>
                     </div>
                     <DropdownMenu>
@@ -375,9 +330,8 @@ export default function Associacoes() {
                         <DropdownMenuItem onClick={() => handleEdit(item)} className="rounded-lg py-2.5 font-bold text-slate-600 cursor-pointer focus:bg-slate-50">
                           <PencilSimple size={18} weight="bold" className="mr-2" style={{ color: primaryColor }} /> Editar Perfil
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
                         <DropdownMenuItem 
-                          onClick={() => setAssocToDelete(item.id)}
+                          onClick={() => setIndustryToDelete(item.id)}
                           className="rounded-lg py-2.5 font-bold text-rose-600 cursor-pointer focus:bg-rose-50 focus:text-rose-600"
                         >
                           <Trash size={18} weight="bold" className="mr-2" /> Excluir Registro
@@ -388,17 +342,17 @@ export default function Associacoes() {
 
                   <div className="space-y-4">
                     <p className="text-sm text-slate-500 font-medium line-clamp-2 min-h-[40px]">
-                      {item.description || "Sem descrição disponível para esta organização."}
+                      {item.description || "Indústria parceira de processamento e embalagem."}
                     </p>
                     
-                    <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                      <div className="flex items-center gap-2 text-slate-400 font-bold text-xs">
-                        <Users size={16} weight="fill" className="text-slate-300" />
-                        {item.producer_count || 0} Produtores
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
+                    <div className="flex flex-col gap-2 pt-4 border-t border-slate-50">
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
                         <MapPin size={14} weight="fill" className="text-slate-300" />
                         {item.city}, {item.state}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                        <Phone size={14} weight="fill" className="text-slate-300" />
+                        {item.contact_phone || "Sem contato"}
                       </div>
                     </div>
                   </div>
@@ -418,27 +372,27 @@ export default function Associacoes() {
                       className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm text-white"
                       style={{ backgroundColor: primaryColor }}
                     >
-                      <Buildings size={32} weight="fill" />
+                      <Tag size={32} weight="fill" />
                     </div>
                     <div>
                       <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight">
-                        {editing ? "Editar Entidade" : "Nova Entidade"}
+                        {editingIndustry ? "Editar Indústria" : "Nova Indústria"}
                       </SheetTitle>
                       <SheetDescription className="text-slate-500 font-bold text-base">
-                        {editing ? `Gestão de ${editing.name}` : "Configure os dados da associação ou cooperativa."}
+                        {editingIndustry ? `Gestão de ${editingIndustry.name}` : "Configure os dados da indústria parceira."}
                       </SheetDescription>
                     </div>
                   </div>
 
-                  <FormStepIndicator steps={ASSOCIATION_STEPS} currentStep={currentStep} primaryColor={primaryColor} />
+                  <FormStepIndicator steps={INDUSTRY_STEPS} currentStep={currentStep} primaryColor={primaryColor} />
                 </div>
               </SheetHeader>
               
               <div className="flex-1 overflow-y-auto p-8 space-y-12 pb-10 min-h-0">
                 <FormSection 
-                  title="Identificação da Entidade" 
+                  title="Dados da Indústria" 
                   icon={IdentificationCard} 
-                  description="Dados básicos e visuais"
+                  description="Identificação e imagem oficial"
                   active={currentStep === 1}
                 >
                   <div className="flex flex-col md:flex-row gap-12 items-center md:items-start text-left">
@@ -455,53 +409,48 @@ export default function Associacoes() {
                       <button 
                         type="button"
                         disabled={uploadingLogo}
-                        onClick={() => document.getElementById('logo-up')?.click()}
+                        onClick={() => document.getElementById('industry-logo-up')?.click()}
                         className="absolute -bottom-2 -right-2 p-3 text-white rounded-2xl shadow-xl hover:scale-110 transition-all border-4 border-white disabled:opacity-50"
                         style={{ backgroundColor: primaryColor }}
                       >
                         {uploadingLogo ? <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Camera size={20} weight="fill" />}
                       </button>
-                      <input id="logo-up" type="file" className="hidden" accept="image/*" onChange={e => e.target.files?.[0] && handleLogoUpload(e.target.files[0])} />
+                      <input id="industry-logo-up" type="file" className="hidden" accept="image/*" onChange={e => e.target.files?.[0] && handleLogoUpload(e.target.files[0])} />
                     </div>
 
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       <div className="space-y-2 lg:col-span-2">
                         <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                          <IdentificationCard size={16} style={{ color: primaryColor }} /> Nome da Organização *
+                          <IdentificationCard size={16} style={{ color: primaryColor }} /> Nome da Indústria *
                         </Label>
                         <Input 
                           value={form.name} 
                           onChange={e => setForm({...form, name: e.target.value})} 
-                          placeholder="Ex: Cooperativa dos Produtores..." 
+                          placeholder="Ex: Processadora Vale Verde" 
                           className="focus-visible:ring-primary h-12"
                           style={{ '--primary': primaryColor } as any}
                         />
                       </div>
                       <div className="space-y-2">
                         <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                          <Tag size={16} style={{ color: primaryColor }} /> Tipo de Entidade
+                          <Tag size={16} style={{ color: primaryColor }} /> CNPJ
                         </Label>
-                        <Select value={form.type} onValueChange={v => setForm({...form, type: v})}>
-                          <SelectTrigger 
-                            className="rounded-xl bg-slate-50 border-0 h-12 focus:ring-primary"
-                            style={{ '--primary': primaryColor } as any}
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl">
-                            <SelectItem value="associacao">Associação</SelectItem>
-                            <SelectItem value="cooperativa">Cooperativa</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Input 
+                          value={form.document_number} 
+                          onChange={e => setForm({...form, document_number: e.target.value})} 
+                          placeholder="00.000.000/0000-00" 
+                          className="focus-visible:ring-primary h-12"
+                          style={{ '--primary': primaryColor } as any}
+                        />
                       </div>
                       <div className="space-y-2 lg:col-span-3">
                         <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                          <ChatCircleText size={16} style={{ color: primaryColor }} /> Sobre a Organização
+                          <ChatCircleText size={16} style={{ color: primaryColor }} /> Descrição da Atividade
                         </Label>
                         <Textarea 
                           value={form.description} 
                           onChange={e => setForm({...form, description: e.target.value})} 
-                          placeholder="Breve história da entidade, missão e valores..." 
+                          placeholder="Descreva os processos industriais realizados..." 
                           className="min-h-[150px] focus-visible:ring-primary"
                           style={{ '--primary': primaryColor } as any}
                         />
@@ -513,15 +462,15 @@ export default function Associacoes() {
                 <FormSection 
                   title="Endereço & Contato" 
                   icon={MapPin} 
-                  description="Localização e meios de comunicação"
+                  description="Localização da planta industrial"
                   active={currentStep === 2}
                 >
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-left">
                     <div className="space-y-2">
                       <Label className="font-black text-slate-700 ml-1 mb-1">CEP</Label>
                       <Input 
-                        value={form.cep} 
-                        onChange={e => setForm({...form, cep: e.target.value})} 
+                        value={form.zip_code} 
+                        onChange={e => setForm({...form, zip_code: e.target.value})} 
                         placeholder="00000-000" 
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}
@@ -554,8 +503,8 @@ export default function Associacoes() {
                     <div className="space-y-2 md:col-span-4">
                       <Label className="font-black text-slate-700 ml-1 mb-1 text-xs uppercase">Endereço Completo</Label>
                       <Input 
-                        value={form.contact_info.address} 
-                        onChange={e => setForm({...form, contact_info: {...form.contact_info, address: e.target.value}})} 
+                        value={form.address} 
+                        onChange={e => setForm({...form, address: e.target.value})} 
                         placeholder="Rua, número, bairro..." 
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}
@@ -565,39 +514,27 @@ export default function Associacoes() {
 
                   <Separator className="bg-slate-100" />
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                        <At size={16} style={{ color: primaryColor }} /> E-mail Oficial
+                        <At size={16} style={{ color: primaryColor }} /> E-mail de Contato
                       </Label>
                       <Input 
-                        value={form.contact_info.email} 
-                        onChange={e => setForm({...form, contact_info: {...form.contact_info, email: e.target.value}})} 
-                        placeholder="contato@..." 
+                        value={form.contact_email} 
+                        onChange={e => setForm({...form, contact_email: e.target.value})} 
+                        placeholder="industrial@..." 
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                        <Phone size={16} style={{ color: primaryColor }} /> Telefone / WhatsApp
+                        <Phone size={16} style={{ color: primaryColor }} /> Telefone
                       </Label>
                       <Input 
-                        value={form.contact_info.phone} 
-                        onChange={e => setForm({...form, contact_info: {...form.contact_info, phone: e.target.value}})} 
+                        value={form.contact_phone} 
+                        onChange={e => setForm({...form, contact_phone: e.target.value})} 
                         placeholder="(00) 00000-0000" 
-                        className="focus-visible:ring-primary h-12"
-                        style={{ '--primary': primaryColor } as any}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                        <Globe size={16} style={{ color: primaryColor }} /> Website
-                      </Label>
-                      <Input 
-                        value={form.contact_info.website} 
-                        onChange={e => setForm({...form, contact_info: {...form.contact_info, website: e.target.value}})} 
-                        placeholder="www.entidade.com.br" 
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}
                       />
@@ -606,7 +543,6 @@ export default function Associacoes() {
                 </FormSection>
               </div>
 
-              {/* Rodapé Fixo */}
               <div className="p-6 bg-white border-t border-slate-100 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] z-50">
                 <div className="max-w-5xl mx-auto flex gap-4">
                   {currentStep === 1 ? (
@@ -638,12 +574,12 @@ export default function Associacoes() {
                     </Button>
                   ) : (
                     <Button 
-                      onClick={handleSubmit} 
+                      onClick={handleSave} 
                       className="flex-[2] rounded-2xl h-14 font-black text-white hover:opacity-90 shadow-2xl transition-all gap-3"
                       style={{ backgroundColor: primaryColor }}
                     >
                       <CheckCircle size={24} weight="bold" />
-                      {editing ? "Salvar Alterações" : "Concluir Cadastro"}
+                      {editingIndustry ? "Salvar Alterações" : "Concluir Cadastro"}
                     </Button>
                   )}
                 </div>
@@ -652,12 +588,12 @@ export default function Associacoes() {
           </SheetContent>
         </Sheet>
 
-        <AlertDialog open={!!assocToDelete} onOpenChange={() => setAssocToDelete(null)}>
+        <AlertDialog open={!!industryToDelete} onOpenChange={() => setIndustryToDelete(null)}>
           <AlertDialogContent className="rounded-3xl border-0 shadow-2xl">
             <AlertDialogHeader>
               <AlertDialogTitle className="text-2xl font-black text-slate-900">Confirmar Exclusão?</AlertDialogTitle>
               <AlertDialogDescription className="text-slate-500 font-medium">
-                A entidade será removida. Os produtores vinculados continuarão no sistema, mas sem o vínculo com esta associação.
+                A indústria será removida. Os lotes vinculados a ela continuarão no sistema, mas sem a referência de processamento industrial.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="gap-3 mt-4">

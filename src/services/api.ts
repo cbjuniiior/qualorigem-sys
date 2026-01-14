@@ -11,6 +11,8 @@ export type LotComponent = Tables<"lot_components">;
 export type SealControl = Tables<"seal_controls">;
 export type SystemConfiguration = Tables<"system_configurations">;
 export type Association = Tables<"associations">;
+export type Brand = Tables<"brands">;
+export type Industry = Tables<"industries">;
 
 export type ProducerInsert = TablesInsert<"producers">;
 export type ProductLotInsert = TablesInsert<"product_lots">;
@@ -18,6 +20,8 @@ export type LotComponentInsert = TablesInsert<"lot_components">;
 export type SealControlInsert = TablesInsert<"seal_controls">;
 export type SystemConfigurationInsert = TablesInsert<"system_configurations">;
 export type AssociationInsert = TablesInsert<"associations">;
+export type BrandInsert = TablesInsert<"brands">;
+export type IndustryInsert = TablesInsert<"industries">;
 
 export type ProducerUpdate = TablesUpdate<"producers">;
 export type ProductLotUpdate = TablesUpdate<"product_lots">;
@@ -25,6 +29,8 @@ export type LotComponentUpdate = TablesUpdate<"lot_components">;
 export type SealControlUpdate = TablesUpdate<"seal_controls">;
 export type SystemConfigurationUpdate = TablesUpdate<"system_configurations">;
 export type AssociationUpdate = TablesUpdate<"associations">;
+export type BrandUpdate = TablesUpdate<"brands">;
+export type IndustryUpdate = TablesUpdate<"industries">;
 
 // Serviços para Produtores
 export const producersApi = {
@@ -918,4 +924,115 @@ export const associationsApi = {
       .eq("association_id", associationId);
     if (error) throw error;
   },
+};
+
+// Serviços para Marcas
+export const brandsApi = {
+  // Buscar todas as marcas de um produtor
+  async getByProducer(producerId: string) {
+    const { data, error } = await supabase
+      .from("brands")
+      .select("*")
+      .eq("producer_id", producerId)
+      .order("name");
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Criar nova marca
+  async create(brand: BrandInsert) {
+    const { data, error } = await supabase
+      .from("brands")
+      .insert(brand)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Atualizar marca
+  async update(id: string, updates: BrandUpdate) {
+    const { data, error } = await supabase
+      .from("brands")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Deletar marca
+  async delete(id: string) {
+    const { error } = await supabase
+      .from("brands")
+      .delete()
+      .eq("id", id);
+    
+    if (error) throw error;
+  }
+};
+
+// Serviços para Indústrias
+export const industriesApi = {
+  // Buscar todas as indústrias
+  async getAll() {
+    const { data, error } = await supabase
+      .from("industries")
+      .select("*")
+      .order("name");
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Buscar indústria por ID
+  async getById(id: string) {
+    const { data, error } = await supabase
+      .from("industries")
+      .select("*")
+      .eq("id", id)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Criar nova indústria
+  async create(industry: IndustryInsert) {
+    const { data, error } = await supabase
+      .from("industries")
+      .insert(industry)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Atualizar indústria
+  async update(id: string, updates: IndustryUpdate) {
+    const { data, error } = await supabase
+      .from("industries")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Deletar indústria
+  async delete(id: string) {
+    const { error } = await supabase
+      .from("industries")
+      .delete()
+      .eq("id", id);
+    
+    if (error) throw error;
+  }
 };

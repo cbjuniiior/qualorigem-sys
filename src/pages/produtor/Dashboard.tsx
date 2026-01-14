@@ -11,7 +11,10 @@ import {
   ChartBar,
   WarningCircle,
   CheckCircle,
-  Clock
+  Clock,
+  Ticket,
+  CaretRight,
+  Scales
 } from "@phosphor-icons/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,294 +22,195 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ProducerLayout } from "@/components/layout/ProducerLayout";
 import { useAuth } from "@/hooks/use-auth";
-import { productLotsApi } from "@/services/api";
-import { ProductLot } from "@/services/api";
+import { productLotsApi, systemConfigApi } from "@/services/api";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const ProducerDashboard = () => {
   const { user } = useAuth();
-  const [lotes, setLotes] = useState<ProductLot[]>([]);
+  const [lotes, setLotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [branding, setBranding] = useState<any>(null);
   const [stats, setStats] = useState({
     totalLotes: 0,
     lotesAtivos: 0,
-    lotesVendidos: 0,
-    valorTotal: 0,
+    visualizacoes: 0,
+    volumeTotal: 0,
   });
 
   useEffect(() => {
-    fetchLotes();
-  }, []);
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [brand, data] = await Promise.all([
+          systemConfigApi.getBrandingConfig(),
+          productLotsApi.getByProducer(user?.id)
+        ]);
+        
+        setBranding(brand);
+        setLotes(data || []);
+        
+        setStats({
+          totalLotes: data?.length || 0,
+          lotesAtivos: data?.filter((l: any) => l.category !== 'vendido').length || 0,
+          visualizacoes: data?.reduce((sum: number, l: any) => sum + (l.views || 0), 0) || 0,
+          volumeTotal: data?.reduce((sum: number, l: any) => sum + (Number(l.quantity) || 0), 0) || 0,
+        });
+      } catch (error) {
+        toast.error("Erro ao carregar dados");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [user]);
 
-  const fetchLotes = async () => {
-    try {
-      setLoading(true);
-      const data = await productLotsApi.getByProducer(user?.id);
-      
-      setLotes(data || []);
-      
-      // Calcular estatísticas
-      const totalLotes = data?.length || 0;
-      const lotesAtivos = data?.filter(lote => lote.category === 'ativo').length || 0;
-      const lotesVendidos = data?.filter(lote => lote.category === 'vendido').length || 0;
-      const valorTotal = data?.reduce((sum, lote) => sum + (lote.quantity || 0), 0) || 0;
-      
-      setStats({
-        totalLotes,
-        lotesAtivos,
-        lotesVendidos,
-        valorTotal,
-      });
-    } catch (error) {
-      console.error("Erro ao buscar lotes:", error);
-      toast.error("Erro ao carregar dados");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const primaryColor = branding?.primaryColor || '#16a34a';
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ativo':
-        return 'bg-green-100 text-green-800';
-      case 'vendido':
-        return 'bg-blue-100 text-blue-800';
-      case 'processando':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'ativo':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'vendido':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'processando':
-        return <Clock className="h-4 w-4" />;
-      default:
-        return <WarningCircle className="h-4 w-4" />;
-    }
-  };
-
-  const recentLotes = lotes.slice(0, 5);
+  const StatCard = ({ title, value, icon: Icon, color }: any) => (
+    <Card className="border-0 shadow-sm bg-white overflow-hidden group hover:shadow-lg transition-all">
+      <div className="h-1" style={{ backgroundColor: color }} />
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="p-3 rounded-xl" style={{ backgroundColor: `${color}10`, color }}>
+            <Icon size={24} weight="fill" />
+          </div>
+          <Badge variant="outline" className="border-slate-100 font-bold">Hoje</Badge>
+        </div>
+        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">{title}</h3>
+        <div className="text-2xl font-black text-slate-900">{value}</div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <ProducerLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-              Dashboard do Produtor
-            </h1>
-            <p className="mt-2 text-sm text-gray-600">
-              Bem-vindo de volta! Aqui está uma visão geral dos seus lotes.
-            </p>
+      <div className="space-y-10">
+        {/* Welcome Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Olá, {user?.user_metadata?.full_name?.split(' ')[0] || "Produtor"}! 🌿</h2>
+            <p className="text-slate-500 font-medium">Veja o desempenho da sua produção e rastreabilidade.</p>
           </div>
-          <div className="mt-4 sm:mt-0 flex gap-2">
-            <Button asChild>
-              <Link to="/produtor/lotes/novo">
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Lote
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/produtor/qrcodes">
-                <QrCode className="h-4 w-4 mr-2" />
-                QR Codes
+          <div className="flex items-center gap-3">
+            <Button 
+              asChild 
+              className="rounded-xl font-bold text-white hover:opacity-90 shadow-lg h-12 px-6 transition-all"
+              style={{ backgroundColor: primaryColor, shadowColor: `${primaryColor}30` } as any}
+            >
+              <Link to="/produtor/lotes">
+                <Plus size={20} weight="bold" className="mr-2" /> Novo Lote
               </Link>
             </Button>
           </div>
         </div>
 
-        {/* Cards de estatísticas */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Lotes</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalLotes}</div>
-              <p className="text-xs text-muted-foreground">
-                Lotes registrados
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Lotes Ativos</CardTitle>
-              <TrendUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.lotesAtivos}</div>
-              <p className="text-xs text-muted-foreground">
-                Em produção
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Lotes Vendidos</CardTitle>
-              <CheckCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.lotesVendidos}</div>
-              <p className="text-xs text-muted-foreground">
-                Comercializados
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
-              <ChartBar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                R$ {stats.valorTotal.toLocaleString('pt-BR')}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Valor estimado
-              </p>
-            </CardContent>
-          </Card>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {loading ? Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-2xl" />) : (
+            <>
+              <StatCard title="Meus Lotes" value={stats.totalLotes} icon={Package} color={primaryColor} />
+              <StatCard title="Lotes Ativos" value={stats.lotesAtivos} icon={TrendUp} color="#3b82f6" />
+              <StatCard title="Visualizações" value={stats.visualizacoes} icon={Eye} color="#8b5cf6" />
+              <StatCard title="Volume Total" value={`${stats.volumeTotal} Kg`} icon={Scales} color="#f59e0b" />
+            </>
+          )}
         </div>
 
-        {/* Gráfico de progresso */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Progresso dos Lotes</CardTitle>
-            <CardDescription>
-              Distribuição dos seus lotes por status
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Lotes Ativos</span>
-                <span className="text-sm text-muted-foreground">
-                  {stats.totalLotes > 0 ? Math.round((stats.lotesAtivos / stats.totalLotes) * 100) : 0}%
-                </span>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Lotes Recentes */}
+          <Card className="lg:col-span-2 border-0 shadow-sm bg-white rounded-3xl overflow-hidden">
+            <CardHeader className="border-b border-slate-50 p-8 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-xl font-black text-slate-900">Últimas Produções</CardTitle>
+                <CardDescription className="font-medium text-slate-400">Acompanhe seus lotes mais recentes.</CardDescription>
               </div>
-              <Progress 
-                value={stats.totalLotes > 0 ? (stats.lotesAtivos / stats.totalLotes) * 100 : 0} 
-                className="h-2"
-              />
-              
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Lotes Vendidos</span>
-                <span className="text-sm text-muted-foreground">
-                  {stats.totalLotes > 0 ? Math.round((stats.lotesVendidos / stats.totalLotes) * 100) : 0}%
-                </span>
-              </div>
-              <Progress 
-                value={stats.totalLotes > 0 ? (stats.lotesVendidos / stats.totalLotes) * 100 : 0} 
-                className="h-2"
-              />
-            </div>
-          </CardContent>
-        </Card>
+              <Button 
+                variant="ghost" 
+                asChild 
+                className="font-bold hover:bg-primary/5 rounded-xl transition-all"
+                style={{ color: primaryColor }}
+              >
+                <Link to="/produtor/lotes">Ver Todos <CaretRight className="ml-1" weight="bold" /></Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loading ? <div className="p-8 space-y-4"><Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" /></div> : (
+                <div className="divide-y divide-slate-50">
+                  {lotes.slice(0, 5).map(lot => (
+                    <div key={lot.id} className="p-6 hover:bg-slate-50/50 transition-all flex items-center justify-between gap-4 group">
+                      <div className="flex items-center gap-5">
+                        <img src={lot.image_url || "/placeholder.svg"} className="h-14 w-14 rounded-2xl object-cover shadow-sm group-hover:scale-105 transition-transform" />
+                        <div>
+                          <h4 className="font-black text-slate-900 transition-colors group-hover:text-primary" style={{ '--primary': primaryColor } as any}>{lot.name}</h4>
+                          <div className="flex items-center gap-3 text-xs font-bold text-slate-400 uppercase tracking-wider mt-1">
+                            <span>#{lot.code}</span>
+                            <span className="h-1 w-1 bg-slate-300 rounded-full" />
+                            <span>Safra {lot.harvest_year}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Badge className="bg-slate-100 text-slate-600 border-0 font-black px-3 py-1 rounded-lg uppercase text-[10px]">
+                        {lot.category}
+                      </Badge>
+                    </div>
+                  ))}
+                  {lotes.length === 0 && (
+                    <div className="p-20 text-center text-slate-400 font-bold">Nenhum lote registrado.</div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-        {/* Lotes recentes */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Lotes Recentes</CardTitle>
-            <CardDescription>
-              Seus lotes mais recentes
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-              </div>
-            ) : recentLotes.length === 0 ? (
-              <div className="text-center py-8">
-                <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Nenhum lote encontrado
-                </h3>
-                <p className="text-gray-500 mb-4">
-                  Comece criando seu primeiro lote para ver as informações aqui.
-                </p>
-                <Button asChild>
-                  <Link to="/produtor/lotes/novo">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Criar Primeiro Lote
-                  </Link>
+          {/* Quick Actions & Links */}
+          <div className="space-y-8">
+            <Card className="border-0 shadow-sm bg-slate-900 text-white rounded-3xl overflow-hidden p-8 relative">
+              <div className="relative z-10 space-y-6">
+                <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center">
+                  <QrCode size={24} weight="fill" style={{ color: primaryColor }} />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-xl font-black">Gerar QR Codes</h3>
+                  <p className="text-sm text-slate-400 font-medium">Baixe as etiquetas de rastreabilidade para suas embalagens.</p>
+                </div>
+                <Button 
+                  asChild 
+                  className="w-full rounded-xl font-black text-white hover:opacity-90 h-12 transition-all shadow-lg"
+                  style={{ backgroundColor: primaryColor, shadowColor: `${primaryColor}40` } as any}
+                >
+                  <Link to="/produtor/qrcodes">Acessar Etiquetas</Link>
                 </Button>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {recentLotes.map((lote) => (
-                  <div
-                    key={lote.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                        <Package className="h-5 w-5 text-green-600" />
-                      </div>
-                      <div>
-                                                 <h4 className="font-medium text-gray-900">
-                           Lote {lote.code}
-                         </h4>
-                         <div className="flex items-center space-x-2 text-sm text-gray-500">
-                           <MapPin className="h-3 w-3" />
-                           <span>{lote.name || 'N/A'}</span>
-                           <Calendar className="h-3 w-3 ml-2" />
-                           <span>
-                             {lote.harvest_year || 'N/A'}
-                           </span>
-                         </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-2">
-                                             <Badge className={getStatusColor(lote.category || 'ativo')}>
-                         <div className="flex items-center space-x-1">
-                           {getStatusIcon(lote.category || 'ativo')}
-                           <span className="capitalize">{lote.category || 'ativo'}</span>
-                         </div>
-                       </Badge>
-                      
-                      <div className="flex space-x-1">
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link to={`/produtor/lotes/${lote.id}`}>
-                            <Eye className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link to={`/produtor/qrcodes/${lote.id}`}>
-                            <QrCode className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
+              <QrCode size={140} weight="thin" className="absolute -bottom-10 -right-10 text-white/5 rotate-12" />
+            </Card>
+
+            <Card className="border-0 shadow-sm bg-white rounded-3xl overflow-hidden">
+              <CardHeader className="border-b border-slate-50 p-8">
+                <CardTitle className="text-lg font-black">Links Rápidos</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4 space-y-2">
+                <Link to="/produtor/metricas" className="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-all group">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:scale-110 transition-transform"><ChartBar weight="fill" /></div>
+                    <span className="font-bold text-slate-700">Ver Métricas</span>
                   </div>
-                ))}
-                
-                {lotes.length > 5 && (
-                  <div className="text-center pt-4">
-                    <Button variant="outline" asChild>
-                      <Link to="/produtor/lotes">
-                        Ver Todos os Lotes
-                      </Link>
-                    </Button>
+                  <CaretRight weight="bold" className="text-slate-300" />
+                </Link>
+                <Link to="/produtor/configuracoes" className="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-all group">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-slate-50 text-slate-600 rounded-lg group-hover:scale-110 transition-transform"><Gear weight="fill" /></div>
+                    <span className="font-bold text-slate-700">Configurações</span>
                   </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  <CaretRight weight="bold" className="text-slate-300" />
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </ProducerLayout>
   );
-}; 
+};
+
+export default ProducerDashboard;

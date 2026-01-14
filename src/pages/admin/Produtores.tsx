@@ -1,36 +1,76 @@
 import { useState, useEffect } from "react";
-import { Plus, MagnifyingGlass, PencilSimple, Trash, MapPin, Phone, Envelope, Mountains, Thermometer, Copy, Users, Eye } from "@phosphor-icons/react";
+import { 
+  Plus, 
+  MagnifyingGlass, 
+  PencilSimple, 
+  Trash, 
+  MapPin, 
+  Phone, 
+  Envelope, 
+  Mountains, 
+  Thermometer, 
+  Copy, 
+  Users, 
+  Eye, 
+  ArrowRight,
+  DotsThreeOutlineVertical,
+  Export,
+  Buildings,
+  Image as ImageIcon,
+  UserCircle,
+  CaretRight,
+  CheckCircle,
+  IdentificationCard,
+  At,
+  Globe,
+  Tag,
+  ChatCircleText,
+  Camera,
+  WarningCircle,
+  MapTrifold,
+  Lock,
+  LockOpen,
+  ArrowLeft,
+  CircleNotch
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { producersApi, productLotsApi, associationsApi, systemConfigApi } from "@/services/api";
+import { producersApi, associationsApi, systemConfigApi } from "@/services/api";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
-import axios from "axios";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm, FormProvider } from "react-hook-form";
 import { uploadImageToSupabase } from "@/services/upload";
+import { FormStepIndicator } from "@/components/ui/step-indicator";
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselPrevious,
-  CarouselNext,
-} from "@/components/ui/carousel";
-import { Tooltip } from "@/components/ui/tooltip";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTitle as AlertDialogTitleBase,
+} from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Skeleton } from "@/components/ui/skeleton";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { Checkbox } from "@/components/ui/checkbox";
-import { hexToHsl } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 
 interface Producer {
   id: string;
@@ -49,1081 +89,765 @@ interface Producer {
   photos: string[];
   latitude: string | null;
   longitude: string | null;
+  lot_prefix_mode: 'auto' | 'manual';
+  custom_prefix: string | null;
+  profile_picture_url: string | null;
+  address_internal_only: boolean;
 }
+
+const stateOptions = [
+  "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"
+];
+
+const PRODUCER_STEPS = [
+  { id: 1, title: "Responsável" },
+  { id: 2, title: "Propriedade" },
+  { id: 3, title: "Localização" },
+  { id: 4, title: "Vínculos" },
+];
 
 const Produtores = () => {
   const [producers, setProducers] = useState<Producer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editingProducer, setEditingProducer] = useState<Producer | null>(null);
-  const [selectedProducer, setSelectedProducer] = useState<Producer | null>(null);
-  const [producerLots, setProducerLots] = useState<any[]>([]);
-  const [loadingLots, setLoadingLots] = useState(false);
-  const [mapCoords, setMapCoords] = useState<{ lat: string; lon: string } | null>(null);
-  const [loadingMap, setLoadingMap] = useState(false);
+  const [producerToDelete, setProducerToDelete] = useState<string | null>(null);
+  const [branding, setBranding] = useState<any>(null);
+  const [currentStep, setCurrentStep] = useState(1);
   const navigate = useNavigate();
-  const [filterCity, setFilterCity] = useState("");
-  const [filterState, setFilterState] = useState("");
-  const [branding, setBranding] = useState<{
-    primaryColor: string;
-    secondaryColor: string;
-    accentColor: string;
-  } | null>(null);
 
   useEffect(() => {
-    const loadBranding = async () => {
+    const loadData = async () => {
       try {
         const config = await systemConfigApi.getBrandingConfig();
         setBranding(config);
+        await fetchProducers();
       } catch (error) {
-        console.error("Erro ao carregar branding:", error);
+        console.error("Erro ao carregar dados:", error);
       }
     };
-    loadBranding();
-    fetchProducers();
+    loadData();
   }, []);
-
-  const primaryColor = branding?.primaryColor || '#16a34a';
-  const secondaryColor = branding?.secondaryColor || '#22c55e';
-  const accentColor = branding?.accentColor || '#10b981';
-
-  const cssVariables = {
-    '--primary': hexToHsl(primaryColor),
-    '--secondary': hexToHsl(secondaryColor),
-    '--accent': hexToHsl(accentColor),
-    '--ring': hexToHsl(primaryColor),
-  } as React.CSSProperties;
-
-  useEffect(() => {
-    if (selectedProducer) {
-      setLoadingLots(true);
-      productLotsApi.getByProducer(selectedProducer.id)
-        .then((lots) => setProducerLots(lots || []))
-        .finally(() => setLoadingLots(false));
-    } else {
-      setProducerLots([]);
-    }
-  }, [selectedProducer]);
-
-  useEffect(() => {
-    if (selectedProducer) {
-      // Se já tem coordenadas, usa elas
-      if (selectedProducer.latitude && selectedProducer.longitude) {
-        setMapCoords({ lat: selectedProducer.latitude, lon: selectedProducer.longitude });
-      } else if (selectedProducer.address || selectedProducer.city || selectedProducer.state) {
-        // Busca coordenadas pelo endereço
-        setLoadingMap(true);
-        const query = `${selectedProducer.address ? selectedProducer.address + ', ' : ''}${selectedProducer.city ? selectedProducer.city + ', ' : ''}${selectedProducer.state || ''}`;
-        axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`)
-          .then(res => {
-            if (res.data && res.data.length > 0) {
-              setMapCoords({ lat: res.data[0].lat, lon: res.data[0].lon });
-            } else {
-              setMapCoords(null);
-            }
-          })
-          .catch(() => setMapCoords(null))
-          .finally(() => setLoadingMap(false));
-      } else {
-        setMapCoords(null);
-      }
-    } else {
-      setMapCoords(null);
-    }
-  }, [selectedProducer]);
 
   const fetchProducers = async () => {
     try {
       setLoading(true);
       const data = await producersApi.getAll();
-      // Garante que todos os produtores tenham o campo 'photos' (mesmo que vazio)
-      const normalized = (data as any[]).map((prod) => ({
-        ...prod,
-        photos: prod.photos ?? [],
-        latitude: prod.latitude ?? null,
-        longitude: prod.longitude ?? null,
-      }));
-      setProducers(normalized);
+      setProducers(data as Producer[]);
     } catch (error) {
-      console.error("Erro ao buscar produtores:", error);
       toast.error("Erro ao carregar produtores");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreate = async (data: any) => {
-    try {
-      const producerData = {
-        ...data,
-        altitude: data.altitude ? parseInt(data.altitude) : null,
-        average_temperature: data.average_temperature ? parseFloat(data.average_temperature) : null,
-        latitude: data.latitude === "" ? null : data.latitude,
-        longitude: data.longitude === "" ? null : data.longitude,
-      };
-      await producersApi.create(producerData);
-      toast.success("Produtor criado com sucesso!");
-      setIsCreateDialogOpen(false);
-      fetchProducers();
-    } catch (error) {
-      console.error("Erro ao criar produtor:", error);
-      toast.error("Erro ao criar produtor");
-    }
-  };
-
-  const handleUpdate = async (data: any) => {
-    if (!editingProducer) return;
-    try {
-      const producerData = {
-        ...data,
-        altitude: data.altitude ? parseInt(data.altitude) : null,
-        average_temperature: data.average_temperature ? parseFloat(data.average_temperature) : null,
-      };
-      await producersApi.update(editingProducer.id, producerData);
-      toast.success("Produtor atualizado com sucesso!");
-      setEditingProducer(null);
-      fetchProducers();
-    } catch (error) {
-      console.error("Erro ao atualizar produtor:", error);
-      toast.error("Erro ao atualizar produtor");
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      await producersApi.delete(id);
-      toast.success("Produtor excluído com sucesso!");
-      fetchProducers();
-    } catch (error) {
-      console.error("Erro ao excluir produtor:", error);
-      toast.error("Erro ao excluir produtor");
-    }
-  };
-
-  const openEditDialog = (producer: Producer) => {
+  const handleEdit = (producer: Producer) => {
     setEditingProducer(producer);
+    setCurrentStep(1);
+    setIsSheetOpen(true);
   };
 
-  const filteredProducers = producers.filter((prod) => {
-    const matchesSearch = prod.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      prod.property_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      prod.city?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCity = filterCity ? prod.city === filterCity : true;
-    const matchesState = filterState ? prod.state === filterState : true;
-    return matchesSearch && matchesCity && matchesState;
-  });
+  const confirmDelete = async () => {
+    if (!producerToDelete) return;
+    try {
+      await producersApi.delete(producerToDelete);
+      toast.success("Produtor removido!");
+      fetchProducers();
+    } catch (error) {
+      toast.error("Erro ao remover produtor");
+    } finally {
+      setProducerToDelete(null);
+    }
+  };
 
-  const uniqueCities = Array.from(new Set(producers.map(p => p.city))).sort();
-  const uniqueStates = Array.from(new Set(producers.map(p => p.state))).sort();
+  const filteredProducers = producers.filter(p => 
+    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.property_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.city?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600">Carregando produtores...</p>
+  const primaryColor = branding?.primaryColor || '#16a34a';
+
+  const TableSkeleton = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {Array(4).fill(0).map((_, i) => (
+        <Card key={i} className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden">
+          <div className="flex h-40">
+            <Skeleton className="w-1/3 h-full rounded-none" />
+            <div className="w-2/3 p-6 space-y-3">
+              <Skeleton className="h-6 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+              <div className="flex gap-2">
+                <Skeleton className="h-8 w-20 rounded-full" />
+                <Skeleton className="h-8 w-20 rounded-full" />
+              </div>
+            </div>
           </div>
-        </div>
-      </AdminLayout>
-    );
-  }
+        </Card>
+      ))}
+    </div>
+  );
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="rounded-2xl p-6 border shadow-sm" style={{ background: `linear-gradient(to right, ${primaryColor}10, ${primaryColor}05)`, borderColor: `${primaryColor}20` }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl" style={{ backgroundColor: `${primaryColor}20` }}>
-                <Users className="h-8 w-8" style={{ color: primaryColor }} />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Produtores</h1>
-                <p className="text-gray-600 mt-1">Gerencie os produtores cadastrados no sistema</p>
-              </div>
-            </div>
+      <div className="space-y-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 text-left">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <Users size={32} style={{ color: primaryColor }} weight="fill" />
+              Produtores Parceiros
+            </h2>
+            <p className="text-slate-500 font-medium text-sm">Gerencie as propriedades e responsáveis pela produção.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" className="rounded-xl font-bold gap-2 text-slate-600 border-slate-200">
+              <Export size={18} weight="bold" /> Exportar
+            </Button>
             <Button 
-              onClick={() => setIsCreateDialogOpen(true)}
-              className="flex items-center gap-2 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:opacity-90"
+              onClick={() => { setEditingProducer(null); setCurrentStep(1); setIsSheetOpen(true); }} 
+              className="rounded-xl font-bold text-white hover:opacity-90 shadow-lg gap-2"
               style={{ backgroundColor: primaryColor }}
             >
-              <Plus className="h-5 w-5" />
-              Novo Produtor
+              <Plus size={20} weight="bold" /> Novo Produtor
             </Button>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="border-0 shadow-sm bg-white">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg" style={{ backgroundColor: `${primaryColor}10` }}>
-                    <Users className="h-5 w-5" style={{ color: primaryColor }} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: primaryColor }}>Total</p>
-                    <p className="text-2xl font-bold" style={{ color: `${primaryColor}CC` }}>{producers.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="border-0 shadow-sm bg-white">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-gray-100">
-                    <Eye className="h-5 w-5 text-gray-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Exibindo</p>
-                    <p className="text-2xl font-bold text-gray-800">{filteredProducers.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        <Card className="border-0 shadow-sm">
+        <Card className="border-0 shadow-sm bg-white rounded-2xl">
           <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="relative w-full">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <MagnifyingGlass className="h-5 w-5 text-gray-400" />
-                </div>
-                <Input
-                  type="text"
-                  placeholder="Buscar produtores..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 border-gray-200 focus:ring-2 w-full"
-                  style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
-                />
-              </div>
-              
-              <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex items-center gap-2 border-gray-200">
-                      <MapPin className="h-4 w-4 text-gray-400" />
-                      {filterCity || "Cidade"}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => setFilterCity("")}>Todas</DropdownMenuItem>
-                    {uniqueCities.map(city => (
-                      <DropdownMenuItem key={city} onClick={() => setFilterCity(city)}>{city}</DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="flex items-center gap-2 border-gray-200">
-                      <MapPin className="h-4 w-4 text-gray-400" />
-                      {filterState || "Estado"}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => setFilterState("")}>Todos</DropdownMenuItem>
-                    {uniqueStates.map(state => (
-                      <DropdownMenuItem key={state} onClick={() => setFilterState(state)}>{state}</DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+            <div className="relative">
+              <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+              <Input
+                placeholder="Buscar por nome, propriedade ou cidade..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-12 h-12 bg-slate-50 border-0 rounded-xl focus-visible:ring-primary font-medium"
+                style={{ '--primary': primaryColor } as any}
+              />
             </div>
           </CardContent>
         </Card>
 
-        {/* Grid de cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-8">
-          {loading ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-56 w-full rounded-2xl" />
-            ))
-          ) : filteredProducers.length === 0 ? (
-            <div className="col-span-full text-center text-gray-400 py-20 text-lg">Nenhum produtor encontrado.</div>
-          ) : (
-            filteredProducers.map(prod => {
-              const foto = prod.photos?.[0];
-              return (
-                <div
-                  key={prod.id}
-                  className="bg-white rounded-2xl shadow-md hover:shadow-xl transition-all overflow-hidden flex flex-col cursor-pointer group border border-gray-100"
-                  onClick={e => {
-                    if ((e.target as HTMLElement).closest('.card-action')) return;
-                    navigate(`/admin/produtores/${prod.id}`);
-                  }}
-                  style={{ textDecoration: 'none' }}
-                >
-                    {/* Foto/banner do produtor com ações sobrepostas */}
-                  <div className="relative w-full h-40 bg-gray-100 flex items-center justify-center overflow-hidden">
-                    {foto ? (
-                      <img src={foto} alt={prod.name} className="object-cover w-full h-full" />
-                    ) : (
-                      <div 
-                        className="w-full h-full flex items-center justify-center text-3xl font-bold"
-                        style={{ backgroundColor: `${primaryColor}10`, color: `${primaryColor}50` }}
-                      >
-                        {prod.name.split(' ').map(n => n[0]).join('').slice(0,2)}
-                      </div>
-                    )}
-                    {/* Ações rápidas sobre a imagem */}
-                    <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
-                      <button className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action transition-all hover:scale-105" title="Editar" onClick={e => {e.stopPropagation(); openEditDialog(prod)}}>
-                        <PencilSimple className="h-5 w-5" style={{ color: primaryColor }} />
-                      </button>
-                      <button className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action transition-all hover:scale-105" title="Excluir" onClick={e => {e.stopPropagation(); handleDelete(prod.id)}}>
-                        <Trash className="h-5 w-5 text-red-500" />
-                      </button>
-                      <button className="p-2 rounded-full bg-white shadow hover:bg-gray-100 border card-action transition-all hover:scale-105" title="Copiar email" onClick={e => {e.stopPropagation(); navigator.clipboard.writeText(prod.email || ""); toast.success('Email copiado!')}}>
-                        <Copy className="h-5 w-5 text-gray-500" />
-                      </button>
+        {loading ? (
+          <TableSkeleton />
+        ) : filteredProducers.length === 0 ? (
+          <Card className="border-0 shadow-sm bg-white rounded-3xl p-20 text-center">
+            <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Users size={48} className="text-slate-200" />
+            </div>
+            <h3 className="text-xl font-black text-slate-900 mb-2">Nenhum produtor encontrado</h3>
+            <p className="text-slate-400 font-medium">Cadastre seu primeiro parceiro para começar o rastreamento.</p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+            {filteredProducers.map((prod) => (
+              <Card 
+                key={prod.id} 
+                className="group border-0 shadow-sm bg-white rounded-2xl hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 overflow-hidden cursor-pointer"
+                onClick={() => navigate(`/admin/produtores/${prod.id}`)}
+              >
+                <CardContent className="p-0">
+                  <div className="flex h-full min-h-[180px]">
+                    <div className="w-1/3 relative overflow-hidden">
+                      <img 
+                        src={prod.photos?.[0] || "/placeholder.svg"} 
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                        alt={prod.name} 
+                      />
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                  </div>
-                  {/* Conteúdo principal */}
-                  <div className="flex-1 flex flex-col gap-2 px-6 py-5">
-                    <div className="font-extrabold text-2xl text-gray-900 mb-1 truncate">{prod.name}</div>
-                    <div className="text-lg text-gray-500 mb-1 truncate">{prod.property_name}</div>
-                    {/* Informações principais */}
-                    <div className="flex flex-wrap gap-4 mt-2 text-gray-700 text-base">
-                      <span className="flex items-center gap-2"><MapPin className="h-5 w-5" style={{ color: primaryColor }} />{prod.city}, {prod.state}</span>
-                      <span className="flex items-center gap-2"><Phone className="h-5 w-5" style={{ color: primaryColor }} />{prod.phone}</span>
-                      <span className="flex items-center gap-2"><Envelope className="h-5 w-5" style={{ color: primaryColor }} />{prod.email}</span>
-                    </div>
-                    {/* Badges de altitude/temperatura */}
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {prod.altitude && (
-                        <span className="bg-blue-50 text-blue-700 rounded-full px-4 py-1 text-base font-semibold flex items-center gap-2 border border-blue-100">
-                          <Mountains className="h-5 w-5" weight="duotone" />
-                          {prod.altitude}m
-                        </span>
-                      )}
-                      {prod.average_temperature && (
-                        <span className="bg-orange-50 text-orange-700 rounded-full px-4 py-1 text-base font-semibold flex items-center gap-2 border border-orange-100">
-                          <Thermometer className="h-5 w-5" weight="duotone" />
-                          {prod.average_temperature}°C
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* Modal de detalhes do produtor */}
-      <Dialog open={!!selectedProducer} onOpenChange={open => !open && setSelectedProducer(null)}>
-        <DialogContent className="max-w-6xl max-h-[98vh] overflow-y-auto p-0 rounded-3xl shadow-2xl border-0 bg-[#f7f8fa]">
-          <div style={cssVariables}>
-            {selectedProducer && (
-              <div className="flex flex-col gap-10 p-0 md:p-12">
-              {/* Topo: Carrossel e dados primários em duas colunas */}
-              <div className="flex flex-col md:flex-row gap-10">
-                {/* Coluna esquerda: Carrossel/foto */}
-                <div className="md:w-[44%] flex flex-col gap-6 items-center bg-white rounded-3xl p-8 md:shadow-sm md:border md:mt-6 md:mb-6 md:ml-2">
-                  {Array.isArray(selectedProducer.photos) && selectedProducer.photos.length > 0 ? (
-                    <div className="w-full bg-[#f3f4f6] rounded-2xl p-2 flex flex-col items-center">
-                      <Carousel className="relative group w-full">
-                        <CarouselContent>
-                          {selectedProducer.photos.map((url: string, idx: number) => (
-                            <CarouselItem key={idx} className="flex items-center justify-center">
-                              <img
-                                src={url}
-                                alt={`Foto ${idx + 1}`}
-                                className="object-cover w-full h-80 md:h-[26rem] rounded-xl border bg-background transition-transform duration-200 group-hover:scale-[1.01] cursor-zoom-in shadow-sm"
-                                onClick={() => window.open(url, '_blank')}
-                              />
-                            </CarouselItem>
-                          ))}
-                        </CarouselContent>
-                        <CarouselPrevious />
-                        <CarouselNext />
-                      </Carousel>
-                      {selectedProducer.photos.length > 1 && (
-                        <div className="flex gap-2 mt-3 justify-center">
-                          {selectedProducer.photos.map((url: string, idx: number) => (
-                            <img
-                              key={idx}
-                              src={url}
-                              alt={`Miniatura ${idx + 1}`}
-                              className="object-cover w-12 h-12 rounded-xl border cursor-pointer opacity-80 hover:opacity-100 transition ring-2 ring-transparent hover:ring-primary"
-                              onClick={() => {
-                                const embla = document.querySelector('[aria-roledescription="carousel"]')?.emblaApi;
-                                if (embla) embla.scrollTo(idx);
-                              }}
-                            />
-                          ))}
+                    <div className="w-2/3 p-6 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <h4 className="text-xl font-black text-slate-900 line-clamp-1">{prod.name}</h4>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-slate-400 shrink-0">
+                                <DotsThreeOutlineVertical size={18} weight="fill" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 shadow-xl border-slate-100">
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEdit(prod); }} className="rounded-lg py-2.5 font-bold text-slate-600 cursor-pointer">
+                                <PencilSimple size={18} weight="bold" className="mr-2" style={{ color: primaryColor }} /> Editar Perfil
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={(e) => { e.stopPropagation(); setProducerToDelete(prod.id); }}
+                                className="rounded-lg py-2.5 font-bold text-rose-600 cursor-pointer focus:bg-rose-50 focus:text-rose-600"
+                              >
+                                <Trash size={18} weight="bold" className="mr-2" /> Excluir Registro
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                      )}
+                        <p className="font-bold text-sm mb-3 flex items-center gap-1.5" style={{ color: primaryColor }}>
+                          <Buildings size={16} weight="fill" /> {prod.property_name}
+                        </p>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                            <MapPin size={14} weight="fill" className="text-slate-300" /> {prod.city}, {prod.state}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                            <Phone size={14} weight="fill" className="text-slate-300" /> {prod.phone || "Sem telefone"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-4">
+                        {prod.altitude && (
+                          <Badge variant="secondary" className="bg-slate-50 text-slate-500 border-0 font-bold px-2 py-0.5 rounded-md text-[10px]">
+                            <Mountains size={12} className="mr-1" /> {prod.altitude}m
+                          </Badge>
+                        )}
+                        {prod.average_temperature && (
+                          <Badge variant="secondary" className="bg-slate-50 text-slate-500 border-0 font-bold px-2 py-0.5 rounded-md text-[10px]">
+                            <Thermometer size={12} className="mr-1" /> {prod.average_temperature}°C
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="w-full aspect-square bg-[#f3f4f6] rounded-2xl flex items-center justify-center text-muted-foreground text-lg font-medium min-h-[320px]">
-                      Sem foto
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetContent className="w-full sm:max-w-[80vw] sm:rounded-l-[2.5rem] border-0 p-0 overflow-hidden shadow-2xl">
+            <div className="h-full flex flex-col bg-white">
+              <SheetHeader className="p-8 border-b border-slate-50 bg-slate-50/30">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8 text-left">
+                  <div className="flex items-center gap-4">
+                    <div 
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm text-white"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      <UserCircle size={32} weight="fill" />
                     </div>
-                  )}
-                </div>
-                {/* Coluna direita: Dados primários + mapa */}
-                <div className="md:w-[56%] flex flex-col gap-8 bg-white rounded-3xl p-8 md:shadow-sm md:border md:mt-6 md:mb-6 md:mr-2">
-                  {/* Header e ações */}
-                  <div className="flex items-start justify-between gap-2 mb-2">
                     <div>
-                      <h2 className="text-3xl font-bold mb-1 flex items-center gap-2 text-gray-900">
-                        {selectedProducer.name}
-                      </h2>
-                      <p className="text-lg text-primary font-semibold mb-2">{selectedProducer.property_name}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="icon" variant="outline" title="Editar produtor"><PencilSimple className="w-5 h-5 text-blue-500" /></Button>
-                      <Button size="icon" variant="outline" title="Adicionar lote"><Plus className="w-5 h-5 text-green-500" /></Button>
-                      <Button size="icon" variant="ghost" title="Fechar" onClick={() => setSelectedProducer(null)}><span className="sr-only">Fechar</span><svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12" /></svg></Button>
+                      <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight">
+                        {editingProducer ? "Editar Produtor" : "Novo Produtor"}
+                      </SheetTitle>
+                      <SheetDescription className="text-slate-500 font-bold text-base">
+                        {editingProducer ? `Perfil de ${editingProducer.name}` : "Cadastre as informações do produtor e sua propriedade."}
+                      </SheetDescription>
                     </div>
                   </div>
-                  {/* Descrição */}
-                  <p className="text-gray-500 text-base mb-4 whitespace-pre-line">{selectedProducer.property_description}</p>
-                  {/* Bloco de dados principais */}
-                  <div className="flex flex-col gap-4 bg-white rounded-2xl p-4 shadow-sm border">
-                    <div className="flex items-center gap-3 text-base">
-                      <MapPin className="h-6 w-6 text-purple-500" />
-                      <span className="text-gray-800">{selectedProducer.address && <>{selectedProducer.address}, </>}{selectedProducer.city}, {selectedProducer.state}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-base">
-                      <Phone className="h-6 w-6 text-green-500" />
-                      <span className="text-gray-800">{selectedProducer.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-3 text-base">
-                      <Envelope className="h-6 w-6 text-blue-500" />
-                      <span className="text-gray-800">{selectedProducer.email}</span>
-                    </div>
-                    <div className="flex gap-2 mt-2">
-                      {selectedProducer.altitude && (
-                        <Tooltip content="Altitude da propriedade">
-                          <Badge variant="outline" className="text-xs cursor-help bg-[#f3f4f6] text-gray-700"><Mountains className="h-4 w-4 mr-1 text-orange-500" />{selectedProducer.altitude}m</Badge>
-                        </Tooltip>
-                      )}
-                      {selectedProducer.average_temperature && (
-                        <Tooltip content="Temperatura média anual">
-                          <Badge variant="outline" className="text-xs cursor-help bg-[#f3f4f6] text-gray-700"><Thermometer className="h-4 w-4 mr-1 text-pink-500" />{selectedProducer.average_temperature}°C</Badge>
-                        </Tooltip>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-400 mt-2 select-all">
-                      ID: {selectedProducer.id}
-                      <Button size="icon" variant="ghost" className="p-1" onClick={() => {navigator.clipboard.writeText(selectedProducer.id)}} title="Copiar ID"><Copy className="w-4 h-4 text-gray-400" /></Button>
-                    </div>
-                  </div>
-                  {/* Bloco do mapa */}
-                  <div className="w-full">
-                    <div className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2"><MapPin className="w-4 h-4 text-purple-500" /> Localização da Fazenda</div>
-                    <div className="w-full h-56 rounded-2xl overflow-hidden border relative bg-[#f3f4f6]">
-                      {loadingMap ? (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">Carregando mapa...</div>
-                      ) : mapCoords ? (
-                        <>
-                          <iframe
-                            title="Mapa"
-                            width="100%"
-                            height="100%"
-                            frameBorder="0"
-                            style={{ border: 0 }}
-                            src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(mapCoords.lon) - 0.01}%2C${Number(mapCoords.lat) - 0.01}%2C${Number(mapCoords.lon) + 0.01}%2C${Number(mapCoords.lat) + 0.01}&layer=mapnik&marker=${mapCoords.lat},${mapCoords.lon}`}
-                            allowFullScreen
-                          ></iframe>
-                          <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${mapCoords.lat},${mapCoords.lon}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="absolute bottom-2 right-2 bg-primary text-white px-3 py-1 rounded shadow text-xs font-medium transition hover:bg-primary/90"
-                          >
-                            Ver no Google Maps
-                          </a>
-                        </>
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">Localização não disponível</div>
-                      )}
-                    </div>
-                  </div>
+
+                  <FormStepIndicator steps={PRODUCER_STEPS} currentStep={currentStep} primaryColor={primaryColor} />
                 </div>
-              </div>
-              {/* Seção de Lotes: abaixo, ocupando toda a largura */}
-              <div className="w-full">
-                <h3 className="text-xl font-bold mb-6 ml-2 text-gray-900">Lotes do Produtor</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {producerLots.length === 0 ? (
-                    <div className="col-span-2 text-center text-gray-400 py-12">Nenhum lote cadastrado.</div>
-                  ) : (
-                    producerLots.map((lote) => (
-                      <div key={lote.id} className="col-span-1 md:col-span-2 bg-white rounded-2xl p-6 shadow-sm border flex flex-col gap-2 w-full">
-                        <div className="flex items-center gap-3">
-                          {lote.image_url && <img src={lote.image_url} alt={lote.name} className="w-16 h-16 object-cover rounded-xl border" />}
-                          <div>
-                            <div className="font-semibold text-base text-gray-900">{lote.name}</div>
-                            <div className="text-xs text-gray-500">Código: {lote.code} | Safra: {lote.harvest_year}</div>
-                            <div className="text-xs text-gray-500">Categoria: {lote.category} | Variedade: {lote.variety}</div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col md:items-end gap-1">
-                          <div className="flex gap-2 flex-wrap">
-                            <Badge variant="outline" className="text-xs bg-white text-gray-700 border-gray-200">{lote.quantity} {lote.unit}</Badge>
-                            <Badge variant="secondary" className="text-xs bg-green-100 text-green-700">{lote.flavor_score?.toFixed(1) ?? "-"} Sabor</Badge>
-                            <Badge variant="secondary" className="text-xs bg-yellow-100 text-yellow-700">{lote.fragrance_score?.toFixed(1) ?? "-"} Fragrância</Badge>
-                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">{lote.finish_score?.toFixed(1) ?? "-"} Finalização</Badge>
-                            <Badge variant="secondary" className="text-xs bg-pink-100 text-pink-700">{lote.acidity_score?.toFixed(1) ?? "-"} Acidez</Badge>
-                            <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700">{lote.body_score?.toFixed(1) ?? "-"} Corpo</Badge>
-                          </div>
-                          <div className="text-xs text-gray-400">ID: {lote.id}</div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+              </SheetHeader>
+              <div className="flex-1 relative flex flex-col min-h-0">
+                <ProducerForm 
+                  initialData={editingProducer} 
+                  branding={branding}
+                  currentStep={currentStep}
+                  setCurrentStep={setCurrentStep}
+                  onSubmit={() => {
+                    setIsSheetOpen(false);
+                    fetchProducers();
+                  }} 
+                  onCancel={() => setIsSheetOpen(false)} 
+                />
               </div>
             </div>
-          )}
-          </div>
-        </DialogContent>
-      </Dialog>
+          </SheetContent>
+        </Sheet>
 
-      {/* Edit Dialog */}
-      {editingProducer && (
-        <Dialog open={!!editingProducer} onOpenChange={() => setEditingProducer(null)}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div style={cssVariables}>
-              <DialogHeader>
-                <DialogTitle>Editar Produtor</DialogTitle>
-              </DialogHeader>
-              <ProducerForm
-                key={editingProducer.id}
-                initialData={editingProducer}
-                onSubmit={handleUpdate}
-                onCancel={() => setEditingProducer(null)}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* Dialog de criação de produtor controlado por isCreateDialogOpen */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <div style={cssVariables}>
-            <DialogHeader>
-              <DialogTitle>Novo Produtor</DialogTitle>
-            </DialogHeader>
-            <ProducerForm
-              onSubmit={handleCreate}
-              onCancel={() => setIsCreateDialogOpen(false)}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
+        <AlertDialog open={!!producerToDelete} onOpenChange={() => setProducerToDelete(null)}>
+          <AlertDialogContent className="rounded-3xl border-0 shadow-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitleBase className="text-2xl font-black text-slate-900">Confirmar Exclusão?</AlertDialogTitleBase>
+              <AlertDialogDescription className="text-slate-500 font-medium">
+                Esta ação removerá permanentemente o produtor e todos os seus vínculos. Os lotes existentes desse produtor poderão ficar órfãos.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="gap-3 mt-4">
+              <AlertDialogCancel className="rounded-xl font-bold border-slate-200">Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="rounded-xl font-bold bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-200">
+                Sim, Excluir Registro
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </AdminLayout>
   );
 };
 
-const steps = [
-  { title: "Sobre o Produtor", description: "Dados pessoais do produtor" },
-  { title: "Sobre a Propriedade", description: "Informações da propriedade" },
-  { title: "Localização", description: "Endereço e coordenadas" },
-  { title: "Associações", description: "Cooperativas e associações" },
-];
-
-const defaultValues = {
-  name: "",
-  document_number: "",
-  email: "",
-  phone: "",
-  property_name: "",
-  property_description: "",
-  photos: [],
-  altitude: "",
-  average_temperature: "",
-  cep: "",
-  address: "",
-  city: "",
-  state: "",
-  use_coordinates: false,
-  latitude: "",
-  longitude: "",
-  associations: [],
-};
-
-const ProducerForm = ({ initialData, onSubmit, onCancel }: { initialData?: any; onSubmit: (data: any) => void; onCancel: () => void; }) => {
+const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, setCurrentStep }: { initialData?: any; onSubmit: (data: any) => void; onCancel: () => void; branding?: any; currentStep: number; setCurrentStep: (step: number) => void; }) => {
   const [loading, setLoading] = useState(false);
+  const [allAssociations, setAllAssociations] = useState<any[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<any[]>(() => {
-    if (initialData && initialData.photos && Array.isArray(initialData.photos)) {
-      return initialData.photos.map((url: string) => ({ url, uploaded: true }));
-    }
+    if (initialData?.photos) return initialData.photos.map((url: string) => ({ url, uploaded: true }));
     return [];
   });
-  const [tab, setTab] = useState("dados");
-  const [allAssociations, setAllAssociations] = useState<any[]>([]);
-  const [loadingAssociations, setLoadingAssociations] = useState(false);
+
+  const primaryColor = branding?.primaryColor || '#16a34a';
 
   const methods = useForm({
-    defaultValues: initialData || defaultValues,
-    mode: "onTouched",
+    defaultValues: initialData || {
+      name: "",
+      document_number: "",
+      email: "",
+      phone: "",
+      profile_picture_url: "",
+      property_name: "",
+      property_description: "",
+      photos: [],
+      altitude: "",
+      average_temperature: "",
+      cep: "",
+      address: "",
+      city: "",
+      state: "",
+      address_internal_only: false,
+      latitude: "",
+      longitude: "",
+      lot_prefix_mode: "auto",
+      custom_prefix: "",
+      associations: [],
+    },
   });
-  const { register, handleSubmit, setValue, watch, trigger, formState: { errors } } = methods;
 
-  // Carregar associações disponíveis
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = methods;
+
   useEffect(() => {
-    const loadAssociations = async () => {
-      setLoadingAssociations(true);
-      try {
-        const associations = await associationsApi.getAll();
-        setAllAssociations(associations);
-        
-        // Se estiver editando, carregar associações do produtor
-        if (initialData?.id) {
-          const producerAssociations = await associationsApi.getByProducer(initialData.id);
-          setValue("associations", producerAssociations.map(a => a.id));
-        }
-      } catch (error) {
-        console.error("Erro ao carregar associações:", error);
-      } finally {
-        setLoadingAssociations(false);
-      }
-    };
-    
-    loadAssociations();
-  }, [initialData?.id, setValue]);
+    associationsApi.getAll().then(setAllAssociations);
+    if (initialData?.id) {
+      associationsApi.getByProducer(initialData.id).then(assocs => {
+        setValue("associations", assocs.map(a => a.id));
+      });
+    }
+  }, [initialData, setValue]);
 
-  // Máscaras e handlers
-  const handleDocumentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const numbers = value.replace(/\D/g, "");
-    let masked = numbers;
-    if (numbers.length <= 11) {
-      // Máscara progressiva para CPF
-      if (numbers.length > 9) {
-        masked = numbers.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/, "$1.$2.$3-$4");
-      } else if (numbers.length > 6) {
-        masked = numbers.replace(/(\d{3})(\d{3})(\d{0,3})/, "$1.$2.$3");
-      } else if (numbers.length > 3) {
-        masked = numbers.replace(/(\d{3})(\d{0,3})/, "$1.$2");
-      }
-    } else {
-      // Máscara progressiva para CNPJ
-      if (numbers.length > 12) {
-        masked = numbers.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, "$1.$2.$3/$4-$5");
-      } else if (numbers.length > 8) {
-        masked = numbers.replace(/(\d{2})(\d{3})(\d{3})(\d{0,4})/, "$1.$2.$3/$4");
-      } else if (numbers.length > 5) {
-        masked = numbers.replace(/(\d{2})(\d{3})(\d{0,3})/, "$1.$2.$3");
-      } else if (numbers.length > 2) {
-        masked = numbers.replace(/(\d{2})(\d{0,3})/, "$1.$2");
-      }
-    }
-    setValue("document_number", masked);
-  };
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const numbers = value.replace(/\D/g, "");
-    let maskedPhone = numbers;
-    if (numbers.length > 10) {
-      maskedPhone = numbers.replace(/(\d{2})(\d{5})(\d{0,4})/, "($1) $2-$3");
-    } else if (numbers.length > 6) {
-      maskedPhone = numbers.replace(/(\d{2})(\d{4})(\d{0,4})/, "($1) $2-$3");
-    } else if (numbers.length > 2) {
-      maskedPhone = numbers.replace(/(\d{2})(\d{0,5})/, "($1) $2");
-    }
-    setValue("phone", maskedPhone);
-  };
-  const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const cep = value.replace(/\D/g, "");
-    let maskedCep = cep;
-    if (cep.length > 5) {
-      maskedCep = cep.replace(/(\d{5})(\d{0,3})/, "$1-$2");
-    }
-    setValue("cep", maskedCep);
-    if (cep.length === 8) {
-      try {
-        const res = await axios.get(`https://viacep.com.br/ws/${cep}/json/`);
-        if (!res.data.erro) {
-          setValue("address", res.data.logradouro || "");
-          setValue("city", res.data.localidade || "");
-          setValue("state", res.data.uf || "");
-          toast.success("Endereço preenchido automaticamente!");
-        }
-      } catch {
-        toast.error("Erro ao buscar CEP");
-      }
-    }
-  };
-  // Upload de fotos
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: "profile" | "property") => {
     const files = Array.from(e.target.files || []);
-    for (const file of files) {
-      setPhotoPreviews(prev => [...prev, { file, url: URL.createObjectURL(file), uploading: true }]);
-      try {
-        const url = await uploadImageToSupabase(file);
-        setPhotoPreviews(prev => prev.map(p => p.file === file ? { ...p, url, uploading: false, uploaded: true } : p));
-        setValue("photos", [...(watch("photos") || []), url]);
-      } catch (err) {
-        setPhotoPreviews(prev => prev.filter(p => p.file !== file));
-        toast.error("Erro ao fazer upload da imagem");
-      }
-    }
-  };
-  const removePhoto = async (index: number) => {
-    setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
-    setValue("photos", (watch("photos") || []).filter((_: any, i: number) => i !== index));
-  };
-
-  // Validação por etapa
-  const validateStep = async () => {
-    let fields: string[] = [];
-    if (tab === "dados") fields = ["name", "document_number", "email", "phone"];
-    if (tab === "propriedade") fields = ["property_name", "altitude", "average_temperature"];
-    if (tab === "localizacao") {
-      if (!watch("use_coordinates")) fields = ["cep", "city", "state"];
-      else fields = ["latitude", "longitude"];
-    }
-    if (tab === "associacoes") fields = []; // Associações são opcionais
-    return await trigger(fields);
-  };
-
-  const nextStep = async () => {
-    if (await validateStep()) {
-      if (tab === "dados") setTab("propriedade");
-      else if (tab === "propriedade") setTab("localizacao");
-      else if (tab === "localizacao") setTab("associacoes");
-      else setTab("dados");
-    }
-  };
-  
-  const prevStep = () => {
-    if (tab === "associacoes") setTab("localizacao");
-    else if (tab === "localizacao") setTab("propriedade");
-    else if (tab === "propriedade") setTab("dados");
-    else setTab("dados");
-  };
-
-  const onSubmitForm = async (data: any) => {
     setLoading(true);
     try {
-      // Separar associações dos dados do produtor
-      const { associations, ...producerData } = data;
-      
-      // Primeiro, salvar/atualizar o produtor
-      const result = await onSubmit(producerData);
-      
-      // Se estiver editando e temos um ID, gerenciar associações
-      if (initialData?.id && result) {
-        const currentAssociations = await associationsApi.getByProducer(initialData.id);
-        const currentAssociationIds = currentAssociations.map(a => a.id);
-        const newAssociationIds = associations || [];
-        
-        // Remover associações que não estão mais selecionadas
-        for (const associationId of currentAssociationIds) {
-          if (!newAssociationIds.includes(associationId)) {
-            await associationsApi.removeProducerFromAssociation(initialData.id, associationId);
-          }
-        }
-        
-        // Adicionar novas associações
-        for (const associationId of newAssociationIds) {
-          if (!currentAssociationIds.includes(associationId)) {
-            await associationsApi.addProducerToAssociation(initialData.id, associationId);
-          }
+      for (const file of files) {
+        const url = await uploadImageToSupabase(file);
+        if (type === "profile") {
+          setValue("profile_picture_url", url);
+        } else {
+          const currentPhotos = watch("photos") || [];
+          setValue("photos", [...currentPhotos, url]);
+          setPhotoPreviews(prev => [...prev, { url, uploaded: true }]);
         }
       }
+      toast.success("Imagens carregadas!");
+    } catch (error) {
+      toast.error("Erro no upload");
     } finally {
       setLoading(false);
     }
   };
 
-  // Renderização condicional por etapa (mantendo todos os campos montados)
+  const onFormSubmit = async (data: any) => {
+    setLoading(true);
+    try {
+      const { associations, ...rest } = data;
+      if (initialData) {
+        await producersApi.update(initialData.id, rest);
+        const currentAssocs = await associationsApi.getByProducer(initialData.id);
+        const currentIds = currentAssocs.map(a => a.id);
+        for (const id of currentIds) if (!associations.includes(id)) await associationsApi.removeProducerFromAssociation(initialData.id, id);
+        for (const id of associations) if (!currentIds.includes(id)) await associationsApi.addProducerToAssociation(initialData.id, id);
+      } else {
+        const newProd = await producersApi.create(rest);
+        for (const id of associations) await associationsApi.addProducerToAssociation(newProd.id, id);
+      }
+      toast.success("Dados salvos!");
+      onSubmit(data);
+    } catch (error) {
+      toast.error("Erro ao salvar");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const FormSection = ({ title, icon: Icon, children, description, active }: any) => {
+    if (!active) return null;
+    return (
+      <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 text-left">
+        <div className="flex items-start gap-4 px-2">
+          <div 
+            className="p-2.5 rounded-xl border shadow-sm"
+            style={{ backgroundColor: `${primaryColor}10`, color: primaryColor, borderColor: `${primaryColor}20` }}
+          >
+            <Icon size={24} weight="duotone" />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-slate-800 tracking-tight">{title}</h3>
+            {description && <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{description}</p>}
+          </div>
+        </div>
+        <div className="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm space-y-8">
+          {children}
+        </div>
+      </div>
+    );
+  };
+
+  const validateCurrentStep = () => {
+    if (currentStep === 1) {
+      const name = watch("name");
+      const email = watch("email");
+      if (!name || !email) {
+        toast.error("Preencha nome e e-mail");
+        return false;
+      }
+    }
+    if (currentStep === 2) {
+      if (!watch("property_name")) {
+        toast.error("Nome da propriedade é obrigatório");
+        return false;
+      }
+    }
+    if (currentStep === 3) {
+      if (!watch("city") || !watch("state")) {
+        toast.error("Cidade e Estado são obrigatórios");
+        return false;
+      }
+    }
+    return true;
+  };
+
   return (
     <FormProvider {...methods}>
-      <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-6">
-        <Tabs value={tab} onValueChange={setTab} className="w-full">
-          <TabsList className="mb-6">
-            <TabsTrigger value="dados">Dados Pessoais</TabsTrigger>
-            <TabsTrigger value="propriedade">Propriedade</TabsTrigger>
-            <TabsTrigger value="localizacao">Localização</TabsTrigger>
-            <TabsTrigger value="associacoes">Associações</TabsTrigger>
-          </TabsList>
-          <TabsContent value="dados">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="name">Nome do Produtor *</Label>
-                <Input id="name" {...register("name", { required: true })} placeholder="Nome completo" className={errors.name ? "border-red-500 focus:border-red-500" : ""} />
-                {errors.name && <span className="text-xs text-red-500">Campo obrigatório</span>}
+      <form onSubmit={handleSubmit(onFormSubmit)} className="h-full flex flex-col min-h-0">
+        <div className="flex-1 overflow-y-auto p-8 space-y-12 pb-10">
+          <FormSection 
+            title="Dados do Responsável" 
+            icon={IdentificationCard} 
+            description="Informações de contato e identificação"
+            active={currentStep === 1}
+          >
+            <div className="flex flex-col md:flex-row gap-12 items-center md:items-start text-left">
+              <div className="relative group">
+                <Avatar className="w-40 h-40 border-[6px] border-slate-50 shadow-2xl transition-transform group-hover:scale-105 duration-500 rounded-[2.5rem]">
+                  <AvatarImage src={watch("profile_picture_url")} className="object-cover" />
+                  <AvatarFallback 
+                    className="ring-1 ring-slate-100"
+                    style={{ backgroundColor: `${primaryColor}05`, color: primaryColor }}
+                  >
+                    <UserCircle size={80} weight="fill" />
+                  </AvatarFallback>
+                </Avatar>
+                <button 
+                  type="button"
+                  onClick={() => document.getElementById('profile-up')?.click()}
+                  className="absolute -bottom-2 -right-2 p-3 text-white rounded-2xl shadow-xl hover:scale-110 transition-all border-4 border-white"
+                  style={{ backgroundColor: primaryColor }}
+                >
+                  <Camera size={20} weight="fill" />
+                </button>
+                <input id="profile-up" type="file" className="hidden" accept="image/*" onChange={e => handlePhotoUpload(e, "profile")} />
               </div>
-              <div>
-                <Label htmlFor="document_number">CPF/CNPJ *</Label>
-                <Input
-                  id="document_number"
-                  {...register("document_number", {
-                    required: true,
-                    validate: value => {
-                      const numbers = value.replace(/\D/g, "");
-                      return (
-                        numbers.length === 11 || numbers.length === 14 ||
-                        "CPF deve ter 11 dígitos ou CNPJ 14 dígitos"
-                      );
-                    },
-                  })}
-                  onChange={handleDocumentChange}
-                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                  className={errors.document_number ? "border-red-500 focus:border-red-500" : ""}
-                />
-                {typeof errors.document_number?.message === 'string' && (
-                  <span className="text-xs text-red-500">
-                    {errors.document_number?.message || "Campo obrigatório"}
-                    <br />Exemplo: 123.456.789-00 ou 12.345.678/0001-00
-                  </span>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="email">E-mail *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  {...register("email", {
-                    required: true,
-                    pattern: {
-                      value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-                      message: "E-mail inválido"
-                    }
-                  })}
-                  placeholder="email@exemplo.com"
-                  className={errors.email ? "border-red-500 focus:border-red-500" : ""}
-                />
-                {typeof errors.email?.message === 'string' && (
-                  <span className="text-xs text-red-500">
-                    {errors.email?.message || "Campo obrigatório"}
-                    <br />Exemplo: email@exemplo.com
-                  </span>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="phone">Telefone *</Label>
-                <Input
-                  id="phone"
-                  {...register("phone", {
-                    required: true,
-                    validate: value => {
-                      const numbers = value.replace(/\D/g, "");
-                      return (
-                        (numbers.length === 10 || numbers.length === 11) ||
-                        "Telefone deve ter 10 ou 11 dígitos"
-                      );
-                    },
-                  })}
-                  onChange={handlePhoneChange}
-                  placeholder="(00) 00000-0000"
-                  className={errors.phone ? "border-red-500 focus:border-red-500" : ""}
-                />
-                {typeof errors.phone?.message === 'string' && (
-                  <span className="text-xs text-red-500">
-                    {errors.phone?.message || "Campo obrigatório"}
-                    <br />Exemplo: (11) 91234-5678
-                  </span>
-                )}
-              </div>
-            </div>
-          </TabsContent>
-          <TabsContent value="propriedade">
-            <div>
-              <Label htmlFor="property_name">Nome da Propriedade *</Label>
-              <Input id="property_name" {...register("property_name", { required: true })} placeholder="Nome da fazenda/sítio" className={errors.property_name ? "border-red-500 focus:border-red-500" : ""} />
-              {errors.property_name && <span className="text-xs text-red-500">Campo obrigatório</span>}
-            </div>
-            <div>
-              <Label htmlFor="property_description">Descrição da Propriedade</Label>
-              <Textarea id="property_description" {...register("property_description")} placeholder="Descreva a propriedade, história, características..." rows={3} />
-            </div>
-            <div>
-              <Label>Fotos da Propriedade</Label>
-              <input type="file" accept="image/*" multiple className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100" onChange={handlePhotoUpload} />
-              {photoPreviews.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                  {photoPreviews.map((photo, idx) => (
-                    <div key={idx} className="relative group">
-                      {photo.uploading ? (
-                        <div className="w-full h-24 bg-gray-200 rounded-lg flex items-center justify-center">
-                          <div className="animate-spin rounded-full h-8 w-8 border-4 border-t-4 border-b-4 border-green-500"></div>
-                        </div>
-                      ) : (
-                        <img src={photo.url} alt={`Foto ${idx + 1}`} className="w-full h-24 object-cover rounded-lg border" />
-                      )}
-                      <button type="button" onClick={() => removePhoto(idx)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg></button>
-                    </div>
-                  ))}
+
+              <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                    <IdentificationCard size={16} style={{ color: primaryColor }} /> Nome Completo *
+                  </Label>
+                  <Input {...register("name")} placeholder="Ex: João da Silva" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
                 </div>
-              )}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="altitude">Altitude (metros) *</Label>
-                <Input id="altitude" type="number" {...register("altitude", { required: true })} placeholder="1200" className={errors.altitude ? "border-red-500 focus:border-red-500" : ""} />
-                {errors.altitude && <span className="text-xs text-red-500">Campo obrigatório</span>}
-              </div>
-              <div>
-                <Label htmlFor="average_temperature">Temperatura Média (°C) *</Label>
-                <Input id="average_temperature" type="number" step="0.1" {...register("average_temperature", { required: true })} placeholder="22.5" className={errors.average_temperature ? "border-red-500 focus:border-red-500" : ""} />
-                {errors.average_temperature && <span className="text-xs text-red-500">Campo obrigatório</span>}
-              </div>
-            </div>
-          </TabsContent>
-          <TabsContent value="localizacao">
-            <div className="flex items-center space-x-3 mb-6 p-4 bg-gray-50 rounded-lg">
-              <Switch id="use_coordinates" checked={watch("use_coordinates")} onCheckedChange={checked => setValue("use_coordinates", checked)} />
-              <div className="flex-1">
-                <Label htmlFor="use_coordinates" className="text-sm font-medium text-gray-900">Usar coordenadas geográficas</Label>
-                <p className="text-xs text-gray-600">Marque esta opção para propriedades sem endereço fixo no mapa</p>
-              </div>
-            </div>
-            {!watch("use_coordinates") ? (
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="cep">CEP *</Label>
-                  <Input
-                    id="cep"
-                    {...register("cep", {
-                      required: true,
-                      validate: value => {
-                        const numbers = value.replace(/\D/g, "");
-                        return (
-                          numbers.length === 8 ||
-                          "CEP deve ter 8 dígitos"
-                        );
-                      },
-                    })}
-                    onChange={handleCepChange}
-                    placeholder="00000-000"
-                    className={errors.cep ? "border-red-500 focus:border-red-500" : ""}
-                  />
-                  {typeof errors.cep?.message === 'string' && (
-                    <span className="text-xs text-red-500">
-                      {errors.cep?.message || "Campo obrigatório"}
-                      <br />Exemplo: 12345-678
-                    </span>
-                  )}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                    <At size={16} style={{ color: primaryColor }} /> E-mail de Contato *
+                  </Label>
+                  <Input {...register("email")} placeholder="joao@fazenda.com" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
                 </div>
-                <div>
-                  <Label htmlFor="address">Endereço</Label>
-                  <Input id="address" {...register("address")} placeholder="Endereço completo" />
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                    <IdentificationCard size={16} style={{ color: primaryColor }} /> CPF/CNPJ
+                  </Label>
+                  <Input {...register("document_number")} placeholder="000.000.000-00" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="city">Cidade *</Label>
-                    <Input id="city" {...register("city", { required: true })} placeholder="Nome da cidade" className={errors.city ? "border-red-500 focus:border-red-500" : ""} />
-                    {errors.city && <span className="text-xs text-red-500">Campo obrigatório</span>}
-                  </div>
-                  <div>
-                    <Label htmlFor="state">Estado *</Label>
-                    <Input id="state" {...register("state", { required: true })} placeholder="UF" className={errors.state ? "border-red-500 focus:border-red-500" : ""} />
-                    {errors.state && <span className="text-xs text-red-500">Campo obrigatório</span>}
-                  </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                    <Phone size={16} style={{ color: primaryColor }} /> Telefone/WhatsApp
+                  </Label>
+                  <Input {...register("phone")} placeholder="(00) 00000-0000" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
                 </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="latitude">Latitude *</Label>
-                  <Input id="latitude" type="number" step="any" {...register("latitude", { required: true })} placeholder="-23.123456" className={errors.latitude ? "border-red-500 focus:border-red-500" : ""} />
-                  {errors.latitude && <span className="text-xs text-red-500">Campo obrigatório<br />Ex: -23.123456</span>}
-                </div>
-                <div>
-                  <Label htmlFor="longitude">Longitude *</Label>
-                  <Input id="longitude" type="number" step="any" {...register("longitude", { required: true })} placeholder="-46.123456" className={errors.longitude ? "border-red-500 focus:border-red-500" : ""} />
-                  {errors.longitude && <span className="text-xs text-red-500">Campo obrigatório<br />Ex: -46.123456</span>}
-                </div>
-              </div>
-            )}
-          </TabsContent>
-          <TabsContent value="associacoes">
-            <div className="space-y-4">
-              <div>
-                <Label className="text-base font-medium text-gray-900 mb-2 block">
-                  Associações/Cooperativas
+            </div>
+
+            <Separator className="bg-slate-100" />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 text-left">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                  <Tag size={16} style={{ color: primaryColor }} /> Prefixo de Lote
                 </Label>
-                <p className="text-sm text-gray-600 mb-4">
-                  Selecione as associações ou cooperativas das quais este produtor faz parte:
-                </p>
+                <Select value={watch("lot_prefix_mode")} onValueChange={v => setValue("lot_prefix_mode", v as any)}>
+                  <SelectTrigger className="rounded-xl bg-slate-50 border-0 h-12 focus:ring-primary" style={{ '--primary': primaryColor } as any}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Automático (3 letras nome)</SelectItem>
+                    <SelectItem value="manual">Manual (Personalizado)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              
-              {loadingAssociations ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  <span className="ml-2 text-gray-600">Carregando associações...</span>
-                </div>
-              ) : allAssociations.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p className="text-lg font-medium">Nenhuma associação cadastrada</p>
-                  <p className="text-sm">Cadastre associações no sistema para vinculá-las aos produtores</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
-                  {allAssociations.map((association) => {
-                    const isSelected = watch("associations")?.includes(association.id) || false;
-                    return (
-                      <div key={association.id} className="flex items-center space-x-3 p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                        <Checkbox
-                          id={association.id}
-                          checked={isSelected}
-                          onCheckedChange={(checked) => {
-                            const currentAssociations = watch("associations") || [];
-                            if (checked) {
-                              setValue("associations", [...currentAssociations, association.id]);
-                            } else {
-                              setValue("associations", currentAssociations.filter(id => id !== association.id));
-                            }
-                          }}
-                        />
-                        <div className="flex items-center gap-3 flex-1">
-                          {association.logo_url && (
-                            <img 
-                              src={association.logo_url} 
-                              alt="Logo" 
-                              className="w-10 h-10 object-contain rounded-lg border bg-white"
-                            />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <label htmlFor={association.id} className="font-medium text-gray-900 cursor-pointer block">
-                              {association.name}
-                            </label>
-                            <div className="text-sm text-gray-500">
-                              {association.type} • {association.city}, {association.state}
-                            </div>
-                            {association.description && (
-                              <div className="text-xs text-gray-400 mt-1 line-clamp-1">
-                                {association.description}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+              {watch("lot_prefix_mode") === "manual" && (
+                <div className="space-y-2 animate-in slide-in-from-left-4 duration-300">
+                  <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                    <IdentificationCard size={16} style={{ color: primaryColor }} /> Prefixo Personalizado
+                  </Label>
+                  <Input {...register("custom_prefix")} className="uppercase font-mono h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} placeholder="EX: FZDA" maxLength={5} />
                 </div>
               )}
-              
-              {watch("associations")?.length > 0 && (
-                <div className="mt-4 p-3 bg-green-50 rounded-lg">
-                  <p className="text-sm text-green-700 font-medium">
-                    {watch("associations").length} associação(ões) selecionada(s)
+            </div>
+          </FormSection>
+
+          <FormSection 
+            title="Sobre a Propriedade" 
+            icon={Buildings} 
+            description="História e visual da fazenda"
+            active={currentStep === 2}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 text-left">
+              <div className="space-y-2 md:col-span-2">
+                <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                  <Buildings size={16} style={{ color: primaryColor }} /> Nome da Propriedade *
+                </Label>
+                <Input {...register("property_name")} placeholder="Fazenda Vale Verde" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                  <Mountains size={16} style={{ color: primaryColor }} /> Altitude Média
+                </Label>
+                <Input type="number" {...register("altitude")} placeholder="Ex: 1100" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                  <Thermometer size={16} style={{ color: primaryColor }} /> Temperatura Média
+                </Label>
+                <Input type="number" {...register("average_temperature")} placeholder="Ex: 22" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
+              </div>
+            </div>
+
+            <div className="space-y-4 text-left">
+              <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                <ChatCircleText size={16} style={{ color: primaryColor }} /> História da Propriedade
+              </Label>
+              <Textarea {...register("property_description")} placeholder="Conte um pouco sobre a origem, tradição e processos únicos da sua fazenda..." className="min-h-[120px] focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
+            </div>
+
+            <div className="space-y-4 text-left">
+              <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                <ImageIcon size={16} style={{ color: primaryColor }} /> Galeria de Fotos
+              </Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
+                {photoPreviews.map((p, i) => (
+                  <div key={i} className="group relative aspect-square rounded-[2rem] overflow-hidden border-4 border-white shadow-lg transition-all hover:scale-105 duration-300">
+                    <img src={p.url} className="w-full h-full object-cover" alt={`Propriedade ${i}`} />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button 
+                        type="button" 
+                        className="p-3 bg-white/90 text-rose-600 rounded-2xl shadow-xl hover:scale-110 transition-all"
+                        onClick={() => {
+                          const newPhotos = watch("photos").filter((_: any, idx: number) => idx !== i);
+                          setValue("photos", newPhotos);
+                          setPhotoPreviews(prev => prev.filter((_, idx) => idx !== i));
+                        }}
+                      >
+                        <Trash size={20} weight="fill" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                <button 
+                  type="button" 
+                  onClick={() => document.getElementById('property-up')?.click()} 
+                  className="aspect-square rounded-[2rem] border-4 border-dashed border-slate-200 flex flex-col items-center justify-center gap-3 text-slate-400 hover:bg-slate-50 transition-all group shadow-sm"
+                >
+                  <div 
+                    className="p-3 bg-slate-100 rounded-2xl text-slate-400 group-hover:text-primary transition-colors"
+                    style={{ '--primary': primaryColor } as any}
+                  >
+                    <Plus size={24} weight="bold" />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Adicionar Foto</span>
+                </button>
+                <input id="property-up" type="file" multiple className="hidden" accept="image/*" onChange={e => handlePhotoUpload(e, "property")} />
+              </div>
+            </div>
+          </FormSection>
+
+          <FormSection 
+            title="Endereço & Localização" 
+            icon={MapPin} 
+            description="Onde a produção acontece"
+            active={currentStep === 3}
+          >
+            <div 
+              className="flex items-center justify-between p-6 rounded-[1.5rem] border shadow-sm"
+              style={{ backgroundColor: `${primaryColor}05`, borderColor: `${primaryColor}10` }}
+            >
+              <div className="flex items-center gap-4 text-left">
+                <div 
+                  className="p-3 rounded-2xl shadow-sm bg-white"
+                  style={{ color: primaryColor }}
+                >
+                  {watch("address_internal_only") ? <Lock size={24} weight="fill" /> : <LockOpen size={24} weight="fill" />}
+                </div>
+                <div>
+                  <Label className="font-black text-slate-800 text-base">Privacidade do Endereço</Label>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {watch("address_internal_only") 
+                      ? "Endereço INTERNO (apenas cidade/estado no QR Code)" 
+                      : "Endereço VISÍVEL para o consumidor no QR Code"}
                   </p>
                 </div>
+              </div>
+              <Switch 
+                checked={watch("address_internal_only")} 
+                onCheckedChange={v => setValue("address_internal_only", v)}
+                style={{ '--primary': primaryColor } as any}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-x-8 gap-y-6 text-left">
+              <div className="space-y-2">
+                <Label className="font-black text-slate-700 ml-1 mb-1">CEP</Label>
+                <Input {...register("cep")} placeholder="00000-000" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label className="font-black text-slate-700 ml-1 mb-1">Cidade *</Label>
+                <Input {...register("city")} placeholder="Cidade" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
+              </div>
+              <div className="space-y-2">
+                <Label className="font-black text-slate-700 ml-1 mb-1">Estado *</Label>
+                <Select value={watch("state")} onValueChange={v => setValue("state", v)}>
+                  <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-0 focus:ring-primary" style={{ '--primary': primaryColor } as any}>
+                    <SelectValue placeholder="UF" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stateOptions.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:col-span-4">
+                <Label className="font-black text-slate-700 ml-1 mb-1">Endereço Completo</Label>
+                <Input {...register("address")} placeholder="Rua, número, bairro, zona rural..." className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
+              </div>
+            </div>
+
+            <Separator className="bg-slate-100" />
+
+            <div className="space-y-6 text-left">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-black text-slate-800">Coordenadas Geográficas</h4>
+                  <p className="text-xs text-slate-400 font-medium uppercase tracking-wider">Para exibição exata no mapa</p>
+                </div>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.open("https://www.google.com/maps", "_blank")}
+                  className="rounded-xl font-bold gap-2 bg-slate-50 border-slate-200 text-slate-600 hover:bg-white"
+                >
+                  <MapTrifold size={16} style={{ color: primaryColor }} /> Abrir Google Maps
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <Label className="font-black text-slate-500 text-[10px] uppercase tracking-widest ml-1">Latitude</Label>
+                  <Input type="number" step="any" {...register("latitude")} placeholder="-23.123456" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
+                </div>
+                <div className="space-y-2">
+                  <Label className="font-black text-slate-500 text-[10px] uppercase tracking-widest ml-1">Longitude</Label>
+                  <Input type="number" step="any" {...register("longitude")} placeholder="-46.123456" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
+                </div>
+              </div>
+            </div>
+          </FormSection>
+
+          <FormSection 
+            title="Vínculos Institucionais" 
+            icon={Users} 
+            description="Associações e cooperativas parceiras"
+            active={currentStep === 4}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+              {allAssociations.map(assoc => {
+                const isSelected = watch("associations")?.includes(assoc.id);
+                return (
+                  <div 
+                    key={assoc.id} 
+                    onClick={() => {
+                      const current = watch("associations") || [];
+                      const next = current.includes(assoc.id) ? current.filter((id: string) => id !== assoc.id) : [...current, assoc.id];
+                      setValue("associations", next);
+                    }}
+                    className={`flex items-center gap-5 p-5 rounded-[1.5rem] border-2 transition-all cursor-pointer group ${
+                      isSelected ? "shadow-sm" : "bg-white border-slate-100 hover:border-slate-200"
+                    }`}
+                    style={isSelected ? { backgroundColor: `${primaryColor}05`, borderColor: primaryColor } : {}}
+                  >
+                    <div className={`p-1 rounded-xl border ${isSelected ? 'bg-white' : 'bg-slate-50 border-slate-100'}`} style={isSelected ? { borderColor: `${primaryColor}20` } : {}}>
+                      <Checkbox checked={isSelected} className="rounded-md" style={{ '--primary': primaryColor } as any} />
+                    </div>
+                    <Avatar className="h-12 w-12 rounded-xl shadow-sm border border-slate-100">
+                      <AvatarImage src={assoc.logo_url} />
+                      <AvatarFallback className="bg-slate-50 text-slate-400">
+                        <Buildings size={20} />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="font-black text-sm transition-colors" style={{ color: isSelected ? primaryColor : '#334155' }}>{assoc.name}</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{assoc.city}, {assoc.state}</p>
+                    </div>
+                    {isSelected && <CheckCircle size={24} weight="fill" style={{ color: primaryColor }} className="animate-in zoom-in" />}
+                  </div>
+                );
+              })}
+              {allAssociations.length === 0 && (
+                <div className="col-span-full py-20 text-center space-y-4">
+                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
+                    <WarningCircle size={40} className="text-slate-200" />
+                  </div>
+                  <p className="text-slate-400 font-bold">Nenhuma associação cadastrada no sistema.</p>
+                </div>
               )}
             </div>
-          </TabsContent>
-        </Tabs>
-        {/* Botões de ação */}
-        <div className="flex justify-between pt-6">
-          <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
-          <Button type="submit" disabled={loading}>{loading ? "Salvando..." : "Salvar"}</Button>
+          </FormSection>
+        </div>
+
+        {/* Rodapé de Navegação Fixo */}
+        <div className="p-6 bg-white border-t border-slate-100 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] z-50">
+          <div className="max-w-5xl mx-auto flex gap-4">
+            {currentStep === 1 ? (
+              <Button type="button" variant="outline" onClick={onCancel} className="flex-1 rounded-2xl h-14 font-black border-slate-200 text-slate-500 hover:bg-slate-50 transition-all">Descartar</Button>
+            ) : (
+              <Button type="button" variant="outline" onClick={() => setCurrentStep(currentStep - 1)} className="flex-1 rounded-2xl h-14 font-black border-slate-200 text-slate-700 hover:bg-slate-50 transition-all gap-2"><ArrowLeft size={20} weight="bold" /> Voltar</Button>
+            )}
+
+            {currentStep < 4 ? (
+              <Button 
+                type="button" 
+                onClick={() => validateCurrentStep() && setCurrentStep(currentStep + 1)} 
+                className="flex-[2] rounded-2xl h-14 font-black text-white hover:opacity-90 shadow-2xl transition-all gap-3"
+                style={{ backgroundColor: primaryColor }}
+              >
+                Próxima Etapa <ArrowRight size={24} weight="bold" />
+              </Button>
+            ) : (
+              <Button 
+                type="submit" 
+                disabled={loading} 
+                className="flex-[2] rounded-2xl h-14 font-black text-white hover:opacity-90 shadow-2xl transition-all gap-3"
+                style={{ backgroundColor: primaryColor }}
+              >
+                {loading ? <CircleNotch className="h-5 w-5 animate-spin" /> : <CheckCircle size={24} weight="bold" />}
+                {initialData ? "Salvar Alterações" : "Concluir Cadastro"}
+              </Button>
+            )}
+          </div>
         </div>
       </form>
     </FormProvider>
@@ -1131,4 +855,4 @@ const ProducerForm = ({ initialData, onSubmit, onCancel }: { initialData?: any; 
 };
 
 export { ProducerForm };
-export default Produtores; 
+export default Produtores;

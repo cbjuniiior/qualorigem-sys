@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Scales, Leaf, Tag, Users, User } from "@phosphor-icons/react";
+import { Calendar, Scales, Leaf, Tag, Users, User, Building } from "@phosphor-icons/react";
 
 interface LotInfoSectionProps {
   loteData: {
@@ -16,10 +16,26 @@ interface LotInfoSectionProps {
   isBlend: boolean;
   blendComponents: Array<{
     id: string;
-    producers?: { name: string };
+    producers?: { 
+      name: string;
+      profile_picture_url?: string | null;
+    };
     component_percentage: number;
   }>;
+  producer?: {
+    id: string;
+    name: string;
+    profile_picture_url?: string | null;
+  };
+  industry?: {
+    id: string;
+    name: string;
+    logo_url?: string | null;
+    city?: string | null;
+    state?: string | null;
+  };
   producerName?: string;
+  associations?: any[];
   branding?: {
     primaryColor: string;
     secondaryColor: string;
@@ -27,7 +43,7 @@ interface LotInfoSectionProps {
   };
 }
 
-export const LotInfoSection = ({ loteData, isBlend, blendComponents, producerName, branding }: LotInfoSectionProps) => {
+export const LotInfoSection = ({ loteData, isBlend, blendComponents, producer, producerName, industry, associations, branding }: LotInfoSectionProps) => {
   const primaryColor = branding?.primaryColor || '#16a34a';
   const secondaryColor = branding?.secondaryColor || '#22c55e';
   const accentColor = branding?.accentColor || '#10b981';
@@ -77,6 +93,19 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producerNam
                   >
                     INDIVIDUAL
                   </Badge>
+                )}
+                {associations && associations.length > 0 && (
+                  <>
+                    <div className="h-4 w-px bg-gray-200 mx-1"></div>
+                    <Badge 
+                      variant="outline"
+                      className="px-4 py-1.5 text-xs font-bold uppercase tracking-wider border shadow-sm flex items-center gap-2"
+                      style={{ color: primaryColor, borderColor: `${primaryColor}40` }}
+                    >
+                      <Building size={14} weight="duotone" />
+                      {associations[0].name}
+                    </Badge>
+                  </>
                 )}
                 <div className="h-4 w-px bg-gray-200 mx-1"></div>
                 <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">
@@ -173,7 +202,30 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producerNam
             </div>
 
             {/* Informações do produtor ou blend - Design Card */}
-            <div className="mt-auto">
+            <div className="mt-auto space-y-4">
+              {industry && (
+                <div className="bg-white rounded-2xl p-1 border border-gray-100 shadow-sm overflow-hidden border-l-4" style={{ borderLeftColor: primaryColor }}>
+                  <div className="flex items-center gap-4 p-4">
+                    <div className="w-12 h-12 rounded-lg bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-100">
+                      {industry.logo_url ? (
+                        <img src={industry.logo_url} alt={industry.name} className="w-full h-full object-contain" />
+                      ) : (
+                        <Tag className="h-6 w-6 text-gray-400" weight="duotone" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Indústria Parceira</div>
+                      <div className="text-base font-bold text-gray-900 leading-tight">
+                        {industry.name}
+                      </div>
+                      <div className="text-[10px] text-gray-500">
+                        {industry.city}{industry.city && industry.state ? " / " : ""}{industry.state}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {isBlend ? (
                 <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
                   <div className="flex items-center gap-3 mb-5">
@@ -189,8 +241,14 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producerNam
                     {blendComponents.slice(0, 3).map((component) => (
                       <div key={component.id} className="flex items-center justify-between py-3 px-4 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-shadow duration-200">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xs font-bold">
-                            {component.producers?.name?.charAt(0) || 'P'}
+                          <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
+                            {component.producers?.profile_picture_url ? (
+                              <img src={component.producers.profile_picture_url} alt={component.producers.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-gray-500 text-[10px] font-bold">
+                                {component.producers?.name?.charAt(0) || 'P'}
+                              </span>
+                            )}
                           </div>
                           <span className="text-sm font-medium text-gray-700">
                             {component.producers?.name || 'Produtor não informado'}
@@ -214,8 +272,12 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producerNam
               ) : (
                 <div className="bg-white rounded-2xl p-1 border border-gray-100 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.08)]">
                   <div className="flex items-center gap-4 p-4">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center border-2 border-white shadow-sm">
-                      <User className="h-7 w-7 text-gray-400" weight="duotone" />
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center border-2 border-white shadow-sm overflow-hidden">
+                      {producer?.profile_picture_url ? (
+                        <img src={producer.profile_picture_url} alt={producerName} className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="h-7 w-7 text-gray-400" weight="duotone" />
+                      )}
                     </div>
                     <div>
                       <div className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-0.5">Produtor Responsável</div>

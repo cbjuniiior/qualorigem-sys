@@ -58,6 +58,8 @@ const LoteDetails = () => {
   const [loteData, setLoteData] = useState<LoteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [producer, setProducer] = useState<any | null>(null);
+  const [industry, setIndustry] = useState<any | null>(null);
+  const [associations, setAssociations] = useState<any[]>([]);
   const [branding, setBranding] = useState<{
     primaryColor: string;
     secondaryColor: string;
@@ -198,8 +200,23 @@ const LoteDetails = () => {
         
         // Buscar dados do produtor se não for blend
         if (data.producer_id) {
-          const producerData = await producersApi.getById(data.producer_id);
+          const [producerData, associationsData] = await Promise.all([
+            producersApi.getById(data.producer_id),
+            associationsApi.getByProducer(data.producer_id)
+          ]);
           setProducer(producerData);
+          setAssociations(associationsData);
+        }
+
+        // Buscar dados da indústria se houver
+        if (data.industry_id) {
+          try {
+            const { industriesApi } = await import("@/services/api");
+            const industryData = await industriesApi.getById(data.industry_id);
+            setIndustry(industryData);
+          } catch (e) {
+            console.error("Erro ao buscar indústria:", e);
+          }
         }
         
         setLoading(false);
@@ -953,7 +970,10 @@ const LoteDetails = () => {
               loteData={loteData}
               isBlend={isBlend}
               blendComponents={blendComponents}
+              producer={producer}
               producerName={producer?.name}
+              industry={industry}
+              associations={associations}
               branding={branding || undefined}
             />
 

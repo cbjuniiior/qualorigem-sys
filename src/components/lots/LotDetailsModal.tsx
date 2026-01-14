@@ -306,6 +306,12 @@ export const LotDetailsModal = ({
                         <span className="text-sm text-gray-600">Código:</span>
                         <span className="text-sm font-semibold font-mono">{lotDetails?.code}</span>
                       </div>
+                      {lotDetails?.seals_quantity && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Selos:</span>
+                          <span className="text-sm font-semibold">{lotDetails.seals_quantity} unidades</span>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
 

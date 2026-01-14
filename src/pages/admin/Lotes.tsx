@@ -1,18 +1,49 @@
 import { useState, useEffect } from "react";
-import { Plus, MagnifyingGlass, FunnelSimple, Package, Eye } from "@phosphor-icons/react";
+import { 
+  Plus, 
+  MagnifyingGlass, 
+  FunnelSimple, 
+  Package, 
+  Eye, 
+  PencilSimple, 
+  Trash, 
+  Calendar,
+  MapPin,
+  Tag,
+  ArrowRight,
+  DotsThreeOutlineVertical,
+  Export,
+  Users
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { productLotsApi, producersApi, associationsApi, systemConfigApi } from "@/services/api";
+import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi } from "@/services/api";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LotForm } from "@/components/lots/LotForm";
-import { LotCard } from "@/components/lots/LotCard";
+import { LotForm, LOT_STEPS } from "@/components/lots/LotForm";
 import { ProductLot } from "@/types/lot";
-import { hexToHsl } from "@/lib/utils";
-
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { FormStepIndicator } from "@/components/ui/step-indicator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Producer {
   id: string;
@@ -26,11 +57,13 @@ const Lotes = () => {
   const [lots, setLots] = useState<ProductLot[]>([]);
   const [producers, setProducers] = useState<Producer[]>([]);
   const [associations, setAssociations] = useState<any[]>([]);
+  const [industries, setIndustries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("todas");
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editingLot, setEditingLot] = useState<ProductLot | null>(null);
+  const [lotToDelete, setLotToDelete] = useState<string | null>(null);
   const [branding, setBranding] = useState<{
     primaryColor: string;
     secondaryColor: string;
@@ -38,16 +71,7 @@ const Lotes = () => {
   } | null>(null);
 
   const primaryColor = branding?.primaryColor || '#16a34a';
-  const secondaryColor = branding?.secondaryColor || '#22c55e';
-  const accentColor = branding?.accentColor || '#10b981';
-
-  const cssVariables = {
-    '--primary': hexToHsl(primaryColor),
-    '--secondary': hexToHsl(secondaryColor),
-    '--accent': hexToHsl(accentColor),
-    '--ring': hexToHsl(primaryColor),
-  } as React.CSSProperties;
-
+  
   // Form state
   const [formData, setFormData] = useState({
     code: "",
@@ -56,10 +80,14 @@ const Lotes = () => {
     variety: "",
     harvest_year: "",
     quantity: "",
-    unit: "",
+    unit: "Kg",
     seals_quantity: "",
     image_url: "",
     producer_id: "",
+    brand_id: "",
+    industry_id: "",
+    association_id: "",
+    sensory_type: "nota",
     fragrance_score: 5,
     flavor_score: 5,
     finish_score: 5,
@@ -69,304 +97,44 @@ const Lotes = () => {
     lot_observations: "",
     youtube_video_url: "",
     video_delay_seconds: 10,
-    components: [] as Array<{
-      id: string;
-      component_name: string;
-      component_variety: string;
-      component_percentage: number;
-      component_quantity: number;
-      component_unit: string;
-      component_origin: string;
-      producer_id?: string;
-      component_harvest_year?: string;
-      association_id?: string;
-    }>,
+    latitude: "",
+    longitude: "",
+    components: [] as any[],
   });
 
-  // Blend mode state
   const [isBlendMode, setIsBlendMode] = useState(false);
-  
-  // Steps state
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 4;
 
   useEffect(() => {
-    const loadBranding = async () => {
+    const loadData = async () => {
       try {
         const config = await systemConfigApi.getBrandingConfig();
         setBranding(config);
+        await fetchData();
       } catch (error) {
-        console.error("Erro ao carregar branding:", error);
+        console.error("Erro ao carregar dados:", error);
       }
     };
-    loadBranding();
-    fetchData();
+    loadData();
   }, []);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [lotsData, producersData, associationsData] = await Promise.all([
+      const [lotsData, producersData, associationsData, industriesData] = await Promise.all([
         productLotsApi.getAll(),
         producersApi.getAll(),
         associationsApi.getAll(),
+        industriesApi.getAll(),
       ]);
-      
-      // Debug: verificar estrutura dos dados
-      console.log("Dados dos lotes:", lotsData);
-      console.log("Primeiro lote:", lotsData[0]);
-      if (lotsData[0]) {
-        console.log("Componentes do primeiro lote:", lotsData[0].lot_components);
-        console.log("Estrutura detalhada dos componentes do primeiro lote:", lotsData[0].lot_components?.map((c: any) => ({
-          id: c.id,
-          component_name: c.component_name,
-          component_percentage: c.component_percentage,
-          producers: c.producers,
-          associations: c.associations
-        })));
-      }
-      
       setLots(lotsData);
       setProducers(producersData);
       setAssociations(associationsData || []);
+      setIndustries(industriesData || []);
     } catch (error) {
-      console.error("Erro ao buscar dados:", error);
-      toast.error("Erro ao carregar dados");
+      toast.error("Erro ao carregar lotes");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCreate = async () => {
-    try {
-      // Validações obrigatórias
-      if (!formData.image_url) {
-        toast.error("Foto do lote é obrigatória!");
-        return;
-      }
-      
-      if (!formData.name || !formData.category) {
-        toast.error("Preencha todos os campos obrigatórios!");
-        return;
-      }
-
-      // Validação específica para blend
-      if (isBlendMode) {
-        if (!formData.components || formData.components.length === 0) {
-          toast.error("Adicione pelo menos um componente ao blend!");
-          return;
-        }
-        
-        // Validar se todos os componentes têm os campos obrigatórios
-        for (let i = 0; i < formData.components.length; i++) {
-          const component = formData.components[i];
-          if (!component.producer_id) {
-            toast.error(`Selecione um produtor para o componente ${i + 1}!`);
-            return;
-          }
-          if (!component.component_name || component.component_name.trim() === "") {
-            toast.error(`Digite o nome do componente ${i + 1}!`);
-            return;
-          }
-          if (!component.component_percentage || component.component_percentage <= 0) {
-            toast.error(`Digite um percentual válido para o componente ${i + 1}!`);
-            return;
-          }
-        }
-      } else {
-        // Validação para lote normal
-        if (!formData.producer_id) {
-          toast.error("Selecione um produtor!");
-          return;
-        }
-      }
-
-      const lotData = {
-        ...formData,
-        quantity: formData.quantity ? parseFloat(formData.quantity) : null,
-        seals_quantity: formData.seals_quantity ? parseInt(formData.seals_quantity) : null,
-        fragrance_score: formData.fragrance_score || null,
-        flavor_score: formData.flavor_score || null,
-        finish_score: formData.finish_score || null,
-        acidity_score: formData.acidity_score || null,
-        body_score: formData.body_score || null,
-        variety: formData.variety && formData.variety.trim() !== "" ? formData.variety : null,
-        harvest_year: formData.harvest_year && formData.harvest_year.trim() !== "" ? formData.harvest_year : null,
-        sensory_notes: formData.sensory_notes && formData.sensory_notes.trim() !== "" ? formData.sensory_notes : null,
-        lot_observations: formData.lot_observations && formData.lot_observations.trim() !== "" ? formData.lot_observations : null,
-        youtube_video_url: formData.youtube_video_url && formData.youtube_video_url.trim() !== "" ? formData.youtube_video_url : null,
-        video_delay_seconds: formData.video_delay_seconds || null,
-        // Para blends, producer_id pode ser null
-        producer_id: isBlendMode ? null : formData.producer_id,
-      };
-
-      // Remove components do lotData principal
-      const { components, ...lotDataWithoutComponents } = lotData;
-      
-      // Debug: log dos dados antes de enviar
-      console.log("Dados do lote a serem enviados:", lotDataWithoutComponents);
-      
-      // Verificar se há campos string vazios que podem causar erro de UUID
-      const problematicFields = Object.entries(lotDataWithoutComponents).filter(([key, value]) => 
-        typeof value === 'string' && value === ''
-      );
-      if (problematicFields.length > 0) {
-        console.error("Campos com string vazia encontrados:", problematicFields);
-        // Converter strings vazias para null
-        problematicFields.forEach(([key]) => {
-          lotDataWithoutComponents[key] = null;
-        });
-        console.log("Campos corrigidos para null:", problematicFields.map(([key]) => key));
-      }
-      
-      const newLot = await productLotsApi.create(lotDataWithoutComponents);
-      
-      // Criar componentes do blend se existirem
-      if (components && components.length > 0) {
-        await Promise.all(
-          components.map(component => 
-            productLotsApi.createComponent({
-              component_name: component.component_name,
-              component_variety: component.component_variety || null,
-              component_percentage: component.component_percentage,
-              component_quantity: component.component_quantity,
-              component_unit: component.component_unit,
-              component_origin: component.component_origin || null,
-              producer_id: component.producer_id,
-              component_harvest_year: component.component_harvest_year && component.component_harvest_year.trim() !== "" ? component.component_harvest_year : null,
-              association_id: component.association_id && component.association_id.trim() !== "" ? component.association_id : null,
-              lot_id: newLot.id
-            })
-          )
-        );
-      }
-
-      toast.success("Lote criado com sucesso!");
-      setIsCreateDialogOpen(false);
-      resetForm();
-      fetchData();
-    } catch (error: any) {
-      console.error("Erro ao criar lote:", error);
-      
-      // Se for erro de código duplicado, regenerar código e tentar novamente
-      if (error?.code === '23505' && error?.message?.includes('product_lots_code_key')) {
-        try {
-          const newCode = await generateProductCode();
-          setFormData({ ...formData, code: newCode });
-          toast.error("Código duplicado detectado. Novo código gerado automaticamente. Tente novamente.");
-        } catch (regenerateError) {
-          toast.error("Erro ao gerar novo código. Tente novamente.");
-        }
-      } else {
-        toast.error("Erro ao criar lote");
-      }
-    }
-  };
-
-  const handleUpdate = async () => {
-    if (!editingLot) return;
-
-    try {
-      const lotData = {
-        ...formData,
-        quantity: formData.quantity ? parseFloat(formData.quantity) : null,
-        seals_quantity: formData.seals_quantity ? parseInt(formData.seals_quantity) : null,
-        fragrance_score: formData.fragrance_score,
-        flavor_score: formData.flavor_score,
-        finish_score: formData.finish_score,
-        acidity_score: formData.acidity_score,
-        body_score: formData.body_score,
-      };
-
-      // Remove components do lotData principal
-      const { components, ...lotDataWithoutComponents } = lotData;
-      
-      // Remover campos que não existem na tabela
-      const cleanLotData = {
-        code: lotDataWithoutComponents.code,
-        name: lotDataWithoutComponents.name,
-        category: lotDataWithoutComponents.category,
-        variety: lotDataWithoutComponents.variety,
-        harvest_year: lotDataWithoutComponents.harvest_year,
-        quantity: lotDataWithoutComponents.quantity,
-        unit: lotDataWithoutComponents.unit,
-        seals_quantity: lotDataWithoutComponents.seals_quantity,
-        image_url: lotDataWithoutComponents.image_url,
-        producer_id: lotDataWithoutComponents.producer_id,
-        fragrance_score: lotDataWithoutComponents.fragrance_score,
-        flavor_score: lotDataWithoutComponents.flavor_score,
-        finish_score: lotDataWithoutComponents.finish_score,
-        acidity_score: lotDataWithoutComponents.acidity_score,
-        body_score: lotDataWithoutComponents.body_score,
-        sensory_notes: lotDataWithoutComponents.sensory_notes,
-        lot_observations: lotDataWithoutComponents.lot_observations,
-        youtube_video_url: lotDataWithoutComponents.youtube_video_url,
-        video_delay_seconds: lotDataWithoutComponents.video_delay_seconds,
-      };
-      
-      // Debug: verificar exatamente o que está sendo enviado
-      console.log("Dados sendo enviados para atualização:", cleanLotData);
-      console.log("Campos do formData:", Object.keys(formData));
-      
-      await productLotsApi.update(editingLot.id, cleanLotData);
-      
-      // Atualizar componentes do blend
-      if (editingLot.id) {
-        // Deletar componentes existentes
-        await productLotsApi.deleteComponentsByLot(editingLot.id);
-        
-        // Criar novos componentes se existirem
-        if (components && components.length > 0) {
-          await Promise.all(
-            components.map(component => 
-              productLotsApi.createComponent({
-                component_name: component.component_name,
-                component_variety: component.component_variety,
-                component_percentage: component.component_percentage,
-                component_quantity: component.component_quantity,
-                component_unit: component.component_unit,
-                component_origin: component.component_origin,
-                producer_id: component.producer_id || null,
-                component_harvest_year: component.component_harvest_year || null,
-                association_id: component.association_id || null,
-                lot_id: editingLot.id
-              })
-            )
-          );
-        }
-      }
-
-      toast.success("Lote atualizado com sucesso!");
-      setEditingLot(null);
-      resetForm();
-      fetchData();
-    } catch (error) {
-      console.error("Erro ao atualizar lote:", error);
-      toast.error("Erro ao atualizar lote");
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      // Primeiro, deletar componentes do blend se existirem
-      await productLotsApi.deleteComponentsByLot(id);
-      
-      // Depois deletar o lote principal
-      await productLotsApi.delete(id);
-      
-      toast.success("Lote excluído com sucesso!");
-      fetchData();
-    } catch (error: any) {
-      console.error("Erro ao excluir lote:", error);
-      
-      // Tratamento específico de erros
-      if (error?.code === '42501') {
-        toast.error("Sem permissão para excluir este lote");
-      } else if (error?.code === '23503') {
-        toast.error("Não é possível excluir: lote possui dependências");
-      } else {
-        toast.error("Erro ao excluir lote: " + (error?.message || "Erro desconhecido"));
-      }
     }
   };
 
@@ -376,12 +144,16 @@ const Lotes = () => {
       name: "",
       category: "",
       variety: "",
-      harvest_year: "",
+      harvest_year: new Date().getFullYear().toString(),
       quantity: "",
-      unit: "",
+      unit: "Kg",
       seals_quantity: "",
       image_url: "",
       producer_id: "",
+      brand_id: "",
+      industry_id: "",
+      association_id: "",
+      sensory_type: "nota",
       fragrance_score: 5,
       flavor_score: 5,
       finish_score: 5,
@@ -391,61 +163,28 @@ const Lotes = () => {
       lot_observations: "",
       youtube_video_url: "",
       video_delay_seconds: 10,
+      latitude: "",
+      longitude: "",
       components: [],
     });
     setIsBlendMode(false);
     setCurrentStep(1);
+    setEditingLot(null);
   };
 
-  const openEditDialog = (lot: ProductLot) => {
+  const handleOpenSheet = async () => {
+    resetForm();
+    setIsSheetOpen(true);
+    try {
+      const { generateLotCode } = await import("@/utils/lot-code-generator");
+      const newCode = await generateLotCode();
+      if (newCode) setFormData(prev => ({ ...prev, code: newCode }));
+    } catch (e) {}
+  };
+
+  const handleEdit = (lot: ProductLot) => {
     setEditingLot(lot);
-    // Buscar componentes tanto em 'components' quanto em 'lot_components'
     const rawComponents = (lot as any).components || (lot as any).lot_components || [];
-    
-    console.log("Editando lote:", lot);
-    console.log("Componentes brutos encontrados:", rawComponents);
-    console.log("Estrutura detalhada dos componentes brutos:", rawComponents.map((c: any) => ({
-      id: c.id,
-      component_name: c.component_name,
-      producer_id: c.producer_id,
-      producer_id_type: typeof c.producer_id,
-      producer_id_value: c.producer_id,
-      producers: c.producers,
-      association_id: c.association_id,
-      associations: c.associations
-    })));
-    
-    // Mapear os componentes para o formato esperado pelo formulário
-    const components = rawComponents.map((component: any) => ({
-      id: component.id,
-      component_name: component.component_name || "",
-      component_variety: component.component_variety || "",
-      component_percentage: component.component_percentage || 0,
-      component_quantity: component.component_quantity || 0,
-      component_unit: component.component_unit || "g",
-      component_origin: component.component_origin || "",
-      producer_id: component.producer_id || null, // Manter null em vez de string vazia
-      component_harvest_year: component.component_harvest_year || "",
-      association_id: component.association_id || null, // Manter null em vez de string vazia
-      // Manter dados relacionados para debug
-      _producers: component.producers,
-      _associations: component.associations
-    }));
-    
-    console.log("Componentes mapeados:", components);
-    console.log("Estrutura dos componentes:", components.map((c: any) => ({
-      id: c.id,
-      component_name: c.component_name,
-      producer_id: c.producer_id,
-      producer_id_type: typeof c.producer_id,
-      producer_id_value: c.producer_id,
-      _producers: c._producers,
-      association_id: c.association_id,
-      association_id_type: typeof c.association_id,
-      association_id_value: c.association_id,
-      _associations: c._associations
-    })));
-    
     setFormData({
       code: lot.code,
       name: lot.name,
@@ -456,202 +195,184 @@ const Lotes = () => {
       unit: lot.unit || "",
       seals_quantity: (lot as any).seals_quantity?.toString() || "",
       image_url: lot.image_url || "",
-      producer_id: lot.producer_id,
-      fragrance_score: lot.fragrance_score || 5,
-      flavor_score: lot.flavor_score || 5,
-      finish_score: lot.finish_score || 5,
-      acidity_score: lot.acidity_score || 5,
-      body_score: lot.body_score || 5,
+      producer_id: lot.producer_id || "",
+      brand_id: (lot as any).brand_id || "",
+      industry_id: (lot as any).industry_id || "",
+      association_id: (lot as any).association_id || "",
+      sensory_type: (lot as any).sensory_type || "nota",
+      fragrance_score: Number(lot.fragrance_score) || 5,
+      flavor_score: Number(lot.flavor_score) || 5,
+      finish_score: Number(lot.finish_score) || 5,
+      acidity_score: Number(lot.acidity_score) || 5,
+      body_score: Number(lot.body_score) || 5,
       sensory_notes: lot.sensory_notes || "",
       lot_observations: (lot as any).lot_observations || "",
       youtube_video_url: (lot as any).youtube_video_url || "",
       video_delay_seconds: (lot as any).video_delay_seconds || 10,
-      components: components,
+      latitude: (lot as any).latitude?.toString() || "",
+      longitude: (lot as any).longitude?.toString() || "",
+      components: rawComponents.map((c: any) => ({
+        id: c.id,
+        component_name: c.component_name || "",
+        component_variety: c.component_variety || "",
+        component_percentage: c.component_percentage || 0,
+        component_quantity: c.component_quantity || 0,
+        component_unit: c.component_unit || "g",
+        component_origin: c.component_origin || "",
+        producer_id: c.producer_id,
+        component_harvest_year: c.component_harvest_year || "",
+        association_id: c.association_id
+      })),
     });
-    
-    // Ativar modo blend se já existem componentes
-    const hasComponents = components.length > 0;
-    console.log("Ativando modo blend:", hasComponents);
-    setIsBlendMode(hasComponents);
+    setIsBlendMode(rawComponents.length > 0);
+    setCurrentStep(1);
+    setIsSheetOpen(true);
+  };
+
+  const handleSubmit = async () => {
+    try {
+      if (!formData.name || !formData.category || !formData.image_url) {
+        toast.error("Preencha os campos obrigatórios e adicione uma imagem!");
+        return;
+      }
+
+      const lotData = {
+        ...formData,
+        quantity: formData.quantity ? parseFloat(formData.quantity) : null,
+        seals_quantity: formData.seals_quantity ? parseInt(formData.seals_quantity) : null,
+        latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+        longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+        producer_id: isBlendMode ? null : formData.producer_id,
+      };
+
+      const { components, ...cleanLotData } = lotData;
+
+      if (editingLot) {
+        await productLotsApi.update(editingLot.id, cleanLotData as any);
+        if (editingLot.id) {
+          await productLotsApi.deleteComponentsByLot(editingLot.id);
+          if (isBlendMode && components.length > 0) {
+            await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: editingLot.id })));
+          }
+        }
+        toast.success("Lote atualizado com sucesso!");
+      } else {
+        const newLot = await productLotsApi.create(cleanLotData as any);
+        if (isBlendMode && components.length > 0) {
+          await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: newLot.id })));
+        }
+        toast.success("Lote registrado com sucesso!");
+      }
+
+      setIsSheetOpen(false);
+      fetchData();
+    } catch (error) {
+      toast.error("Erro ao salvar lote");
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!lotToDelete) return;
+    try {
+      await productLotsApi.deleteComponentsByLot(lotToDelete);
+      await productLotsApi.delete(lotToDelete);
+      toast.success("Lote removido!");
+      fetchData();
+    } catch (error) {
+      toast.error("Erro ao remover lote");
+    } finally {
+      setLotToDelete(null);
+    }
   };
 
   const filteredLots = lots.filter(lot => {
+    const search = searchTerm.toLowerCase();
     const matchesSearch = 
-      lot.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lot.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lot.producers.name.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      lot.name.toLowerCase().includes(search) ||
+      lot.code.toLowerCase().includes(search) ||
+      lot.producers?.name.toLowerCase().includes(search);
     const matchesCategory = categoryFilter === "todas" || lot.category === categoryFilter;
-    
     return matchesSearch && matchesCategory;
   });
 
-  const categories = Array.from(new Set(lots.map(lot => lot.category).filter(Boolean)));
+  const categories = Array.from(new Set(lots.map(l => l.category).filter(Boolean)));
 
-  // Código do produto gerado automaticamente (apenas uma vez)
-  useEffect(() => {
-    const generateCode = async () => {
-      if (!formData.code) {
-        try {
-          const { generateLotCode } = await import("@/utils/lot-code-generator");
-          const newCode = await generateLotCode();
-          if (newCode) {
-            setFormData({ ...formData, code: newCode });
-          }
-        } catch (error) {
-          console.error('Erro ao gerar código:', error);
-        }
-      }
-    };
-    generateCode();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <div className="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-gray-600">Carregando lotes...</p>
+  const TableSkeleton = () => (
+    <div className="space-y-4">
+      {Array(6).fill(0).map((_, i) => (
+        <div key={i} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-50">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-14 w-14 rounded-2xl" />
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          </div>
+          <div className="flex gap-8 items-center">
+            <Skeleton className="h-5 w-20" />
+            <Skeleton className="h-5 w-20" />
+            <Skeleton className="h-10 w-10 rounded-full" />
           </div>
         </div>
-      </AdminLayout>
-    );
-  }
+      ))}
+    </div>
+  );
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="rounded-2xl p-6 border shadow-sm" style={{ background: `linear-gradient(to right, ${primaryColor}10, ${primaryColor}05)`, borderColor: `${primaryColor}20` }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 rounded-xl" style={{ backgroundColor: `${primaryColor}20` }}>
-                <Package className="h-8 w-8" style={{ color: primaryColor }} />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Lotes</h1>
-                <p className="text-gray-600 mt-1">Gerencie os lotes de produtos cadastrados</p>
-              </div>
-            </div>
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  className="flex items-center gap-2 text-white shadow-lg hover:shadow-xl transition-all duration-200 hover:opacity-90"
-                  style={{ backgroundColor: primaryColor }}
-                >
-                  <Plus className="h-5 w-5" />
-                  Novo Lote
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0">
-                <div style={cssVariables} className="flex flex-col h-full">
-                  {/* Header Simples */}
-                  <div className="border-b px-6 py-4 bg-white">
-                    <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-xl font-semibold text-gray-900">Criar Novo Lote</h2>
-                      <p className="text-sm text-gray-500 mt-0.5">Passo {currentStep} de {totalSteps}</p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setIsCreateDialogOpen(false);
-                        resetForm();
-                      }}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <Plus className="w-5 h-5 rotate-45" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Content Area com scroll */}
-                <div className="flex-1 overflow-y-auto p-6">
-                  <LotForm
-                    formData={formData}
-                    setFormData={setFormData}
-                    producers={producers}
-                    associations={associations}
-                    isBlendMode={isBlendMode}
-                    setIsBlendMode={setIsBlendMode}
-                    currentStep={currentStep}
-                    setCurrentStep={setCurrentStep}
-                    totalSteps={totalSteps}
-                    onSubmit={handleCreate}
-                    onCancel={() => {
-                      setIsCreateDialogOpen(false);
-                      resetForm();
-                    }}
-                    branding={branding}
-                  />
-                </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+      <div className="space-y-8">
+        {/* Page Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1 text-left">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <Package size={32} style={{ color: primaryColor }} weight="fill" />
+              Gestão de Lotes
+            </h2>
+            <p className="text-slate-500 font-medium text-sm">Controle e rastreabilidade total da produção.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" className="rounded-xl font-bold gap-2 text-slate-600 border-slate-200">
+              <Export size={18} weight="bold" /> Exportar
+            </Button>
+            <Button 
+              onClick={handleOpenSheet} 
+              className="rounded-xl font-bold text-white hover:opacity-90 shadow-lg transition-all gap-2"
+              style={{ backgroundColor: primaryColor }}
+            >
+              <Plus size={20} weight="bold" /> Novo Lote
+            </Button>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="border-0 shadow-sm bg-white">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg" style={{ backgroundColor: `${primaryColor}10` }}>
-                    <Package className="h-5 w-5" style={{ color: primaryColor }} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: primaryColor }}>Total</p>
-                    <p className="text-2xl font-bold" style={{ color: `${primaryColor}CC` }}>{lots.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="border-0 shadow-sm bg-white">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-gray-100">
-                    <Eye className="h-5 w-5 text-gray-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Exibindo</p>
-                    <p className="text-2xl font-bold text-gray-800">{filteredLots.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        <Card className="border-0 shadow-sm">
+        {/* Filters Card */}
+        <Card className="border-0 shadow-sm bg-white rounded-2xl">
           <CardContent className="p-6">
             <div className="flex flex-col lg:flex-row gap-4">
-              <div className="relative w-full">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                  <MagnifyingGlass className="h-5 w-5 text-gray-400" />
-                </div>
+              <div className="relative flex-1">
+                <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
                 <Input
-                  placeholder="Buscar lotes..."
+                  placeholder="Buscar por nome, código ou produtor..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 border-gray-200 focus:ring-2"
-                  style={{ '--tw-ring-color': primaryColor } as React.CSSProperties}
+                  className="pl-12 h-12 bg-slate-50 border-0 rounded-xl font-medium focus-visible:ring-primary"
+                  style={{ '--primary': primaryColor } as any}
                 />
               </div>
-              
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex gap-3">
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-full sm:w-48 border-gray-200">
-                    <SelectValue placeholder="Filtrar por categoria" />
+                  <SelectTrigger 
+                    className="w-full sm:w-56 h-12 bg-slate-50 border-0 rounded-xl font-bold text-slate-600 focus:ring-primary"
+                    style={{ '--primary': primaryColor } as any}
+                  >
+                    <div className="flex items-center gap-2">
+                      <FunnelSimple size={18} weight="bold" style={{ color: primaryColor }} />
+                      <SelectValue placeholder="Categoria" />
+                    </div>
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todas">Todas as categorias</SelectItem>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category!}>
-                        {category}
-                      </SelectItem>
+                  <SelectContent className="rounded-xl border-slate-100 shadow-xl">
+                    <SelectItem value="todas" className="font-bold">Todas Categorias</SelectItem>
+                    {categories.map(cat => (
+                      <SelectItem key={cat} value={cat!} className="font-medium">{cat}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -660,52 +381,189 @@ const Lotes = () => {
           </CardContent>
         </Card>
 
-        {/* Lots Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredLots.map((lot) => (
-            <LotCard
-              key={lot.id}
-              lot={lot}
-              onEdit={openEditDialog}
-              onDelete={handleDelete}
-              branding={branding}
-            />
-          ))}
+        {/* Main List */}
+        <div className="space-y-4">
+          {loading ? (
+            <TableSkeleton />
+          ) : filteredLots.length === 0 ? (
+            <Card className="border-0 shadow-sm bg-white rounded-3xl p-20 text-center">
+              <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Package size={48} className="text-slate-200" />
+              </div>
+              <h3 className="text-xl font-black text-slate-900 mb-2">Nenhum lote encontrado</h3>
+              <p className="text-slate-400 font-medium">Não há registros para los filtros selecionados.</p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {filteredLots.map((lot) => (
+                <Card 
+                  key={lot.id} 
+                  className="group border-0 shadow-sm bg-white rounded-2xl hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 overflow-hidden"
+                >
+                  <CardContent className="p-0">
+                    <div className="flex flex-col md:flex-row md:items-center p-5 gap-6">
+                      <div className="flex flex-1 items-center gap-5 text-left">
+                        <div className="relative flex-shrink-0">
+                          <img 
+                            src={lot.image_url || "/placeholder.svg"} 
+                            className="h-20 w-20 rounded-2xl object-cover shadow-md group-hover:scale-105 transition-transform duration-500" 
+                            alt={lot.name} 
+                          />
+                          <div 
+                            className="absolute -top-2 -left-2 text-white text-[10px] font-black px-2 py-1 rounded-lg shadow-lg uppercase tracking-tighter"
+                            style={{ backgroundColor: primaryColor }}
+                          >
+                            {lot.harvest_year}
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-lg font-black text-slate-900 leading-none transition-colors group-hover:text-primary">{lot.name}</h4>
+                            <Badge 
+                              className="border-0 font-black text-[10px] uppercase rounded-md"
+                              style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
+                            >
+                              {lot.category}
+                            </Badge>
+                          </div>
+                          <p className="text-slate-400 text-sm font-bold flex items-center gap-1.5">
+                            <Users size={16} weight="fill" className="text-slate-300" />
+                            {lot.producers?.name || "Produtor não vinculado"}
+                          </p>
+                          <div className="flex items-center gap-4 pt-1">
+                            <span className="bg-slate-50 text-slate-500 text-[10px] font-black px-2 py-1 rounded-md border border-slate-100 uppercase tracking-widest font-mono">
+                              {lot.code}
+                            </span>
+                            <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
+                              <MapPin size={14} weight="fill" className="text-slate-300" />
+                              {lot.producers?.city || "Local não inf."}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-10 px-6 border-l border-slate-50 hidden xl:flex">
+                        <div className="text-center">
+                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Volume</p>
+                          <p className="text-sm font-black text-slate-700">{lot.quantity} {lot.unit}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Views</p>
+                          <div className="flex items-center gap-1 justify-center">
+                            <Eye size={14} weight="bold" className="text-blue-500" />
+                            <p className="text-sm font-black text-slate-700">{lot.views || 0}</p>
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-1">Selos</p>
+                          <div className="flex items-center gap-1 justify-center">
+                            <Tag size={14} weight="bold" className="text-amber-500" />
+                            <p className="text-sm font-black text-slate-700">{(lot as any).seals_quantity || 0}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 border-l border-slate-50 pl-6">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          asChild
+                          className="h-11 w-11 rounded-xl text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                        >
+                          <a href={`/lote/${lot.code}`} target="_blank" rel="noreferrer">
+                            <ArrowRight size={20} weight="bold" />
+                          </a>
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-11 w-11 rounded-xl text-slate-400">
+                              <DotsThreeOutlineVertical size={20} weight="fill" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-100 shadow-xl p-1">
+                            <DropdownMenuItem onClick={() => handleEdit(lot)} className="rounded-lg py-2.5 font-bold text-slate-600 cursor-pointer focus:bg-slate-50">
+                              <PencilSimple size={18} weight="bold" style={{ color: primaryColor }} className="mr-2" /> Editar Lote
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => setLotToDelete(lot.id)}
+                              className="rounded-lg py-2.5 font-bold text-rose-600 cursor-pointer focus:bg-rose-50 focus:text-rose-600"
+                            >
+                              <Trash size={18} weight="bold" className="mr-2" /> Excluir Lote
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
-        {filteredLots.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">Nenhum lote encontrado.</p>
-          </div>
-        )}
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetContent className="w-full sm:max-w-[80vw] sm:rounded-l-[2.5rem] border-0 p-0 overflow-hidden shadow-2xl">
+            <div className="h-full flex flex-col bg-white">
+              <SheetHeader className="p-8 border-b border-slate-50 bg-slate-50/30">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8 text-left">
+                  <div className="flex items-center gap-4">
+                    <div 
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm text-white"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      <Package size={32} weight="fill" />
+                    </div>
+                    <div>
+                      <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight">
+                        {editingLot ? "Editar Lote" : "Registrar Lote"}
+                      </SheetTitle>
+                      <SheetDescription className="text-slate-500 font-bold text-base">
+                        {editingLot ? `Código: ${editingLot.code}` : "Configure os dados técnicos do produto."}
+                      </SheetDescription>
+                    </div>
+                  </div>
 
-        {/* Edit Dialog */}
-        {editingLot && (
-          <Dialog open={!!editingLot} onOpenChange={() => setEditingLot(null)}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-              <div style={cssVariables}>
+                  <FormStepIndicator steps={LOT_STEPS} currentStep={currentStep} primaryColor={primaryColor} />
+                </div>
+              </SheetHeader>
+              <div className="flex-1 relative flex flex-col min-h-0">
                 <LotForm
                   formData={formData}
                   setFormData={setFormData}
-                producers={producers}
-                associations={associations}
-                isBlendMode={isBlendMode}
-                setIsBlendMode={setIsBlendMode}
-                currentStep={currentStep}
-                setCurrentStep={setCurrentStep}
-                totalSteps={totalSteps}
-                onSubmit={handleUpdate}
-                onCancel={() => {
-                  setEditingLot(null);
-                  resetForm();
-                }}
-                isEditing={true}
-                branding={branding}
-              />
+                  producers={producers}
+                  associations={associations}
+                  industries={industries}
+                  isBlendMode={isBlendMode}
+                  setIsBlendMode={setIsBlendMode}
+                  currentStep={currentStep}
+                  setCurrentStep={setCurrentStep}
+                  totalSteps={4}
+                  onSubmit={handleSubmit}
+                  onCancel={() => setIsSheetOpen(false)}
+                  isEditing={!!editingLot}
+                  branding={branding}
+                />
               </div>
-            </DialogContent>
-          </Dialog>
-        )}
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <AlertDialog open={!!lotToDelete} onOpenChange={() => setLotToDelete(null)}>
+          <AlertDialogContent className="rounded-3xl border-0 shadow-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-2xl font-black text-slate-900">Confirmar Exclusão?</AlertDialogTitle>
+              <AlertDialogDescription className="text-slate-500 font-medium">
+                Esta ação não pode ser desfeita. O lote e seus componentes serão permanentemente removidos.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="gap-3 mt-4">
+              <AlertDialogCancel className="rounded-xl font-bold border-slate-200">Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="rounded-xl font-bold bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-200">
+                Sim, Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminLayout>
   );

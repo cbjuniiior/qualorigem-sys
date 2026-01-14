@@ -1,378 +1,479 @@
 import { useState, useEffect } from "react";
-import { ChartBar, TrendUp, Users, Package, MapPin, Calendar, DownloadSimple, ArrowUp } from "@phosphor-icons/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  ChartBar, 
+  TrendUp, 
+  Users, 
+  Package, 
+  MapPin, 
+  Calendar, 
+  DownloadSimple, 
+  Building, 
+  FunnelSimple, 
+  Tag,
+  ArrowRight,
+  CaretRight,
+  DotsThreeCircle,
+  FilePdf,
+  FileCsv
+} from "@phosphor-icons/react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { producersApi, productLotsApi, systemConfigApi } from "@/services/api";
+import { producersApi, productLotsApi, systemConfigApi, associationsApi, sealControlsApi } from "@/services/api";
 import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
+import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip as RechartsTooltip, 
+  ResponsiveContainer,
+  Legend,
+  Cell,
+  PieChart,
+  Pie,
+  AreaChart,
+  Area
+} from "recharts";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ReportData {
   totalProducers: number;
   totalLots: number;
+  totalSeals: number;
   categories: { name: string; count: number }[];
   topProducers: { name: string; lots: number }[];
   states: { state: string; count: number }[];
-  monthlyGrowth: { month: string; producers: number; lots: number }[];
+  monthlyGrowth: { month: string; producers: number; lots: number; seals: number }[];
+  associationData: { name: string; producers: number; lots: number }[];
 }
 
 const Relatorios = () => {
   const [reportData, setReportData] = useState<ReportData>({
     totalProducers: 0,
     totalLots: 0,
+    totalSeals: 0,
     categories: [],
     topProducers: [],
     states: [],
     monthlyGrowth: [],
+    associationData: [],
   });
   const [loading, setLoading] = useState(true);
-  const [branding, setBranding] = useState<{
-    primaryColor: string;
-    secondaryColor: string;
-    accentColor: string;
-  } | null>(null);
+  const [branding, setBranding] = useState<any>(null);
 
-  const primaryColor = branding?.primaryColor || '#16a34a';
-  const secondaryColor = branding?.secondaryColor || '#22c55e';
-  const accentColor = branding?.accentColor || '#10b981';
+  const [filters, setFilters] = useState({
+    associationId: "all",
+    producerId: "all",
+    dateRange: {
+      from: startOfMonth(new Date()),
+      to: endOfMonth(new Date()),
+    }
+  });
+
+  const [associations, setAssociations] = useState<any[]>([]);
+  const [producers, setProducers] = useState<any[]>([]);
+  const [rawLots, setRawLots] = useState<any[]>([]);
+  const [rawSeals, setRawSeals] = useState<any[]>([]);
 
   useEffect(() => {
-    const loadBranding = async () => {
+    const loadData = async () => {
       try {
         const config = await systemConfigApi.getBrandingConfig();
         setBranding(config);
+        await fetchAllData();
       } catch (error) {
         console.error("Erro ao carregar branding:", error);
       }
     };
-    loadBranding();
-    fetchReportData();
+    loadData();
   }, []);
 
-  const fetchReportData = async () => {
+  const fetchAllData = async () => {
     try {
       setLoading(true);
-      
-      const [producers, lots] = await Promise.all([
+      const [producersData, lotsData, associationsData] = await Promise.all([
         producersApi.getAll(),
         productLotsApi.getAll(),
+        associationsApi.getAll(),
       ]);
 
-      // Calcular estatísticas
-      const categoryCount = lots.reduce((acc: any, lot) => {
-        const category = lot.category || "Sem categoria";
-        acc[category] = (acc[category] || 0) + 1;
-        return acc;
-      }, {});
-
-      const categories = Object.entries(categoryCount)
-        .map(([name, count]) => ({ name, count: count as number }))
-        .sort((a, b) => b.count - a.count);
-
-      const producerCount = lots.reduce((acc: any, lot) => {
-        const producerName = lot.producers?.name || "Desconhecido";
-        acc[producerName] = (acc[producerName] || 0) + 1;
-        return acc;
-      }, {});
-
-      const topProducers = Object.entries(producerCount)
-        .map(([name, lots]) => ({ name, lots: lots as number }))
-        .sort((a, b) => b.lots - a.lots)
-        .slice(0, 5);
-
-      const stateCount = producers.reduce((acc: any, producer) => {
-        acc[producer.state] = (acc[producer.state] || 0) + 1;
-        return acc;
-      }, {});
-
-      const states = Object.entries(stateCount)
-        .map(([state, count]) => ({ state, count: count as number }))
-        .sort((a, b) => b.count - a.count);
-
-      // Simular crescimento mensal (em produção viria do analytics)
-      const monthlyGrowth = [
-        { month: "Jan", producers: 2, lots: 3 },
-        { month: "Fev", producers: 3, lots: 5 },
-        { month: "Mar", producers: 3, lots: 8 },
-        { month: "Abr", producers: 3, lots: 8 },
-      ];
-
-      setReportData({
-        totalProducers: producers.length,
-        totalLots: lots.length,
-        categories,
-        topProducers,
-        states,
-        monthlyGrowth,
-      });
+      setProducers(producersData);
+      setRawLots(lotsData);
+      setAssociations(associationsData);
+      
+      const sealsData = await Promise.all(producersData.map(p => sealControlsApi.getByProducer(p.id)));
+      setRawSeals(sealsData.flat());
     } catch (error) {
-      console.error("Erro ao carregar relatórios:", error);
-      toast.error("Erro ao carregar relatórios");
+      toast.error("Erro ao carregar dados analíticos");
     } finally {
       setLoading(false);
     }
   };
 
-  const exportReport = () => {
-    // Simular exportação (em produção geraria um arquivo real)
-    toast.success("Relatório exportado com sucesso!");
+  useEffect(() => {
+    if (!loading) computeReport();
+  }, [filters, loading]);
+
+  const computeReport = () => {
+    let filteredLots = rawLots;
+    let filteredProducers = producers;
+    let filteredSeals = rawSeals;
+
+    if (filters.producerId !== "all") {
+      filteredLots = filteredLots.filter(l => l.producer_id === filters.producerId);
+      filteredProducers = filteredProducers.filter(p => p.id === filters.producerId);
+      filteredSeals = filteredSeals.filter(s => s.producer_id === filters.producerId);
+    }
+
+    if (filters.dateRange.from && filters.dateRange.to) {
+      const interval = { start: filters.dateRange.from, end: filters.dateRange.to };
+      filteredLots = filteredLots.filter(l => isWithinInterval(parseISO(l.created_at), interval));
+      filteredSeals = filteredSeals.filter(s => isWithinInterval(parseISO(s.created_at || s.generation_date), interval));
+    }
+
+    const categoryCount = filteredLots.reduce((acc: any, lot) => {
+      const category = lot.category || "Sem categoria";
+      acc[category] = (acc[category] || 0) + 1;
+      return acc;
+    }, {});
+
+    const categories = Object.entries(categoryCount)
+      .map(([name, count]) => ({ name, count: count as number }))
+      .sort((a, b) => b.count - a.count);
+
+    const producerLotCount = filteredLots.reduce((acc: any, lot) => {
+      const producerName = lot.producers?.name || "Desconhecido";
+      acc[producerName] = (acc[producerName] || 0) + 1;
+      return acc;
+    }, {});
+
+    const topProducers = Object.entries(producerLotCount)
+      .map(([name, lots]) => ({ name, lots: lots as number }))
+      .sort((a, b) => b.lots - a.lots)
+      .slice(0, 5);
+
+    const stateCount = filteredProducers.reduce((acc: any, producer) => {
+      acc[producer.state] = (acc[producer.state] || 0) + 1;
+      return acc;
+    }, {});
+
+    const states = Object.entries(stateCount)
+      .map(([state, count]) => ({ state, count: count as number }))
+      .sort((a, b) => b.count - a.count);
+
+    const totalSeals = filteredSeals.reduce((acc, s) => acc + (s.total_seals_generated || 0), 0);
+
+    const monthlyGrowth = Array.from({ length: 6 }).map((_, i) => {
+      const date = new Date();
+      date.setMonth(date.getMonth() - (5 - i));
+      const monthLabel = format(date, "MMM", { locale: ptBR });
+      const monthStart = startOfMonth(date);
+      const monthEnd = endOfMonth(date);
+      
+      const monthLots = rawLots.filter(l => isWithinInterval(parseISO(l.created_at), { start: monthStart, end: monthEnd }));
+      const monthProducers = producers.filter(p => isWithinInterval(parseISO(p.created_at), { start: monthStart, end: monthEnd }));
+      const monthSeals = rawSeals.filter(s => isWithinInterval(parseISO(s.created_at || s.generation_date), { start: monthStart, end: monthEnd }))
+        .reduce((acc, s) => acc + (s.total_seals_generated || 0), 0);
+
+      return { month: monthLabel, producers: monthProducers.length, lots: monthLots.length, seals: monthSeals };
+    });
+
+    setReportData({
+      totalProducers: filteredProducers.length,
+      totalLots: filteredLots.length,
+      totalSeals,
+      categories,
+      topProducers,
+      states,
+      monthlyGrowth,
+      associationData: [] // Mockup for now
+    });
   };
 
-  const StatCard = ({ 
-    title, 
-    value, 
-    icon: Icon, 
-    description, 
-    trend 
-  }: {
-    title: string;
-    value: string | number;
-    icon: any;
-    description?: string;
-    trend?: { value: number; isPositive: boolean };
-  }) => (
-    <Card className="border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 group">
+  const primaryColor = branding?.primaryColor || '#16a34a';
+
+  const StatCard = ({ title, value, icon: Icon, color = primaryColor }: any) => (
+    <Card className="border-0 shadow-sm bg-white overflow-hidden group hover:shadow-lg transition-all duration-300">
+      <div className="h-1" style={{ backgroundColor: color }} />
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <div 
-            className="p-3 rounded-xl transition-colors duration-300 group-hover:bg-opacity-20"
-            style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
-          >
-            <Icon className="h-6 w-6" weight="duotone" />
+          <div className="p-3 rounded-xl shadow-sm" style={{ backgroundColor: `${color}10`, color }}>
+            <Icon size={24} weight="fill" />
           </div>
-          {trend && (
-            <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-              trend.isPositive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
-            }`}>
-              <ArrowUp className="h-3 w-3 mr-1" />
-              {trend.value}%
-            </div>
-          )}
+          <Badge variant="outline" className="border-emerald-100 bg-emerald-50 text-emerald-600 font-black">+12%</Badge>
         </div>
-        <div>
-          <h3 className="text-sm font-medium text-gray-500 mb-1">{title}</h3>
-          <div className="text-3xl font-bold text-gray-900 tracking-tight">{value}</div>
-          {description && (
-            <p className="text-xs text-gray-400 mt-2">{description}</p>
-          )}
-        </div>
+        <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">{title}</h3>
+        <div className="text-3xl font-black text-slate-900 tracking-tighter">{value}</div>
       </CardContent>
     </Card>
   );
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-[calc(100vh-100px)]">
-          <div className="flex flex-col items-center gap-4">
-            <div 
-              className="w-12 h-12 border-4 rounded-full animate-spin"
-              style={{ borderColor: `${primaryColor}30`, borderTopColor: primaryColor }}
-            ></div>
-            <p className="text-gray-500 text-sm font-medium animate-pulse">Carregando relatórios...</p>
-          </div>
-        </div>
-      </AdminLayout>
-    );
-  }
-
   return (
     <AdminLayout>
-      <div className="space-y-8 max-w-[1600px] mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Relatórios</h1>
-            <p className="text-gray-500 mt-1">Análises e métricas do sistema</p>
+      <div className="space-y-10">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <ChartBar size={32} style={{ color: primaryColor }} weight="fill" />
+              Relatórios Analíticos
+            </h2>
+            <p className="text-slate-500 font-medium text-sm">Dados e insights detalhados do sistema GeoTrace.</p>
           </div>
-          <Button 
-            onClick={exportReport} 
-            className="text-white hover:opacity-90"
-            style={{ backgroundColor: primaryColor }}
-          >
-            <DownloadSimple className="h-4 w-4 mr-2" />
-            Exportar Relatório
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                className="rounded-xl font-bold text-white hover:opacity-90 shadow-lg transition-all gap-2 h-12 px-6"
+                style={{ backgroundColor: primaryColor, shadowColor: `${primaryColor}30` } as any}
+              >
+                <DownloadSimple size={20} weight="bold" /> Exportar Dados
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="rounded-xl p-1 shadow-xl border-slate-100 w-48">
+              <DropdownMenuItem className="rounded-lg py-2.5 font-bold text-slate-600 cursor-pointer">
+                <FilePdf size={18} weight="bold" className="mr-2 text-rose-500" /> Baixar em PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem className="rounded-lg py-2.5 font-bold text-slate-600 cursor-pointer">
+                <FileCsv size={18} weight="bold" className="mr-2 text-emerald-500" /> Baixar em CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        {/* Métricas principais */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            title="Total de Produtores"
-            value={reportData.totalProducers}
-            icon={Users}
-            description="Produtores cadastrados"
-            trend={{ value: 12, isPositive: true }}
-          />
-          <StatCard
-            title="Total de Lotes"
-            value={reportData.totalLots}
-            icon={Package}
-            description="Lotes registrados"
-            trend={{ value: 8, isPositive: true }}
-          />
-          <StatCard
-            title="Categorias"
-            value={reportData.categories.length}
-            icon={ChartBar}
-            description="Tipos de produtos"
-          />
-          <StatCard
-            title="Estados"
-            value={reportData.states.length}
-            icon={MapPin}
-            description="Estados atendidos"
-          />
+        {/* Filtros Avançados */}
+        <Card className="border-0 shadow-sm bg-white rounded-2xl">
+          <CardContent className="p-6">
+            <div className="flex flex-wrap gap-6 items-end">
+              <div className="flex-1 min-w-[240px] space-y-2">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Filtrar por Associação</Label>
+                <Select value={filters.associationId} onValueChange={(v) => setFilters(prev => ({ ...prev, associationId: v }))}>
+                  <SelectTrigger className="h-12 bg-slate-50 border-0 rounded-xl font-bold text-slate-600 focus:ring-primary">
+                    <SelectValue placeholder="Todas as associações" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-slate-100 shadow-xl">
+                    <SelectItem value="all" className="font-bold">Todas Associações</SelectItem>
+                    {associations.map(a => <SelectItem key={a.id} value={a.id} className="font-medium">{a.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 min-w-[240px] space-y-2">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Filtrar por Produtor</Label>
+                <Select value={filters.producerId} onValueChange={(v) => setFilters(prev => ({ ...prev, producerId: v }))}>
+                  <SelectTrigger className="h-12 bg-slate-50 border-0 rounded-xl font-bold text-slate-600 focus:ring-primary">
+                    <SelectValue placeholder="Todos os produtores" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl border-slate-100 shadow-xl">
+                    <SelectItem value="all" className="font-bold">Todos os Produtores</SelectItem>
+                    {producers.map(p => <SelectItem key={p.id} value={p.id} className="font-medium">{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 min-w-[240px] space-y-2">
+                <Label className="text-[10px] font-black uppercase text-slate-400 ml-1">Período de Análise</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full h-12 bg-slate-50 border-0 rounded-xl font-bold text-slate-600 justify-start hover:bg-slate-100">
+                      <Calendar size={18} weight="bold" className="mr-2" style={{ color: primaryColor }} />
+                      {filters.dateRange.from ? format(filters.dateRange.from, "dd/MM/yy") : "Início"} - {filters.dateRange.to ? format(filters.dateRange.to, "dd/MM/yy") : "Fim"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 rounded-2xl shadow-2xl border-slate-100" align="start">
+                    <CalendarComponent
+                      initialFocus
+                      mode="range"
+                      selected={{ from: filters.dateRange.from, to: filters.dateRange.to }}
+                      onSelect={(range: any) => setFilters(prev => ({ 
+                        ...prev, 
+                        dateRange: { from: range?.from || prev.dateRange.from, to: range?.to || prev.dateRange.to } 
+                      }))}
+                      numberOfMonths={2}
+                      locale={ptBR}
+                      style={{ '--primary': primaryColor } as any}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <Button variant="ghost" className="h-12 rounded-xl font-bold text-slate-400 hover:text-slate-600 px-6" onClick={() => setFilters({
+                associationId: "all",
+                producerId: "all",
+                dateRange: { from: startOfMonth(new Date()), to: endOfMonth(new Date()) }
+              })}>Limpar</Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Top Indicators */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {loading ? Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-2xl" />) : (
+            <>
+              <StatCard title="Total Produtores" value={reportData.totalProducers} icon={Users} color="#10b981" />
+              <StatCard title="Lotes Rastreados" value={reportData.totalLots} icon={Package} color="#3b82f6" />
+              <StatCard title="Selos Emitidos" value={reportData.totalSeals.toLocaleString()} icon={Tag} color="#f59e0b" />
+              <StatCard title="Estados Atendidos" value={reportData.states.length} icon={MapPin} color="#8b5cf6" />
+            </>
+          )}
         </div>
 
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <Card className="lg:col-span-2 border-0 shadow-sm bg-white rounded-2xl overflow-hidden">
+            <CardHeader className="border-b border-slate-50 px-8 py-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-black text-slate-900">Evolução do Sistema</CardTitle>
+                  <CardDescription className="font-medium text-slate-400">Crescimento de lotes e produtores nos últimos meses</CardDescription>
+                </div>
+                <TrendUp size={32} className="text-primary/20" weight="fill" />
+              </div>
+            </CardHeader>
+            <CardContent className="p-8">
+              <div className="h-[350px] w-full">
+                {loading ? <Skeleton className="h-full w-full rounded-xl" /> : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={reportData.monthlyGrowth}>
+                      <defs>
+                        <linearGradient id="colorLots" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={primaryColor} stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor={primaryColor} stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8', fontWeight: 700 }} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#94a3b8', fontWeight: 700 }} />
+                      <RechartsTooltip 
+                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)', fontWeight: 700 }}
+                      />
+                      <Area type="monotone" name="Lotes" dataKey="lots" stroke={primaryColor} strokeWidth={4} fillOpacity={1} fill="url(#colorLots)" />
+                      <Area type="monotone" name="Selos" dataKey="seals" stroke="#f59e0b" strokeWidth={4} fill="transparent" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden">
+            <CardHeader className="border-b border-slate-50 px-8 py-6">
+              <CardTitle className="text-xl font-black text-slate-900">Categorias</CardTitle>
+              <CardDescription className="font-medium text-slate-400">Distribuição por tipo de produto</CardDescription>
+            </CardHeader>
+            <CardContent className="p-8">
+              <div className="h-[350px] w-full flex flex-col items-center">
+                {loading ? <Skeleton className="h-full w-full rounded-xl" /> : (
+                  <>
+                    <ResponsiveContainer width="100%" height="80%">
+                      <PieChart>
+                        <Pie
+                          data={reportData.categories}
+                          dataKey="count"
+                          nameKey="name"
+                          cx="50%" cy="50%"
+                          innerRadius={70}
+                          outerRadius={100}
+                          paddingAngle={8}
+                        >
+                          {reportData.categories.map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={[primaryColor, '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e'][index % 5]} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="w-full space-y-2 mt-4">
+                      {reportData.categories.slice(0, 3).map((cat, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs font-bold">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: [primaryColor, '#3b82f6', '#f59e0b'][i % 3] }} />
+                            <span className="text-slate-600">{cat.name}</span>
+                          </div>
+                          <span className="text-slate-900">{cat.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Secondary Info Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Categorias mais populares */}
-          <Card className="border border-gray-100 shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center text-lg">
-                <ChartBar className="h-5 w-5 mr-2" style={{ color: primaryColor }} weight="duotone" />
-                Categorias por Volume
-              </CardTitle>
+          <Card className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden">
+            <CardHeader className="border-b border-slate-50 px-8 py-6">
+              <CardTitle className="text-xl font-black text-slate-900">Top Produtores</CardTitle>
+              <CardDescription className="font-medium text-slate-400">Liderança em volume de lotes registrados</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {reportData.categories.map((category, index) => (
-                  <div key={category.name} className="flex items-center justify-between group">
-                    <div className="flex items-center gap-4 w-1/3">
-                      <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors"
-                        style={{ 
-                          backgroundColor: index === 0 ? `${primaryColor}15` : '#f3f4f6',
-                          color: index === 0 ? primaryColor : '#6b7280'
-                        }}
-                      >
-                        {index + 1}
+            <CardContent className="p-0">
+              {loading ? <div className="p-8 space-y-4"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div> : (
+                <div className="divide-y divide-slate-50">
+                  {reportData.topProducers.map((p, i) => (
+                    <div key={i} className="px-8 py-5 flex items-center justify-between group hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center font-black text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                          {i + 1}
+                        </div>
+                        <span className="font-black text-slate-700">{p.name}</span>
                       </div>
-                      <span className="font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
-                        {category.name}
-                      </span>
+                      <Badge className="bg-slate-100 text-slate-600 border-0 font-black px-3 py-1 rounded-lg">{p.lots} Lotes</Badge>
                     </div>
-                    <div className="flex-1 flex items-center gap-4">
-                      <div className="flex-1 bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                        <div 
-                          className="h-full rounded-full transition-all duration-500 ease-out"
-                          style={{ 
-                            width: `${(category.count / reportData.totalLots) * 100}%`,
-                            backgroundColor: primaryColor
-                          }}
-                        ></div>
-                      </div>
-                      <Badge variant="secondary" className="bg-gray-100 text-gray-600 hover:bg-gray-200 min-w-[60px] justify-center">
-                        {category.count}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
-          {/* Top produtores */}
-          <Card className="border border-gray-100 shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center text-lg">
-                <Users className="h-5 w-5 mr-2" style={{ color: primaryColor }} weight="duotone" />
-                Top Produtores
-              </CardTitle>
+          <Card className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden">
+            <CardHeader className="border-b border-slate-50 px-8 py-6">
+              <CardTitle className="text-xl font-black text-slate-900">Estados Ativos</CardTitle>
+              <CardDescription className="font-medium text-slate-400">Presença geográfica dos produtores</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {reportData.topProducers.map((producer, index) => (
-                  <div key={producer.name} className="flex items-center justify-between group">
-                    <div className="flex items-center gap-4">
-                      <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors"
-                        style={{ 
-                          backgroundColor: index === 0 ? `${primaryColor}15` : '#f3f4f6',
-                          color: index === 0 ? primaryColor : '#6b7280'
-                        }}
-                      >
-                        {index + 1}
+            <CardContent className="p-0">
+              {loading ? <div className="p-8 space-y-4"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div> : (
+                <div className="divide-y divide-slate-50">
+                  {reportData.states.map((s, i) => (
+                    <div key={i} className="px-8 py-5 flex items-center justify-between group hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center">
+                          <MapPin size={20} weight="fill" className="text-slate-300 group-hover:text-primary transition-colors" />
+                        </div>
+                        <span className="font-black text-slate-700">{s.state}</span>
                       </div>
-                      <span className="font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
-                        {producer.name}
-                      </span>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-[10px] font-black text-slate-300 uppercase">Impacto</p>
+                          <p className="text-sm font-black text-slate-700">{s.count} Produtores</p>
+                        </div>
+                        <CaretRight size={20} weight="bold" className="text-slate-200" />
+                      </div>
                     </div>
-                    <Badge 
-                      variant="secondary" 
-                      className="bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    >
-                      {producer.lots} lotes
-                    </Badge>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
-
-        {/* Distribuição por estado */}
-        <Card className="border border-gray-100 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center text-lg">
-              <MapPin className="h-5 w-5 mr-2" style={{ color: primaryColor }} weight="duotone" />
-              Distribuição por Estado
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {reportData.states.map((state) => (
-                <div 
-                  key={state.state} 
-                  className="text-center p-4 bg-white border border-gray-100 rounded-xl hover:shadow-md transition-all duration-200 group"
-                >
-                  <div 
-                    className="text-3xl font-bold mb-1 transition-colors"
-                    style={{ color: primaryColor }}
-                  >
-                    {state.count}
-                  </div>
-                  <div className="text-sm font-medium text-gray-500">{state.state}</div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Crescimento mensal */}
-        <Card className="border border-gray-100 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center text-lg">
-              <TrendUp className="h-5 w-5 mr-2" style={{ color: primaryColor }} weight="duotone" />
-              Crescimento Mensal
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {reportData.monthlyGrowth.map((month) => (
-                <div 
-                  key={month.month} 
-                  className="text-center p-6 bg-gray-50 rounded-xl border border-transparent hover:border-gray-200 hover:bg-white transition-all duration-300"
-                >
-                  <div className="text-lg font-bold text-gray-900 mb-3">{month.month}</div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between items-center bg-white px-3 py-1.5 rounded-lg shadow-sm">
-                      <span className="text-gray-500">Produtores</span>
-                      <span className="font-bold text-gray-900">{month.producers}</span>
-                    </div>
-                    <div className="flex justify-between items-center bg-white px-3 py-1.5 rounded-lg shadow-sm">
-                      <span className="text-gray-500">Lotes</span>
-                      <span className="font-bold text-gray-900">{month.lots}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </AdminLayout>
   );
 };
 
-export default Relatorios; 
+export default Relatorios;

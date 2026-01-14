@@ -4,288 +4,455 @@ import {
   Package, 
   Plus, 
   MagnifyingGlass, 
-  Funnel, 
+  FunnelSimple, 
   PencilSimple, 
   Trash, 
   Eye,
   QrCode,
   Calendar,
   MapPin,
-  WarningCircle,
-  CheckCircle,
-  Clock
+  Tag,
+  ArrowRight,
+  DotsThreeOutlineVertical,
+  Export,
+  Scales
 } from "@phosphor-icons/react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
 } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ProducerLayout } from "@/components/layout/ProducerLayout";
 import { useAuth } from "@/hooks/use-auth";
-import { productLotsApi, ProductLot } from "@/services/api";
+import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi } from "@/services/api";
 import { toast } from "sonner";
+import { LotForm, LOT_STEPS } from "@/components/lots/LotForm";
+import { Skeleton } from "@/components/ui/skeleton";
+import { FormStepIndicator } from "@/components/ui/step-indicator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const ProducerLotes = () => {
   const { user } = useAuth();
-  const [lotes, setLotes] = useState<ProductLot[]>([]);
+  const [lotes, setLotes] = useState<any[]>([]);
+  const [producers, setProducers] = useState<any[]>([]);
+  const [associations, setAssociations] = useState<any[]>([]);
+  const [industries, setIndustries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [editingLot, setEditingLot] = useState<any | null>(null);
+  const [lotToDelete, setLotToDelete] = useState<string | null>(null);
+  const [branding, setBranding] = useState<any>(null);
+
+  const primaryColor = branding?.primaryColor || '#16a34a';
+
+  const [formData, setFormData] = useState({
+    code: "",
+    name: "",
+    category: "",
+    variety: "",
+    harvest_year: "",
+    quantity: "",
+    unit: "Kg",
+    seals_quantity: "",
+    image_url: "",
+    producer_id: "",
+    brand_id: "",
+    industry_id: "",
+    association_id: "",
+    sensory_type: "nota",
+    fragrance_score: 5,
+    flavor_score: 5,
+    finish_score: 5,
+    acidity_score: 5,
+    body_score: 5,
+    sensory_notes: "",
+    lot_observations: "",
+    youtube_video_url: "",
+    video_delay_seconds: 10,
+    latitude: "",
+    longitude: "",
+    components: [],
+  });
+
+  const [isBlendMode, setIsBlendMode] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
 
   useEffect(() => {
-    fetchLotes();
-  }, []);
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [brandingConfig, producersData, associationsData, industriesData] = await Promise.all([
+          systemConfigApi.getBrandingConfig(),
+          producersApi.getAll(),
+          associationsApi.getAll(),
+          industriesApi.getAll(),
+        ]);
+        setBranding(brandingConfig);
+        setProducers(producersData);
+        setAssociations(associationsData || []);
+        setIndustries(industriesData || []);
+        await fetchLotes();
+      } catch (error) {
+        console.error("Erro ao carregar dados:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [user]);
 
   const fetchLotes = async () => {
     try {
-      setLoading(true);
       const data = await productLotsApi.getByProducer(user?.id);
       setLotes(data || []);
     } catch (error) {
-      console.error("Erro ao buscar lotes:", error);
       toast.error("Erro ao carregar lotes");
-    } finally {
-      setLoading(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este lote?")) return;
-    
+  const resetForm = async () => {
     try {
-      await productLotsApi.delete(id);
-      toast.success("Lote excluído com sucesso");
+      const { generateLotCode } = await import("@/utils/lot-code-generator");
+      const producer = producers.find(p => p.id === user?.id);
+      const prefix = producer ? producer.name.substring(0, 3).toUpperCase() : "PROD";
+      const newCode = await generateLotCode(prefix);
+      
+      setFormData({
+        code: newCode,
+        name: "",
+        category: "",
+        variety: "",
+        harvest_year: new Date().getFullYear().toString(),
+        quantity: "",
+        unit: "Kg",
+        seals_quantity: "",
+        image_url: "",
+        producer_id: user?.id || "",
+        brand_id: "",
+        industry_id: "",
+        association_id: "",
+        sensory_type: "nota",
+        fragrance_score: 5,
+        flavor_score: 5,
+        finish_score: 5,
+        acidity_score: 5,
+        body_score: 5,
+        sensory_notes: "",
+        lot_observations: "",
+        youtube_video_url: "",
+        video_delay_seconds: 10,
+        latitude: "",
+        longitude: "",
+        components: [],
+      });
+      setIsBlendMode(false);
+      setCurrentStep(1);
+      setEditingLot(null);
+    } catch (e) {}
+  };
+
+  const handleOpenSheet = async () => {
+    await resetForm();
+    setIsSheetOpen(true);
+  };
+
+  const handleEdit = (lot: any) => {
+    setEditingLot(lot);
+    setFormData({
+      ...lot,
+      quantity: lot.quantity?.toString() || "",
+      seals_quantity: lot.seals_quantity?.toString() || "",
+      latitude: lot.latitude?.toString() || "",
+      longitude: lot.longitude?.toString() || "",
+      components: lot.lot_components || [],
+    });
+    setIsBlendMode((lot.lot_components?.length || 0) > 0);
+    setCurrentStep(1);
+    setIsSheetOpen(true);
+  };
+
+  const handleSubmit = async () => {
+    try {
+      if (!formData.name || !formData.category || !formData.image_url) {
+        toast.error("Preencha os campos obrigatórios!");
+        return;
+      }
+
+      const lotData = {
+        ...formData,
+        quantity: formData.quantity ? parseFloat(formData.quantity) : null,
+        seals_quantity: formData.seals_quantity ? parseInt(formData.seals_quantity) : null,
+        producer_id: user?.id
+      };
+
+      if (editingLot) {
+        await productLotsApi.update(editingLot.id, lotData as any);
+        toast.success("Lote atualizado!");
+      } else {
+        await productLotsApi.create(lotData as any);
+        toast.success("Lote registrado!");
+      }
+
+      setIsSheetOpen(false);
       fetchLotes();
     } catch (error) {
-      console.error("Erro ao excluir lote:", error);
-      toast.error("Erro ao excluir lote");
+      toast.error("Erro ao salvar lote");
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ativo':
-        return 'bg-green-100 text-green-800';
-      case 'vendido':
-        return 'bg-blue-100 text-blue-800';
-      case 'processando':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'ativo':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'vendido':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'processando':
-        return <Clock className="h-4 w-4" />;
-      default:
-        return <WarningCircle className="h-4 w-4" />;
+  const confirmDelete = async () => {
+    if (!lotToDelete) return;
+    try {
+      await productLotsApi.delete(lotToDelete);
+      toast.success("Lote removido!");
+      fetchLotes();
+    } catch (error) {
+      toast.error("Erro ao remover lote");
+    } finally {
+      setLotToDelete(null);
     }
   };
 
   const filteredLotes = lotes.filter(lote => {
-    const matchesSearch = lote.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lote.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const search = searchTerm.toLowerCase();
+    const matchesSearch = lote.code.toLowerCase().includes(search) || lote.name.toLowerCase().includes(search);
     const matchesStatus = statusFilter === "todos" || lote.category === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
+  const TableSkeleton = () => (
+    <div className="space-y-4">
+      {Array(5).fill(0).map((_, i) => (
+        <div key={i} className="flex items-center justify-between p-5 bg-white rounded-2xl border border-slate-50 shadow-sm">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-16 w-16 rounded-2xl" />
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          </div>
+          <div className="flex gap-4">
+            <Skeleton className="h-10 w-10 rounded-xl" />
+            <Skeleton className="h-10 w-10 rounded-xl" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <ProducerLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+      <div className="space-y-10">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 text-left">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <Package size={32} style={{ color: primaryColor }} weight="fill" />
               Meus Lotes
-            </h1>
-            <p className="mt-2 text-sm text-gray-600">
-              Gerencie todos os seus lotes de produtos.
-            </p>
+            </h2>
+            <p className="text-slate-500 font-medium text-sm">Gerencie sua produção e emita certificados de origem.</p>
           </div>
-          <div className="mt-4 sm:mt-0">
-            <Button asChild>
-              <Link to="/produtor/lotes/novo">
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Lote
-              </Link>
+          <div className="flex items-center gap-3">
+            <Button variant="outline" className="rounded-xl font-bold gap-2 text-slate-600 border-slate-200">
+              <Export size={18} weight="bold" /> Exportar
+            </Button>
+            <Button 
+              onClick={handleOpenSheet} 
+              className="rounded-xl font-bold text-white hover:opacity-90 shadow-lg h-12 px-6 transition-all gap-2"
+              style={{ backgroundColor: primaryColor }}
+            >
+              <Plus size={20} weight="bold" /> Novo Lote
             </Button>
           </div>
         </div>
 
-        {/* Filtros */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Filtros</CardTitle>
-            <CardDescription>
-              Filtre seus lotes por código, nome ou status
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="Buscar por código ou nome..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+        <Card className="border-0 shadow-sm bg-white rounded-2xl">
+          <CardContent className="p-6">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="relative flex-1">
+                <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <Input
+                  placeholder="Buscar por nome ou código..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-12 h-12 bg-slate-50 border-0 rounded-xl font-medium focus-visible:ring-primary"
+                  style={{ '--primary': primaryColor } as any}
+                />
               </div>
-              <div className="w-full sm:w-48">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger 
+                  className="w-full sm:w-56 h-12 bg-slate-50 border-0 rounded-xl font-bold text-slate-600 focus:ring-primary"
+                  style={{ '--primary': primaryColor } as any}
+                >
+                  <div className="flex items-center gap-2">
+                    <FunnelSimple size={18} weight="bold" style={{ color: primaryColor }} />
                     <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos</SelectItem>
-                    <SelectItem value="ativo">Ativo</SelectItem>
-                    <SelectItem value="vendido">Vendido</SelectItem>
-                    <SelectItem value="processando">Processando</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-slate-100 shadow-xl">
+                  <SelectItem value="todos" className="font-bold">Todos Status</SelectItem>
+                  <SelectItem value="ativo" className="font-medium">Ativo</SelectItem>
+                  <SelectItem value="vendido" className="font-medium">Vendido</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
 
-        {/* Lista de lotes */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Lotes ({filteredLotes.length})</CardTitle>
-            <CardDescription>
-              Lista de todos os seus lotes registrados
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+        <div className="space-y-4">
+          {loading ? (
+            <TableSkeleton />
+          ) : filteredLotes.length === 0 ? (
+            <Card className="border-0 shadow-sm bg-white rounded-3xl p-20 text-center">
+              <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Package size={48} className="text-slate-200" />
               </div>
-            ) : filteredLotes.length === 0 ? (
-              <div className="text-center py-8">
-                <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Nenhum lote encontrado
-                </h3>
-                <p className="text-gray-500 mb-4">
-                  {searchTerm || statusFilter !== "todos" 
-                    ? "Tente ajustar os filtros de busca."
-                    : "Comece criando seu primeiro lote."
-                  }
-                </p>
-                {!searchTerm && statusFilter === "todos" && (
-                  <Button asChild>
-                    <Link to="/produtor/lotes/novo">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Criar Primeiro Lote
-                    </Link>
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredLotes.map((lote) => (
-                  <div
-                    key={lote.id}
-                    className="flex flex-col md:flex-row items-center md:items-stretch justify-between gap-4 p-5 border rounded-2xl shadow-sm bg-white hover:shadow-lg transition-all"
-                  >
-                    {/* Imagem do lote */}
-                    <div className="w-20 h-20 bg-gray-100 rounded-xl flex items-center justify-center overflow-hidden">
-                      {lote.image_url ? (
-                        <img src={lote.image_url} alt={lote.name} className="object-cover w-full h-full" />
-                      ) : (
-                        <Package className="h-10 w-10 text-gray-300" />
-                      )}
-                    </div>
-                    {/* Conteúdo principal */}
-                    <div className="flex-1 flex flex-col justify-center min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h4 className="font-bold text-lg text-gray-900 truncate">{lote.name}</h4>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="rounded-full p-2 text-blue-600 hover:text-blue-700"
-                          asChild
-                          title="Ver Página Pública"
-                        >
-                          <Link to={`/lote/${lote.code}`} target="_blank" rel="noopener noreferrer">
-                            <Eye className="h-4 w-4" />
-                          </Link>
+              <h3 className="text-xl font-black text-slate-900 mb-2">Nenhum lote encontrado</h3>
+              <p className="text-slate-400 font-medium">Você ainda não possui lotes registrados para estes filtros.</p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 gap-4">
+              {filteredLotes.map((lote) => (
+                <Card key={lote.id} className="group border-0 shadow-sm bg-white rounded-2xl hover:shadow-xl transition-all duration-300 overflow-hidden">
+                  <CardContent className="p-5">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                      <div className="flex items-center gap-5 flex-1 text-left">
+                        <div className="relative flex-shrink-0">
+                          <img src={lote.image_url || "/placeholder.svg"} className="h-16 w-16 rounded-2xl object-cover shadow-sm group-hover:scale-105 transition-transform" />
+                          <div 
+                            className="absolute -top-2 -left-2 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md shadow-lg uppercase"
+                            style={{ backgroundColor: primaryColor }}
+                          >
+                            {lote.harvest_year}
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-lg font-black text-slate-900 leading-none">{lote.name}</h4>
+                            <Badge 
+                              className="border-0 font-black text-[10px] uppercase rounded-md"
+                              style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
+                            >
+                              {lote.category}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
+                            <span className="font-mono bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">#{lote.code}</span>
+                            <span className="flex items-center gap-1"><Scales size={14} /> {lote.quantity} {lote.unit}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 border-l border-slate-50 pl-6">
+                        <Button variant="ghost" size="icon" asChild className="h-10 w-10 rounded-xl text-blue-600 hover:bg-blue-50">
+                          <a href={`/lote/${lote.code}`} target="_blank" rel="noreferrer"><Eye size={20} weight="bold" /></a>
                         </Button>
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1 truncate">
-                        Código: {lote.code} | Safra: {lote.harvest_year} | Categoria: {lote.category} {lote.variety && `| Variedade: ${lote.variety}`}
-                      </div>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        <span className="bg-gray-100 text-gray-700 rounded-full px-3 py-1 text-xs font-semibold">
-                          {lote.quantity} {lote.unit}
-                        </span>
-                        {lote.flavor_score && (
-                          <span className="bg-green-100 text-green-700 rounded-full px-3 py-1 text-xs font-semibold">
-                            {lote.flavor_score.toFixed(1)} Sabor
-                          </span>
-                        )}
-                        {lote.fragrance_score && (
-                          <span className="bg-yellow-100 text-yellow-700 rounded-full px-3 py-1 text-xs font-semibold">
-                            {lote.fragrance_score.toFixed(1)} Fragrância
-                          </span>
-                        )}
-                        {lote.finish_score && (
-                          <span className="bg-blue-100 text-blue-700 rounded-full px-3 py-1 text-xs font-semibold">
-                            {lote.finish_score.toFixed(1)} Finalização
-                          </span>
-                        )}
-                        {lote.acidity_score && (
-                          <span className="bg-pink-100 text-pink-700 rounded-full px-3 py-1 text-xs font-semibold">
-                            {lote.acidity_score.toFixed(1)} Acidez
-                          </span>
-                        )}
-                        {lote.body_score && (
-                          <span className="bg-purple-100 text-purple-700 rounded-full px-3 py-1 text-xs font-semibold">
-                            {lote.body_score.toFixed(1)} Corpo
-                          </span>
-                        )}
+                        <Button variant="ghost" size="icon" asChild className="h-10 w-10 rounded-xl text-slate-600 hover:bg-slate-50">
+                          <Link to={`/produtor/qrcodes/${lote.id}`}><QrCode size={20} weight="bold" /></Link>
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-slate-400"><DotsThreeOutlineVertical size={20} weight="fill" /></Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 shadow-xl border-slate-100">
+                            <DropdownMenuItem onClick={() => handleEdit(lote)} className="rounded-lg py-2.5 font-bold text-slate-600 cursor-pointer focus:bg-slate-50">
+                              <PencilSimple size={18} weight="bold" style={{ color: primaryColor }} className="mr-2" /> Editar Lote
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setLotToDelete(lote.id)} className="rounded-lg py-2.5 font-bold text-rose-600 cursor-pointer focus:bg-rose-50 focus:text-rose-600">
+                              <Trash size={18} weight="bold" className="mr-2" /> Excluir Lote
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
-                    {/* Ações */}
-                    <div className="flex flex-col gap-2 items-end md:items-center justify-center">
-                      <Button variant="ghost" size="icon" className="rounded-full p-2" asChild title="Editar Lote">
-                        <Link to={`/produtor/lotes/${lote.id}/editar`}><PencilSimple className="h-4 w-4" /></Link>
-                      </Button>
-                      <Button variant="ghost" size="icon" className="rounded-full p-2" asChild title="QR Code do Lote">
-                        <Link to={`/produtor/qrcodes/${lote.id}`}><QrCode className="h-4 w-4" /></Link>
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="rounded-full p-2 text-red-600 hover:text-red-700 hover:bg-red-50" 
-                        onClick={() => handleDelete(lote.id)} 
-                        title="Excluir Lote"
-                      >
-                        <Trash className="h-4 w-4" />
-                      </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+          <SheetContent className="w-full sm:max-w-[80vw] sm:rounded-l-[2.5rem] border-0 p-0 overflow-hidden shadow-2xl">
+            <div className="h-full flex flex-col bg-white">
+              <SheetHeader className="p-8 border-b border-slate-50 bg-slate-50/30">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8 text-left">
+                  <div className="flex items-center gap-4">
+                    <div 
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm text-white"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      <Package size={32} weight="fill" />
+                    </div>
+                    <div>
+                      <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight">
+                        {editingLot ? "Editar Lote" : "Registrar Lote"}
+                      </SheetTitle>
+                      <SheetDescription className="text-slate-500 font-bold text-base">Configure a rastreabilidade do seu produto.</SheetDescription>
                     </div>
                   </div>
-                ))}
+
+                  <FormStepIndicator steps={LOT_STEPS} currentStep={currentStep} primaryColor={primaryColor} />
+                </div>
+              </SheetHeader>
+              <div className="flex-1 relative flex flex-col min-h-0">
+                <LotForm
+                  formData={formData}
+                  setFormData={setFormData}
+                  producers={producers}
+                  associations={associations}
+                  industries={industries}
+                  isBlendMode={isBlendMode}
+                  setIsBlendMode={setIsBlendMode}
+                  currentStep={currentStep}
+                  setCurrentStep={setCurrentStep}
+                  totalSteps={4}
+                  onSubmit={handleSubmit}
+                  onCancel={() => setIsSheetOpen(false)}
+                  isEditing={!!editingLot}
+                  branding={branding}
+                />
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <AlertDialog open={!!lotToDelete} onOpenChange={() => setLotToDelete(null)}>
+          <AlertDialogContent className="rounded-3xl border-0 shadow-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-2xl font-black text-slate-900">Confirmar Exclusão?</AlertDialogTitle>
+              <AlertDialogDescription className="text-slate-500 font-medium">Esta ação é irreversível. O lote será removido do sistema.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="gap-3 mt-4 text-left">
+              <AlertDialogCancel className="rounded-xl font-bold border-slate-200">Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="rounded-xl font-bold bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-200">Sim, Excluir</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </ProducerLayout>
   );
-}; 
+};

@@ -12,12 +12,14 @@ interface Producer {
   property_description?: string | null;
   city: string;
   state: string;
-  address?: string | null; // Adicionado campo address
+  address?: string | null;
   altitude?: number | null;
   average_temperature?: number | null;
   latitude?: string;
   longitude?: string;
   photos?: string[];
+  profile_picture_url?: string | null;
+  address_internal_only?: boolean;
 }
 
 interface BlendComponent {
@@ -223,18 +225,25 @@ const ProducerDetailsContent = ({ producer, primaryColor, secondaryColor, accent
     <div className="space-y-8">
       {/* Header da propriedade */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-        <div>
-          <div className="flex items-center gap-3 mb-2">
-            <h3 className="text-2xl font-bold text-gray-900">
-              {producer.property_name}
-            </h3>
-            {percentage !== undefined && (
-              <Badge className="bg-gray-900 text-white hover:bg-gray-800">{percentage}% do Blend</Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-2 text-gray-600">
-            <User className="w-4 h-4" weight="bold" />
-            <span className="font-medium">{producer.name}</span>
+        <div className="flex items-center gap-4">
+          {producer.profile_picture_url && (
+            <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white shadow-md flex-shrink-0">
+              <img src={producer.profile_picture_url} alt={producer.name} className="w-full h-full object-cover" />
+            </div>
+          )}
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <h3 className="text-2xl font-bold text-gray-900">
+                {producer.property_name}
+              </h3>
+              {percentage !== undefined && (
+                <Badge className="bg-gray-900 text-white hover:bg-gray-800">{percentage}% do Blend</Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-2 text-gray-600">
+              <User className="w-4 h-4" weight="bold" />
+              <span className="font-medium">{producer.name}</span>
+            </div>
           </div>
         </div>
         

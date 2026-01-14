@@ -10,16 +10,21 @@ import {
   ChartBar,
   ArrowUp,
   ArrowDown,
-  Ticket
+  Ticket,
+  Plus,
+  CaretRight
 } from "@phosphor-icons/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { producersApi, productLotsApi, systemConfigApi } from "@/services/api";
+import { producersApi, productLotsApi, systemConfigApi, associationsApi, industriesApi } from "@/services/api";
 import { toast } from "sonner";
 import { ProducerForm } from "./Produtores";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { LotForm } from "@/components/lots/LotForm";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { LotForm, LOT_STEPS } from "@/components/lots/LotForm";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { FormStepIndicator } from "@/components/ui/step-indicator";
 
 interface DashboardStats {
   totalProducers: number;
@@ -29,6 +34,13 @@ interface DashboardStats {
   recentLots: any[];
   totalSeals30Days: number;
 }
+
+const PRODUCER_STEPS = [
+  { id: 1, title: "Responsável" },
+  { id: 2, title: "Propriedade" },
+  { id: 3, title: "Localização" },
+  { id: 4, title: "Vínculos" },
+];
 
 const Dashboard = () => {
   const [stats, setStats] = useState<DashboardStats>({
@@ -45,8 +57,10 @@ const Dashboard = () => {
     secondaryColor: string;
     accentColor: string;
   } | null>(null);
-  const [showProducerModal, setShowProducerModal] = useState(false);
-  const [showLotModal, setShowLotModal] = useState(false);
+  const [showProducerSheet, setShowProducerSheet] = useState(false);
+  const [showLotSheet, setShowLotSheet] = useState(false);
+  const [lotCurrentStep, setLotCurrentStep] = useState(1);
+  const [producerCurrentStep, setProducerCurrentStep] = useState(1);
   const [lotFormData, setLotFormData] = useState({
     code: "",
     name: "",
@@ -57,6 +71,10 @@ const Dashboard = () => {
     unit: "",
     image_url: "",
     producer_id: "",
+    brand_id: "",
+    industry_id: "",
+    association_id: "",
+    sensory_type: "nota",
     fragrance_score: 5,
     flavor_score: 5,
     finish_score: 5,
@@ -65,6 +83,8 @@ const Dashboard = () => {
     sensory_notes: "",
   });
   const [lotProducers, setLotProducers] = useState<any[]>([]);
+  const [lotAssociations, setLotAssociations] = useState<any[]>([]);
+  const [lotIndustries, setLotIndustries] = useState<any[]>([]);
 
   useEffect(() => {
     const loadBranding = async () => {
@@ -82,14 +102,11 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        
-        // Buscar dados em paralelo
         const [producers, lots] = await Promise.all([
           producersApi.getAll(),
           productLotsApi.getAll(),
         ]);
 
-        // Calcular estatísticas
         const categoryCount = lots.reduce((acc: any, lot) => {
           const category = lot.category || "Sem categoria";
           acc[category] = (acc[category] || 0) + 1;
@@ -101,10 +118,7 @@ const Dashboard = () => {
           .sort((a, b) => b.count - a.count)
           .slice(0, 5);
 
-        // Visualizações reais
         const totalViews = lots.reduce((sum, lot) => sum + (lot.views ?? 0), 0);
-
-        // Calcular total de selos dos lotes criados nos últimos 30 dias
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -131,8 +145,18 @@ const Dashboard = () => {
   }, []);
 
   useEffect(() => {
-    if (showLotModal) {
-      producersApi.getAll().then(setLotProducers);
+    if (showLotSheet) {
+      setLotCurrentStep(1);
+      Promise.all([
+        producersApi.getAll(),
+        associationsApi.getAll(),
+        industriesApi.getAll()
+      ]).then(([p, a, i]) => {
+        setLotProducers(p);
+        setLotAssociations(a);
+        setLotIndustries(i);
+      });
+
       const generateCode = async () => {
         if (!lotFormData.code) {
           try {
@@ -143,351 +167,375 @@ const Dashboard = () => {
             }
           } catch (error) {
             console.error('Erro ao gerar código único:', error);
-            // Fallback: usar timestamp + random para garantir unicidade
-            const year = new Date().getFullYear();
-            const timestamp = Date.now().toString().slice(-6);
-            const rand = Math.floor(1000 + Math.random() * 9000);
-            setLotFormData((prev) => ({ ...prev, code: `PROD-${year}-${timestamp}-${rand}` }));
           }
         }
       };
       generateCode();
     }
-  }, [showLotModal]);
+  }, [showLotSheet]);
 
   const handleLotCreate = async () => {
     try {
       const lotData = {
         ...lotFormData,
         quantity: lotFormData.quantity ? parseFloat(lotFormData.quantity) : null,
-        fragrance_score: lotFormData.fragrance_score,
-        flavor_score: lotFormData.flavor_score,
-        finish_score: lotFormData.finish_score,
-        acidity_score: lotFormData.acidity_score,
-        body_score: lotFormData.body_score,
       };
-      await productLotsApi.create(lotData);
+      await productLotsApi.create(lotData as any);
       toast.success("Lote criado com sucesso!");
-      setShowLotModal(false);
-      setLotFormData({
-        code: "",
-        name: "",
-        category: "",
-        variety: "",
-        harvest_year: "",
-        quantity: "",
-        unit: "",
-        image_url: "",
-        producer_id: "",
-        fragrance_score: 5,
-        flavor_score: 5,
-        finish_score: 5,
-        acidity_score: 5,
-        body_score: 5,
-        sensory_notes: "",
-      });
+      setShowLotSheet(false);
     } catch (error) {
       toast.error("Erro ao criar lote");
     }
   };
 
   const primaryColor = branding?.primaryColor || '#16a34a';
-  const secondaryColor = branding?.secondaryColor || '#22c55e';
+
+  const StatCardSkeleton = () => (
+    <Card className="border-0 shadow-sm bg-white overflow-hidden">
+      <div className="h-1 bg-slate-100" />
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <Skeleton className="h-12 w-12 rounded-xl" />
+          <Skeleton className="h-5 w-12 rounded-full" />
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-8 w-16" />
+          <Skeleton className="h-3 w-32" />
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   const StatCard = ({ 
     title, 
     value, 
     icon: Icon, 
     description, 
-    trend 
+    trend,
+    color = primaryColor
   }: {
     title: string;
     value: string | number;
     icon: any;
     description?: string;
     trend?: { value: number; isPositive: boolean };
+    color?: string;
   }) => (
-    <Card className="border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 group">
+    <Card className="border-0 shadow-sm bg-white overflow-hidden group hover:shadow-lg hover:shadow-slate-200/50 transition-all duration-300">
+      <div className="h-1 transition-all duration-300 group-hover:h-1.5" style={{ backgroundColor: color }} />
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div 
-            className="p-3 rounded-xl transition-colors duration-300 group-hover:bg-opacity-20"
-            style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
+            className="p-3 rounded-xl transition-all duration-300 group-hover:scale-110 shadow-sm"
+            style={{ backgroundColor: `${color}10`, color: color }}
           >
-            <Icon className="h-6 w-6" weight="duotone" />
+            <Icon className="h-6 w-6" weight="fill" />
           </div>
           {trend && (
-            <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-              trend.isPositive ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+            <Badge variant="outline" className={`border-0 font-bold ${
+              trend.isPositive ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
             }`}>
-              {trend.isPositive ? <ArrowUp className="h-3 w-3 mr-1" /> : <ArrowDown className="h-3 w-3 mr-1" />}
-              {trend.value}%
-            </div>
+              {trend.isPositive ? "+" : "-"}{trend.value}%
+            </Badge>
           )}
         </div>
-        <div>
-          <h3 className="text-sm font-medium text-gray-500 mb-1">{title}</h3>
-          <div className="text-3xl font-bold text-gray-900 tracking-tight">{value}</div>
+        <div className="text-left">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{title}</h3>
+          <div className="text-3xl font-black text-slate-900 tracking-tight">{value}</div>
           {description && (
-            <p className="text-xs text-gray-400 mt-2">{description}</p>
+            <p className="text-[11px] text-slate-400 mt-2 font-medium flex items-center gap-1">
+              <ChartBar size={12} /> {description}
+            </p>
           )}
         </div>
       </CardContent>
     </Card>
   );
 
-  if (loading) {
-    return (
-      <AdminLayout>
-        <div className="flex items-center justify-center h-[calc(100vh-100px)]">
-          <div className="flex flex-col items-center gap-4">
-            <div 
-              className="w-12 h-12 border-4 rounded-full animate-spin"
-              style={{ borderColor: `${primaryColor}30`, borderTopColor: primaryColor }}
-            ></div>
-            <p className="text-gray-500 text-sm font-medium animate-pulse">Carregando dados...</p>
-          </div>
-        </div>
-      </AdminLayout>
-    );
-  }
-
   return (
     <AdminLayout>
-      <div className="space-y-8 max-w-[1600px] mx-auto">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
-            <p className="text-gray-500 mt-1">Visão geral do sistema e métricas principais</p>
+      <div className="space-y-10">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 text-left">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Bem-vindo, Admin! 👋</h2>
+            <p className="text-slate-500 font-medium">Aqui está o que está acontecendo no GeoTrace hoje.</p>
           </div>
-          <div className="flex gap-3">
-            <button 
-              className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm"
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              className="rounded-xl border-slate-200 font-bold text-slate-600 hover:bg-slate-50"
               onClick={() => window.location.reload()}
             >
-              Atualizar
-            </button>
+              Atualizar Dados
+            </Button>
+            <Button 
+              className="rounded-xl font-bold text-white shadow-lg hover:opacity-90 transition-all"
+              onClick={() => { setLotCurrentStep(1); setShowLotSheet(true); }}
+              style={{ backgroundColor: primaryColor }}
+            >
+              <Plus className="mr-2 h-5 w-5" weight="bold" />
+              Novo Lote
+            </Button>
           </div>
         </div>
 
-        {/* Cards de estatísticas */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            title="Total de Produtores"
-            value={stats.totalProducers}
-            icon={Users}
-            description="Produtores cadastrados e ativos"
-            trend={{ value: 12, isPositive: true }}
-          />
-          <StatCard
-            title="Total de Lotes"
-            value={stats.totalLots}
-            icon={Package}
-            description="Lotes registrados no sistema"
-            trend={{ value: 8, isPositive: true }}
-          />
-          <StatCard
-            title="Visualizações Totais"
-            value={stats.totalViews.toLocaleString()}
-            icon={Eye}
-            description="Acessos às páginas dos lotes"
-            trend={{ value: 15, isPositive: true }}
-          />
-          <StatCard
-            title="Selos Emitidos (30d)"
-            value={stats.totalSeals30Days.toLocaleString()}
-            icon={Ticket}
-            description="Total de selos gerados no mês"
-          />
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {loading ? (
+            Array(4).fill(0).map((_, i) => <StatCardSkeleton key={i} />)
+          ) : (
+            <>
+              <StatCard
+                title="Produtores"
+                value={stats.totalProducers}
+                icon={Users}
+                description="Parceiros ativos no sistema"
+                trend={{ value: 12, isPositive: true }}
+                color={primaryColor}
+              />
+              <StatCard
+                title="Lotes Registrados"
+                value={stats.totalLots}
+                icon={Package}
+                description="Produtos rastreados"
+                trend={{ value: 8, isPositive: true }}
+                color="#3b82f6"
+              />
+              <StatCard
+                title="Visualizações"
+                value={stats.totalViews.toLocaleString()}
+                icon={Eye}
+                description="Engajamento de consumidores"
+                trend={{ value: 15, isPositive: true }}
+                color="#8b5cf6"
+              />
+              <StatCard
+                title="Selos (30 dias)"
+                value={stats.totalSeals30Days.toLocaleString()}
+                icon={Ticket}
+                description="Volume de etiquetas geradas"
+                color="#f59e0b"
+              />
+            </>
+          )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Categorias mais populares - 1 Coluna */}
-          <Card className="border border-gray-100 shadow-sm lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="flex items-center text-lg">
-                <Medal className="h-5 w-5 mr-2" style={{ color: primaryColor }} weight="duotone" />
-                Top Categorias
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {stats.topCategories.map((item, index) => (
-                  <div key={item.category} className="flex items-center justify-between group">
-                    <div className="flex items-center gap-4">
-                      <div 
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-colors"
-                        style={{ 
-                          backgroundColor: index === 0 ? `${primaryColor}15` : '#f3f4f6',
-                          color: index === 0 ? primaryColor : '#6b7280'
-                        }}
-                      >
-                        {index + 1}
-                      </div>
-                      <span className="font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
-                        {item.category}
-                      </span>
-                    </div>
-                    <Badge variant="secondary" className="bg-gray-100 text-gray-600 hover:bg-gray-200">
-                      {item.count} lotes
-                    </Badge>
-                  </div>
-                ))}
+        {/* Charts & Lists Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-left">
+          {/* Lotes Recentes */}
+          <Card className="lg:col-span-2 border-0 shadow-sm bg-white rounded-2xl overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between border-b border-slate-50 px-8 py-6">
+              <div>
+                <CardTitle className="text-xl font-black text-slate-900">Lotes Recentes</CardTitle>
+                <CardDescription className="text-slate-400 font-medium">Últimos produtos inseridos na plataforma</CardDescription>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Lotes recentes - 2 Colunas */}
-          <Card className="border border-gray-100 shadow-sm lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center text-lg">
-                <Package className="h-5 w-5 mr-2" style={{ color: primaryColor }} weight="duotone" />
-                Lotes Recentes
-              </CardTitle>
+              <Button 
+                variant="ghost" 
+                className="font-bold hover:bg-primary/5 rounded-xl" 
+                onClick={() => window.location.href='/admin/lotes'}
+                style={{ color: primaryColor }}
+              >
+                Ver Todos <CaretRight className="ml-1 h-4 w-4" weight="bold" />
+              </Button>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {stats.recentLots.map((lot) => (
-                  <div 
-                    key={lot.id} 
-                    className="flex items-center justify-between p-4 bg-white border border-gray-100 rounded-xl hover:border-gray-200 hover:shadow-md transition-all duration-300 group"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div 
-                        className="w-10 h-10 rounded-lg flex items-center justify-center transition-colors"
-                        style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
-                      >
-                        <Package className="h-5 w-5" weight="duotone" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-gray-900">{lot.name}</span>
-                          <Badge variant="outline" className="text-[10px] px-2 h-5 bg-white">
-                            {lot.category}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {lot.harvest_year}
+            <CardContent className="p-0 min-h-0">
+              {loading ? (
+                <div className="p-8 space-y-4">
+                  {Array(5).fill(0).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-2xl" />)}
+                </div>
+              ) : stats.recentLots.length === 0 ? (
+                <div className="p-20 text-center space-y-4">
+                  <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
+                    <Package size={40} className="text-slate-200" />
+                  </div>
+                  <p className="text-slate-400 font-bold">Nenhum lote registrado recentemente.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-50">
+                  {stats.recentLots.map((lot) => (
+                    <div key={lot.id} className="group p-6 hover:bg-slate-50/50 transition-all flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-5">
+                        <div className="relative">
+                          <img 
+                            src={lot.image_url || "/placeholder.svg"} 
+                            className="h-14 w-14 rounded-2xl object-cover shadow-sm group-hover:scale-105 transition-transform" 
+                            alt={lot.name} 
+                          />
+                          <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-white rounded-full flex items-center justify-center shadow-sm">
+                            <div className="h-3 w-3 rounded-full bg-emerald-500" />
                           </div>
-                          {lot.producers?.city && (
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3.5 w-3.5" />
-                              {lot.producers.city}
-                            </div>
-                          )}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-slate-900 group-hover:text-primary transition-colors">{lot.name}</h4>
+                          <div className="flex items-center gap-3 mt-1 text-xs font-bold text-slate-400 uppercase tracking-wider">
+                            <span className="flex items-center gap-1"><MapPin size={14} weight="fill" className="text-slate-300" /> {lot.producers?.city || "Local não inf."}</span>
+                            <span className="h-1 w-1 bg-slate-300 rounded-full" />
+                            <span className="flex items-center gap-1"><Calendar size={14} weight="fill" className="text-slate-300" /> Safra {lot.harvest_year}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    <div className="text-right">
-                      <div className="text-sm font-bold text-gray-900 mb-1">
-                        {lot.quantity} {lot.unit}
-                      </div>
-                      <div className="text-xs font-mono text-gray-400 bg-gray-50 px-2 py-1 rounded">
-                        {lot.code}
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge className="bg-slate-100 text-slate-600 border-0 hover:bg-slate-200 font-bold px-3 py-1 rounded-lg">
+                          {lot.category}
+                        </Badge>
+                        <span className="font-mono text-[10px] text-slate-300 font-black tracking-tighter">#{lot.code}</span>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
-        </div>
 
-        {/* Ações rápidas */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button 
-            className="p-6 bg-white border border-gray-200 rounded-xl hover:border-transparent hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center group flex flex-col items-center gap-3" 
-            onClick={() => setShowProducerModal(true)}
-          >
-            <div 
-              className="w-12 h-12 rounded-full flex items-center justify-center transition-colors duration-300 group-hover:bg-opacity-20"
-              style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
-            >
-              <Users className="h-6 w-6" weight="duotone" />
-            </div>
-            <div>
-              <div className="font-semibold text-gray-900 mb-1">Novo Produtor</div>
-              <div className="text-xs text-gray-500">Cadastrar parceiro</div>
-            </div>
-          </button>
+          {/* Categorias & Quick Actions */}
+          <div className="space-y-8">
+            <Card className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden text-left">
+              <CardHeader className="border-b border-slate-50 px-8 py-6">
+                <CardTitle className="text-xl font-black text-slate-900">Categorias</CardTitle>
+                <CardDescription className="text-slate-400 font-medium">Distribuição por tipo de produto</CardDescription>
+              </CardHeader>
+              <CardContent className="p-8">
+                {loading ? (
+                  <div className="space-y-6">
+                    {Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-12 w-full rounded-xl" />)}
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {stats.topCategories.map((cat, index) => (
+                      <div key={cat.category} className="space-y-2">
+                        <div className="flex items-center justify-between font-bold text-sm">
+                          <span className="text-slate-700">{cat.category}</span>
+                          <span style={{ color: primaryColor }}>{cat.count}</span>
+                        </div>
+                        <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full rounded-full transition-all duration-1000 ease-out" 
+                            style={{ 
+                              width: `${(cat.count / stats.totalLots) * 100}%`,
+                              backgroundColor: index === 0 ? primaryColor : `${primaryColor}60`
+                            }} 
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          <button 
-            className="p-6 bg-white border border-gray-200 rounded-xl hover:border-transparent hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center group flex flex-col items-center gap-3" 
-            onClick={() => setShowLotModal(true)}
-          >
-            <div 
-              className="w-12 h-12 rounded-full flex items-center justify-center transition-colors duration-300 group-hover:bg-opacity-20"
-              style={{ backgroundColor: `${secondaryColor}10`, color: secondaryColor }}
-            >
-              <Package className="h-6 w-6" weight="duotone" />
+            {/* Quick Actions Panel */}
+            <div className="grid grid-cols-2 gap-4">
+              <button 
+                onClick={() => { setProducerCurrentStep(1); setShowProducerSheet(true); }}
+                className="flex flex-col items-center gap-3 p-6 rounded-2xl transition-all group"
+                style={{ backgroundColor: `${primaryColor}05` }}
+              >
+                <div 
+                  className="p-3 bg-white rounded-xl shadow-sm group-hover:scale-110 transition-transform"
+                  style={{ color: primaryColor }}
+                >
+                  <Users size={24} weight="fill" />
+                </div>
+                <span className="text-sm font-black tracking-tight text-center" style={{ color: primaryColor }}>Novo Produtor</span>
+              </button>
+              
+              <button 
+                onClick={() => window.location.href='/admin/industria'}
+                className="flex flex-col items-center gap-3 p-6 bg-blue-50 rounded-2xl hover:bg-blue-100 transition-all group"
+              >
+                <div className="p-3 bg-white rounded-xl shadow-sm text-blue-600 group-hover:scale-110 transition-transform">
+                  <Medal size={24} weight="fill" />
+                </div>
+                <span className="text-sm font-black text-blue-700 tracking-tight text-center">Gestão Indústria</span>
+              </button>
             </div>
-            <div>
-              <div className="font-semibold text-gray-900 mb-1">Novo Lote</div>
-              <div className="text-xs text-gray-500">Registrar produto</div>
-            </div>
-          </button>
-
-          <button 
-            className="p-6 bg-white border border-gray-200 rounded-xl hover:border-transparent hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center group flex flex-col items-center gap-3" 
-            onClick={() => window.location.href='/admin/relatorios'}
-          >
-            <div 
-              className="w-12 h-12 rounded-full flex items-center justify-center bg-blue-50 text-blue-600 transition-colors duration-300 group-hover:bg-blue-100"
-            >
-              <ChartBar className="h-6 w-6" weight="duotone" />
-            </div>
-            <div>
-              <div className="font-semibold text-gray-900 mb-1">Relatórios</div>
-              <div className="text-xs text-gray-500">Análises e métricas</div>
-            </div>
-          </button>
-
-          <button 
-            className="p-6 bg-white border border-gray-200 rounded-xl hover:border-transparent hover:shadow-lg hover:-translate-y-1 transition-all duration-300 text-center group flex flex-col items-center gap-3" 
-            onClick={() => window.location.href='/admin/associacoes'}
-          >
-            <div 
-              className="w-12 h-12 rounded-full flex items-center justify-center bg-purple-50 text-purple-600 transition-colors duration-300 group-hover:bg-purple-100"
-            >
-              <Users className="h-6 w-6" weight="duotone" />
-            </div>
-            <div>
-              <div className="font-semibold text-gray-900 mb-1">Associações</div>
-              <div className="text-xs text-gray-500">Gerenciar entidades</div>
-            </div>
-          </button>
+          </div>
         </div>
       </div>
 
-      {/* Dialogs para formulários */}
-      <Dialog open={showProducerModal} onOpenChange={setShowProducerModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Novo Produtor</DialogTitle>
-          </DialogHeader>
-          <ProducerForm onSubmit={() => setShowProducerModal(false)} onCancel={() => setShowProducerModal(false)} />
-        </DialogContent>
-      </Dialog>
-      <Dialog open={showLotModal} onOpenChange={setShowLotModal}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-2">
-          <DialogHeader>
-            <DialogTitle className="mt-4 px-6">Novo Lote</DialogTitle>
-          </DialogHeader>
-          <LotForm
-            formData={lotFormData}
-            setFormData={setLotFormData}
-            producers={lotProducers}
-            onSubmit={handleLotCreate}
-            onCancel={() => setShowLotModal(false)}
-          />
-        </DialogContent>
-      </Dialog>
+      {/* Sheets (Offcanvas) para Formulários */}
+      <Sheet open={showProducerSheet} onOpenChange={setShowProducerSheet}>
+        <SheetContent className="w-full sm:max-w-[80vw] sm:rounded-l-[2.5rem] border-0 p-0 overflow-hidden shadow-2xl">
+          <div className="h-full flex flex-col bg-white">
+            <SheetHeader className="p-8 border-b border-slate-50 bg-slate-50/30">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8 text-left">
+                <div className="flex items-center gap-4">
+                  <div 
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm text-white"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    <Users size={32} weight="fill" />
+                  </div>
+                  <div>
+                    <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight">Novo Produtor</SheetTitle>
+                    <SheetDescription className="text-slate-500 font-bold text-base">Cadastre as informações do produtor e sua propriedade.</SheetDescription>
+                  </div>
+                </div>
+
+                <FormStepIndicator steps={PRODUCER_STEPS} currentStep={producerCurrentStep} primaryColor={primaryColor} />
+              </div>
+            </SheetHeader>
+            <div className="flex-1 relative flex flex-col min-h-0">
+              <ProducerForm 
+                branding={branding}
+                currentStep={producerCurrentStep}
+                setCurrentStep={setProducerCurrentStep}
+                onSubmit={() => {
+                  setShowProducerSheet(false);
+                  toast.success("Produtor cadastrado com sucesso!");
+                }} 
+                onCancel={() => setShowProducerSheet(false)} 
+              />
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={showLotSheet} onOpenChange={setShowLotSheet}>
+        <SheetContent className="w-full sm:max-w-[80vw] sm:rounded-l-[2.5rem] border-0 p-0 overflow-hidden shadow-2xl">
+          <div className="h-full flex flex-col bg-white">
+            <SheetHeader className="p-8 border-b border-slate-50 bg-slate-50/30">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-8 text-left">
+                <div className="flex items-center gap-4">
+                  <div 
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm text-white"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    <Package size={32} weight="fill" />
+                  </div>
+                  <div>
+                    <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight">Novo Lote</SheetTitle>
+                    <SheetDescription className="text-slate-500 font-bold text-base">Configure os dados técnicos do produto.</SheetDescription>
+                  </div>
+                </div>
+
+                <FormStepIndicator steps={LOT_STEPS} currentStep={lotCurrentStep} primaryColor={primaryColor} />
+              </div>
+            </SheetHeader>
+            <div className="flex-1 relative flex flex-col min-h-0">
+              <LotForm
+                formData={lotFormData}
+                setFormData={setLotFormData}
+                producers={lotProducers}
+                associations={lotAssociations}
+                industries={lotIndustries}
+                onSubmit={handleLotCreate}
+                onCancel={() => setShowLotSheet(false)}
+                isBlendMode={false}
+                setIsBlendMode={() => {}}
+                currentStep={lotCurrentStep}
+                setCurrentStep={setLotCurrentStep}
+                totalSteps={4}
+                branding={branding}
+              />
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </AdminLayout>
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

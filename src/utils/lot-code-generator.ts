@@ -10,18 +10,18 @@ interface LotIdConfig {
 /**
  * Gera um código único para o lote baseado na configuração do sistema
  */
-export async function generateLotCode(): Promise<string> {
+export async function generateLotCode(customPrefix?: string): Promise<string> {
   try {
     const config = await systemConfigApi.getLotIdConfig();
     
-    // Se o modo for manual, retorna vazio para o usuário preencher
+    // Se o modo for manual, retorna o prefixo personalizado ou vazio
     if (config.mode === 'manual') {
-      return '';
+      return customPrefix ? `${customPrefix}-` : '';
     }
     
     // Modo automático
     if (config.mode === 'auto') {
-      const prefix = config.prefix || 'GT';
+      const prefix = customPrefix || config.prefix || 'GT';
       let currentNumber = config.current_number || 1;
       
       // Se auto_increment estiver habilitado, incrementa o número

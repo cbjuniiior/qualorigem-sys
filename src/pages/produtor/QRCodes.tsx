@@ -8,7 +8,13 @@ import {
   Package,
   Eye,
   MagnifyingGlass,
-  Funnel
+  FunnelSimple,
+  ArrowRight,
+  Info,
+  CheckCircle,
+  ShareNetwork,
+  CaretRight,
+  Calendar
 } from "@phosphor-icons/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,321 +29,247 @@ import {
 } from "@/components/ui/select";
 import { ProducerLayout } from "@/components/layout/ProducerLayout";
 import { useAuth } from "@/hooks/use-auth";
-import { productLotsApi, ProductLot } from "@/services/api";
+import { productLotsApi, systemConfigApi } from "@/services/api";
 import { toast } from "sonner";
-
-// Componente QR Code simples (em produção, use uma biblioteca como qrcode.react)
-const QRCodeDisplay = ({ value }: { value: string }) => {
-  return (
-    <div className="w-32 h-32 bg-white border-2 border-gray-300 rounded-lg flex items-center justify-center">
-      <div className="text-center">
-        <QrCode className="h-16 w-16 text-gray-400 mx-auto mb-2" />
-        <p className="text-xs text-gray-500 font-mono">{value.slice(0, 8)}...</p>
-      </div>
-    </div>
-  );
-};
+import { Skeleton } from "@/components/ui/skeleton";
+import { QRCodeSVG } from "qrcode.react";
 
 export const ProducerQRCodes = () => {
   const { user } = useAuth();
-  const [lotes, setLotes] = useState<ProductLot[]>([]);
+  const [lotes, setLotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [branding, setBranding] = useState<any>(null);
   const [qrUrls, setQrUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    fetchLotes();
-  }, []);
-
-  useEffect(() => {
-    // Gerar URLs dos QR Codes quando os lotes são carregados
-    const generateUrls = async () => {
-      const urls: Record<string, string> = {};
-      for (const lote of lotes) {
-        try {
-          const { generateQRCodeUrl } = await import("@/utils/qr-code-generator");
-          urls[lote.id] = await generateQRCodeUrl(lote.code, lote.category);
-        } catch (error) {
-          console.error('Erro ao gerar URL do QR Code:', error);
-          urls[lote.id] = `${window.location.origin}/lote/${lote.code}`;
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [brand, data] = await Promise.all([
+          systemConfigApi.getBrandingConfig(),
+          productLotsApi.getByProducer(user?.id)
+        ]);
+        setBranding(brand);
+        setLotes(data || []);
+        
+        // Gerar URLs
+        const urls: Record<string, string> = {};
+        const { generateQRCodeUrl } = await import("@/utils/qr-code-generator");
+        for (const lote of data || []) {
+          try {
+            urls[lote.id] = await generateQRCodeUrl(lote.code, lote.category);
+          } catch {
+            urls[lote.id] = `${window.location.origin}/lote/${lote.code}`;
+          }
         }
+        setQrUrls(urls);
+      } catch (error) {
+        toast.error("Erro ao carregar QR Codes");
+      } finally {
+        setLoading(false);
       }
-      setQrUrls(urls);
     };
-    
-    if (lotes.length > 0) {
-      generateUrls();
-    }
-  }, [lotes]);
+    loadData();
+  }, [user]);
 
-  const fetchLotes = async () => {
-    try {
-      setLoading(true);
-      const data = await productLotsApi.getByProducer(user?.id);
-      setLotes(data || []);
-    } catch (error) {
-      console.error("Erro ao buscar lotes:", error);
-      toast.error("Erro ao carregar lotes");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDownloadQR = (loteCode: string, loteName: string) => {
-    // Em produção, implemente a geração real do QR code como imagem
-    toast.info("Funcionalidade de download será implementada");
-  };
-
-  const handlePrintQR = (loteCode: string, loteName: string) => {
-    // Em produção, implemente a impressão do QR code
-    toast.info("Funcionalidade de impressão será implementada");
-  };
-
-  const handleCopyUrl = async (loteId: string, loteCode: string, category: string | null) => {
-    try {
-      const { generateQRCodeUrl } = await import("@/utils/qr-code-generator");
-      const url = await generateQRCodeUrl(loteCode, category);
+  const handleCopyUrl = (loteId: string) => {
+    const url = qrUrls[loteId];
+    if (url) {
       navigator.clipboard.writeText(url);
-      toast.success("URL copiada para a área de transferência");
-    } catch (error) {
-      console.error('Erro ao copiar URL:', error);
-      const fallbackUrl = `${window.location.origin}/lote/${loteCode}`;
-      navigator.clipboard.writeText(fallbackUrl);
-      toast.success("URL copiada para a área de transferência");
+      toast.success("Link de rastreabilidade copiado!");
     }
   };
 
   const filteredLotes = lotes.filter(lote => {
-    const matchesSearch = lote.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lote.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const search = searchTerm.toLowerCase();
+    const matchesSearch = lote.code.toLowerCase().includes(search) || lote.name.toLowerCase().includes(search);
     const matchesStatus = statusFilter === "todos" || lote.category === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
+  const primaryColor = branding?.primaryColor || '#16a34a';
+
   return (
     <ProducerLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-              QR Codes
-            </h1>
-            <p className="mt-2 text-sm text-gray-600">
-              Gere e gerencie QR codes para seus lotes.
-            </p>
+      <div className="space-y-10">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <QrCode size={32} style={{ color: primaryColor }} weight="fill" />
+              Etiquetas de Origem
+            </h2>
+            <p className="text-slate-500 font-medium text-sm">Gere os códigos de rastreabilidade para suas embalagens.</p>
           </div>
         </div>
 
-        {/* Filtros */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Filtros</CardTitle>
-            <CardDescription>
-              Filtre seus lotes para gerar QR codes
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="Buscar por código ou nome..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+        <Card className="border-0 shadow-sm bg-white rounded-2xl">
+          <CardContent className="p-6">
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="relative flex-1">
+                <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <Input
+                  placeholder="Buscar por nome ou código do lote..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-12 h-12 bg-slate-50 border-0 rounded-xl font-medium focus-visible:ring-primary"
+                  style={{ '--primary': primaryColor } as any}
+                />
               </div>
-              <div className="w-full sm:w-48">
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger 
+                  className="w-full sm:w-56 h-12 bg-slate-50 border-0 rounded-xl font-bold text-slate-600 focus:ring-primary"
+                  style={{ '--primary': primaryColor } as any}
+                >
+                  <div className="flex items-center gap-2">
+                    <FunnelSimple size={18} weight="bold" style={{ color: primaryColor }} />
                     <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos</SelectItem>
-                    <SelectItem value="ativo">Ativo</SelectItem>
-                    <SelectItem value="vendido">Vendido</SelectItem>
-                    <SelectItem value="processando">Processando</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+                  </div>
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-slate-100 shadow-xl">
+                  <SelectItem value="todos" className="font-bold">Todos Lotes</SelectItem>
+                  <SelectItem value="ativo" className="font-medium">Ativo</SelectItem>
+                  <SelectItem value="vendido" className="font-medium">Vendido</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
 
-        {/* Lista de QR Codes */}
-        <Card>
-          <CardHeader>
-            <CardTitle>QR Codes ({filteredLotes.length})</CardTitle>
-            <CardDescription>
-              Clique nos botões para baixar, imprimir ou copiar o QR code
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
-              </div>
-            ) : filteredLotes.length === 0 ? (
-              <div className="text-center py-8">
-                <QrCode className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Nenhum lote encontrado
-                </h3>
-                <p className="text-gray-500 mb-4">
-                  {searchTerm || statusFilter !== "todos" 
-                    ? "Tente ajustar os filtros de busca."
-                    : "Crie lotes primeiro para gerar QR codes."
-                  }
-                </p>
-                {!searchTerm && statusFilter === "todos" && (
-                  <Button asChild>
-                    <Link to="/produtor/lotes/novo">
-                      <Package className="h-4 w-4 mr-2" />
-                      Criar Primeiro Lote
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array(6).fill(0).map((_, i) => <Skeleton key={i} className="h-[400px] w-full rounded-3xl" />)}
+          </div>
+        ) : filteredLotes.length === 0 ? (
+          <Card className="border-0 shadow-sm bg-white rounded-3xl p-20 text-center">
+            <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+              <QrCode size={48} className="text-slate-200" />
+            </div>
+            <h3 className="text-xl font-black text-slate-900 mb-2">Nenhum QR Code disponível</h3>
+            <p className="text-slate-400 font-medium">Cadastre um lote para gerar sua etiqueta de rastreabilidade.</p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {filteredLotes.map((lote) => (
+              <Card key={lote.id} className="group border-0 shadow-sm bg-white rounded-3xl hover:shadow-xl transition-all duration-500 overflow-hidden flex flex-col">
+                <div className="p-8 flex-1 flex flex-col items-center text-center space-y-6">
+                  <div className="relative">
+                    <div 
+                      className="absolute -inset-4 rounded-full blur-2xl group-hover:opacity-100 opacity-50 transition-all duration-500" 
+                      style={{ backgroundColor: `${primaryColor}15` }}
+                    />
+                    <div className="relative bg-white p-4 rounded-3xl shadow-xl shadow-slate-200/50 ring-1 ring-slate-100 group-hover:scale-105 transition-transform duration-500">
+                      <QRCodeSVG 
+                        value={qrUrls[lote.id] || ""} 
+                        size={160} 
+                        level="H"
+                        includeMargin={false}
+                        imageSettings={branding?.logoUrl ? {
+                          src: branding.logoUrl,
+                          x: undefined,
+                          y: undefined,
+                          height: 30,
+                          width: 30,
+                          excavate: true,
+                        } : undefined}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 w-full">
+                    <div className="flex items-center justify-center gap-2">
+                      <h4 className="text-xl font-black text-slate-900 truncate transition-colors group-hover:text-primary" style={{ '--primary': primaryColor } as any}>{lote.name}</h4>
+                      <Badge 
+                        className="border-0 font-black text-[9px] uppercase"
+                        style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
+                      >
+                        {lote.category}
+                      </Badge>
+                    </div>
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] font-mono">CODE: {lote.code}</p>
+                  </div>
+
+                  <div className="w-full pt-6 border-t border-slate-50 grid grid-cols-2 gap-4">
+                    <div className="text-left space-y-1">
+                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Safra</p>
+                      <p className="text-sm font-black text-slate-700 flex items-center gap-1.5">
+                        <Calendar size={16} weight="fill" style={{ color: `${primaryColor}40` }} /> {lote.harvest_year}
+                      </p>
+                    </div>
+                    <div className="text-right space-y-1">
+                      <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Variedade</p>
+                      <p className="text-sm font-black text-slate-700 truncate">{lote.variety || "N/A"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 flex gap-2">
+                  <Button variant="white" onClick={() => handleCopyUrl(lote.id)} className="flex-1 rounded-xl font-bold text-xs gap-2 shadow-sm border-0 hover:bg-white transition-all">
+                    <ShareNetwork size={16} weight="bold" /> Link
+                  </Button>
+                  <Button variant="white" onClick={() => window.print()} className="flex-1 rounded-xl font-bold text-xs gap-2 shadow-sm border-0 hover:bg-white transition-all">
+                    <Printer size={16} weight="bold" /> Imprimir
+                  </Button>
+                  <Button 
+                    asChild 
+                    variant="white" 
+                    className="rounded-xl font-bold text-slate-400 border-0 hover:bg-white transition-all group/btn"
+                  >
+                    <Link to={`/produtor/lotes`}>
+                      <ArrowRight size={18} weight="bold" className="group-hover/btn:text-primary transition-colors" style={{ '--primary': primaryColor } as any} />
                     </Link>
                   </Button>
-                )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Knowledge Card */}
+        <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white relative overflow-hidden">
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div className="space-y-6">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 rounded-full border border-white/5">
+                <Info size={18} style={{ color: primaryColor }} weight="fill" />
+                <span className="text-xs font-black uppercase tracking-widest">Guia de Uso</span>
               </div>
-            ) : (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {filteredLotes.map((lote) => (
-                  <Card key={lote.id} className="overflow-hidden">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle className="text-lg">Lote {lote.code}</CardTitle>
-                          <CardDescription className="text-sm">
-                            {lote.name}
-                          </CardDescription>
-                        </div>
-                        <Badge variant="secondary" className="text-xs">
-                          {lote.category || 'ativo'}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {/* QR Code */}
-                      <div className="flex justify-center">
-                        <QRCodeDisplay value={qrUrls[lote.id] || `${window.location.origin}/lote/${lote.code}`} />
-                      </div>
-                      
-                      {/* Informações do lote */}
-                      <div className="space-y-2 text-sm text-gray-600">
-                        <div className="flex justify-between">
-                          <span>Variedade:</span>
-                          <span className="font-medium">{lote.variety || 'N/A'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Safra:</span>
-                          <span className="font-medium">{lote.harvest_year || 'N/A'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Quantidade:</span>
-                          <span className="font-medium">
-                            {lote.quantity || 0} {lote.unit || 'kg'}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      {/* URL do QR Code */}
-                      <div className="bg-gray-50 p-2 rounded text-xs font-mono text-gray-600 break-all">
-                        {qrUrls[lote.id] || `${window.location.origin}/lote/${lote.code}`}
-                      </div>
-                      
-                      {/* Ações */}
-                      <div className="flex flex-wrap gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleDownloadQR(lote.code, lote.name)}
-                          className="flex-1"
-                        >
-                          <DownloadSimple className="h-3 w-3 mr-1" />
-                          Baixar
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handlePrintQR(lote.code, lote.name)}
-                          className="flex-1"
-                        >
-                          <Printer className="h-3 w-3 mr-1" />
-                          Imprimir
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleCopyUrl(lote.id, lote.code, lote.category)}
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          asChild
-                        >
-                          <Link to={`/produtor/lotes/${lote.id}`}>
-                            <Eye className="h-3 w-3" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+              <h3 className="text-3xl font-black tracking-tight leading-tight">Como utilizar suas etiquetas de rastreabilidade?</h3>
+              <div className="space-y-4">
+                {[
+                  { title: "Impressão de Qualidade", desc: "Use papel adesivo fosco para evitar reflexos no escaneamento." },
+                  { title: "Posicionamento Estratégico", desc: "Aplique em superfícies planas da embalagem para leitura fácil." },
+                  { title: "Verificação de Link", desc: "Sempre teste o QR Code com seu celular antes de imprimir em massa." }
+                ].map((item, i) => (
+                  <div key={i} className="flex gap-4">
+                    <div 
+                      className="h-6 w-6 rounded-full flex items-center justify-center shrink-0 text-[10px] font-black text-white"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      {i+1}
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-black text-sm">{item.title}</p>
+                      <p className="text-xs text-slate-400 font-medium">{item.desc}</p>
+                    </div>
+                  </div>
                 ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Instruções */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Como usar os QR Codes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-3">
-                <h4 className="font-medium text-gray-900">Para Produtores</h4>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li className="flex items-start space-x-2">
-                    <span className="text-green-600 mt-0.5">•</span>
-                    <span>Baixe ou imprima os QR codes para seus lotes</span>
-                  </li>
-                  <li className="flex items-start space-x-2">
-                    <span className="text-green-600 mt-0.5">•</span>
-                    <span>Cole os QR codes nos produtos ou embalagens</span>
-                  </li>
-                  <li className="flex items-start space-x-2">
-                    <span className="text-green-600 mt-0.5">•</span>
-                    <span>Compartilhe os QR codes com distribuidores</span>
-                  </li>
-                </ul>
-              </div>
-              <div className="space-y-3">
-                <h4 className="font-medium text-gray-900">Para Consumidores</h4>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li className="flex items-start space-x-2">
-                    <span className="text-blue-600 mt-0.5">•</span>
-                    <span>Escaneie o QR code com o celular</span>
-                  </li>
-                  <li className="flex items-start space-x-2">
-                    <span className="text-blue-600 mt-0.5">•</span>
-                    <span>Acesse informações detalhadas do produto</span>
-                  </li>
-                  <li className="flex items-start space-x-2">
-                    <span className="text-blue-600 mt-0.5">•</span>
-                    <span>Verifique a origem e rastreabilidade</span>
-                  </li>
-                </ul>
+            </div>
+            <div className="hidden md:flex justify-end">
+              <div className="w-64 h-64 bg-white rounded-3xl p-6 shadow-2xl rotate-3 flex items-center justify-center">
+                <QRCodeSVG value={window.location.origin} size={200} />
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div 
+            className="absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full -mr-48 -mt-48 opacity-20" 
+            style={{ backgroundColor: primaryColor }}
+          />
+        </div>
       </div>
     </ProducerLayout>
   );
-}; 
+};
+
+export default ProducerQRCodes;
