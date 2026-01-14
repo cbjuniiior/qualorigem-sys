@@ -84,6 +84,7 @@ export const LotForm = ({
               producers={producers}
               associations={associations}
               industries={industries}
+              isEditing={isEditing}
             />
           )}
 

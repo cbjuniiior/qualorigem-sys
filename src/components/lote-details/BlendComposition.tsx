@@ -40,99 +40,83 @@ export const BlendComposition = ({ blendComponents, harvestYear, quantity, unit,
   const accentColor = branding?.accentColor || '#10b981';
 
   return (
-    <div className="mb-16">
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
-        {/* Header */}
-        <div className="p-6 sm:p-8 border-b border-gray-100">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="mb-12">
+      <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
+        {/* Header - Redesign Premium */}
+        <div className="p-8 sm:p-10 border-b border-gray-100">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
             <div className="flex items-start gap-4">
-              <div className="p-3 bg-gray-50 rounded-xl">
-                <Package className="h-8 w-8 text-gray-700" weight="duotone" />
+              <div className="p-3 bg-slate-50 rounded-2xl" style={{ color: primaryColor }}>
+                <Package className="h-8 w-8" weight="duotone" />
               </div>
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight mb-1">
+                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-slate-50 text-slate-400 text-[9px] font-black uppercase tracking-widest mb-2">
+                  Mix Exclusivo
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                   Composição do Blend
                 </h2>
-                <p className="text-gray-500 text-xs sm:text-sm max-w-md">
+                <p className="text-slate-500 font-medium text-sm max-w-md mt-1">
                   Combinação de {blendComponents.length} componentes únicos para um perfil sensorial exclusivo.
                 </p>
               </div>
             </div>
             
-            <div className="flex gap-6 sm:gap-8 items-center bg-gray-50 px-4 sm:px-6 py-3 rounded-xl border border-gray-100 self-start md:self-auto w-full md:w-auto justify-center md:justify-start">
-              <div className="text-center border-r border-gray-200 pr-6 sm:pr-8">
-                <div className="text-xl sm:text-2xl font-bold text-gray-900">100%</div>
-                <div className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wide">Composição</div>
-              </div>
+            <div className="flex gap-10 items-center bg-slate-50/50 px-8 py-4 rounded-[1.5rem] border border-slate-100 self-start md:self-auto">
               <div className="text-center">
-                <div className="text-xl sm:text-2xl font-bold text-gray-900">{blendComponents.length}</div>
-                <div className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase tracking-wide">Componentes</div>
+                <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter">100%</div>
+                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Composição</div>
+              </div>
+              <div className="w-px h-8 bg-slate-200"></div>
+              <div className="text-center">
+                <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter">{blendComponents.length}</div>
+                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Origens</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Componentes */}
-        <div className="p-4 sm:p-8 bg-gray-50/30">
-          <div className={`grid gap-4 sm:gap-6 grid-cols-1 ${
-            blendComponents.length % 3 === 0 
-              ? 'md:grid-cols-3' 
-              : 'md:grid-cols-2'
-          }`}>
+        {/* Componentes - Grid Premium */}
+        <div className="p-6 sm:p-10 bg-slate-50/30">
+          <div className="grid gap-6 sm:gap-8 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {blendComponents.map((component) => (
-              <div key={component.id} className="group bg-white border border-gray-100 rounded-2xl p-5 sm:p-6 hover:border-gray-300 hover:shadow-lg transition-all duration-300 relative overflow-hidden">
-                {/* Barra de cor superior */}
-                <div 
-                  className="absolute top-0 left-0 right-0 h-1.5"
-                  style={{ 
-                    background: `linear-gradient(to right, ${primaryColor}, ${secondaryColor})`,
-                    opacity: component.component_percentage / 100 + 0.2
-                  }}
-                ></div>
-
-                {/* Header do componente */}
-                <div className="mb-6 mt-2">
-                  <div className="flex items-start justify-between mb-4">
-                    <h3 className="text-base sm:text-lg font-bold text-gray-900 leading-tight">
+              <div key={component.id} className="group bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-8 hover:shadow-xl transition-all duration-500 relative overflow-hidden flex flex-col">
+                {/* Indicador de Porcentagem Minimalista */}
+                <div className="flex items-start justify-between mb-8">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Componente</span>
+                    <h3 className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
                       {component.component_name}
                     </h3>
-                    <span 
-                      className="inline-flex items-center justify-center px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-bold"
-                      style={{ backgroundColor: `${accentColor}15`, color: accentColor }}
-                    >
-                      {component.component_percentage}%
-                    </span>
                   </div>
-                  
-                  {/* Visualização de proporção */}
-                  <div className="w-full bg-gray-100 rounded-full h-2 mb-1">
-                    <div 
-                      className="h-2 rounded-full transition-all duration-1000 ease-out"
-                      style={{ 
-                        width: `${component.component_percentage}%`,
-                        backgroundColor: primaryColor
-                      }}
-                    ></div>
+                  <div 
+                    className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center border-2 border-white shadow-lg transition-transform duration-500 group-hover:scale-110"
+                    style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
+                  >
+                    <span className="text-lg font-black leading-none">{component.component_percentage}</span>
+                    <span className="text-[8px] font-black uppercase tracking-tighter">%</span>
                   </div>
                 </div>
+                
+                {/* Barra de Progresso Sofisticada */}
+                <div className="w-full bg-slate-50 rounded-full h-1.5 mb-8 overflow-hidden">
+                  <div 
+                    className="h-full rounded-full transition-all duration-1000 ease-out"
+                    style={{ 
+                      width: `${component.component_percentage}%`,
+                      backgroundColor: primaryColor
+                    }}
+                  ></div>
+                </div>
               
-                {/* Detalhes do componente em Grid Compacto */}
-                <div className="space-y-3">
+                {/* Detalhes do componente */}
+                <div className="space-y-4 mt-auto">
                   {component.producer_id && component.producers && (
                     <DetailRow 
                       icon={<User weight="duotone" />} 
                       label="Produtor" 
                       value={component.producers.name} 
                       color={primaryColor}
-                    />
-                  )}
-                  
-                  {component.association_id && component.associations && (
-                    <DetailRow 
-                      icon={<Medal weight="duotone" />} 
-                      label="Associação" 
-                      value={component.associations.name} 
-                      color={accentColor}
                     />
                   )}
                   
@@ -150,15 +134,6 @@ export const BlendComposition = ({ blendComponents, harvestYear, quantity, unit,
                       icon={<Tag weight="duotone" />} 
                       label="Variedade" 
                       value={component.component_variety} 
-                      color={secondaryColor}
-                    />
-                  )}
-                  
-                  {component.component_quantity && component.component_unit && (
-                    <DetailRow 
-                      icon={<Scales weight="duotone" />} 
-                      label="Qtd." 
-                      value={`${component.component_quantity} ${component.component_unit}`} 
                       color={secondaryColor}
                     />
                   )}
@@ -181,18 +156,18 @@ export const BlendComposition = ({ blendComponents, harvestYear, quantity, unit,
   );
 };
 
-// Componente auxiliar para linhas de detalhes
+// Componente auxiliar para linhas de detalhes - Redesign Flat
 const DetailRow = ({ icon, label, value, color }: { icon: React.ReactNode, label: string, value: string, color: string }) => (
-  <div className="flex items-center gap-3 text-sm group/row">
+  <div className="flex items-center gap-3 group/row">
     <div 
-      className="w-6 h-6 rounded flex items-center justify-center flex-shrink-0 transition-colors"
+      className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 bg-slate-50 transition-colors group-hover/row:bg-white"
       style={{ color: color }}
     >
-      {icon}
+      <div className="scale-90">{icon}</div>
     </div>
-    <div className="flex-1 flex items-baseline justify-between border-b border-gray-100 pb-1 border-dashed group-hover/row:border-gray-300 transition-colors">
-      <span className="text-gray-500 text-xs font-medium uppercase tracking-wide">{label}</span>
-      <span className="font-medium text-gray-900 text-right ml-2 truncate max-w-[140px]" title={value}>{value}</span>
+    <div className="flex-1 min-w-0">
+      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
+      <p className="text-xs font-black text-slate-900 truncate" title={value}>{value}</p>
     </div>
   </div>
 );

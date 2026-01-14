@@ -14,18 +14,16 @@ const Toaster = ({ ...props }: ToasterProps) => {
       position="bottom-right"
       richColors
       closeButton
-      icons={{
-        success: <CheckCircle size={22} weight="fill" className="text-emerald-500" />,
-        info: <Info size={22} weight="fill" className="text-blue-500" />,
-        warning: <WarningCircle size={22} weight="fill" className="text-amber-500" />,
-        error: <XCircle size={22} weight="fill" className="text-rose-500" />,
-      }}
+      expand={true}
+      visibleToasts={5}
+      offset="16px"
+      gap={8}
       toastOptions={{
-        duration: 4000,
+        duration: 6000,
         classNames: {
           toast:
-            "group toast group-[.toaster]:bg-white group-[.toaster]:text-slate-800 group-[.toaster]:border-slate-200 group-[.toaster]:shadow-[0_20px_50px_rgba(0,0,0,0.12)] group-[.toaster]:rounded-[1.25rem] group-[.toaster]:p-4 group-[.toaster]:font-bold group-[.toaster]:border",
-          description: "group-[.toast]:text-slate-500 group-[.toast]:font-medium group-[.toast]:text-xs",
+            "group toast group-[.toaster]:bg-white group-[.toaster]:text-slate-800 group-[.toaster]:border-slate-200 group-[.toaster]:shadow-[0_20px_50px_rgba(0,0,0,0.12)] group-[.toaster]:rounded-[1.25rem] group-[.toaster]:p-4 group-[.toaster]:font-bold group-[.toaster]:border group-[.toaster]:min-w-[320px] group-[.toaster]:max-w-[420px]",
+          description: "group-[.toast]:text-slate-500 group-[.toast]:font-medium group-[.toast]:text-sm group-[.toast]:mt-1",
           actionButton:
             "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground group-[.toast]:rounded-xl group-[.toast]:font-black",
           cancelButton:
@@ -37,6 +35,12 @@ const Toaster = ({ ...props }: ToasterProps) => {
           warning: "group-[.toaster]:border-amber-200 group-[.toaster]:bg-amber-50/60 group-[.toaster]:text-amber-900",
           info: "group-[.toaster]:border-blue-200 group-[.toaster]:bg-blue-50/60 group-[.toaster]:text-blue-900",
         },
+      }}
+      icons={{
+        success: <CheckCircle size={22} weight="fill" className="text-emerald-500" />,
+        info: <Info size={22} weight="fill" className="text-blue-500" />,
+        warning: <WarningCircle size={22} weight="fill" className="text-amber-500" />,
+        error: <XCircle size={22} weight="fill" className="text-rose-500" />,
       }}
       {...props}
     />

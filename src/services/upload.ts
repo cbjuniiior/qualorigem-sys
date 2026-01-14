@@ -27,11 +27,12 @@ export async function uploadLogoToSupabase(file: File): Promise<string> {
   // Tentar fazer upload no bucket 'branding'
   const { error } = await supabase.storage.from('branding').upload(filePath, file, {
     cacheControl: '3600',
-    upsert: true, // Permite sobrescrever se já existir
+    upsert: true,
   });
 
   if (error) {
-    // Se o bucket não existir, usar o bucket de propriedades como fallback
+    console.error('Erro no upload branding:', error);
+    // Se falhar (ex: bucket não existe ou erro 400), tentar no bucket 'propriedades'
     return uploadImageToSupabase(file);
   }
 

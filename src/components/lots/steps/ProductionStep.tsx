@@ -1,4 +1,4 @@
-import { Medal, Users, Calendar, Package, MapPin, Tag, Buildings, CheckCircle, WarningCircle, CircleNotch, Mountains, Thermometer, Lock, LockOpen, MapTrifold, Camera, Trash, Plus, ChatCircleText, CaretDown, MagnifyingGlass } from "@phosphor-icons/react";
+import { Medal, Users, Calendar, Package, MapPin, Tag, Buildings, CheckCircle, WarningCircle, CircleNotch, Mountains, Thermometer, MapTrifold, Camera, Trash, Plus, ChatCircleText, CaretDown, MagnifyingGlass, Check } from "@phosphor-icons/react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,12 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { BlendComposition } from "../BlendComposition";
 import { LocationPicker } from "@/components/ui/location-picker";
 import { useState, useEffect, useCallback } from "react";
-import { brandsApi, producersApi, associationsApi, industriesApi, systemConfigApi } from "@/services/api";
+import { brandsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotsApi } from "@/services/api";
 import { generateSlug } from "@/utils/slug-generator";
 import { generateLotCode } from "@/utils/lot-code-generator";
 import { uploadImageToSupabase } from "@/services/upload";
 import { toast } from "sonner";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import axios from "axios";
@@ -78,6 +77,18 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
   const [loadingCities, setLoadingCities] = useState(false);
   const [showAltTemp, setShowAltTemp] = useState(!!(formData.altitude || formData.average_temperature));
   const [cityPopoverOpen, setCityPopoverOpen] = useState(false);
+  const [citySearchTerm, setCitySearchTerm] = useState("");
+  
+  // Filtrar cidades baseado no termo de busca
+  const filteredCities = cities.filter(city => 
+    city.nome.toLowerCase().includes(citySearchTerm.toLowerCase())
+  );
+  
+  // Estados para propriedades salvas
+  const [savedProperties, setSavedProperties] = useState<any[]>([]);
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string>("new");
+  const [loadingProperties, setLoadingProperties] = useState(false);
+
 
   const primaryColor = branding?.primaryColor || '#16a34a';
   const secondaryColor = branding?.secondaryColor || '#22c55e';
@@ -107,7 +118,7 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
     fetchCities();
   }, [formData.state]);
 
-  // Geocodificar quando cidade+estado mudam para centralizar mapa
+  // Geocodificar quando cidade+estado mudam para pré-localizar o mapa
   const geocodeAddress = useCallback(async (city: string, state: string) => {
     if (!city || !state) return;
     
@@ -128,38 +139,62 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
     }
   }, [setFormData]);
 
+  // Geocodificar automaticamente quando estado ou cidade mudarem
+  useEffect(() => {
+    if (formData.city && formData.state) {
+      geocodeAddress(formData.city, formData.state);
+    }
+  }, [formData.state, formData.city, geocodeAddress]);
+
+  // Limpar busca quando o popover fechar
+  useEffect(() => {
+    if (!cityPopoverOpen) {
+      setCitySearchTerm("");
+    }
+  }, [cityPopoverOpen]);
+
+  // Carregar propriedades salvas e dados do produtor
   useEffect(() => {
     const loadProducerData = async () => {
       if (formData.producer_id) {
         setLoadingBrands(true);
+        setLoadingProperties(true);
         try {
-          const [brandsData, producerAssocs, producerData] = await Promise.all([
+          const [brandsData, producerAssocs, allLots] = await Promise.all([
             brandsApi.getByProducer(formData.producer_id),
             associationsApi.getByProducer(formData.producer_id),
-            producersApi.getById(formData.producer_id)
+            productLotsApi.getAll()
           ]);
           setBrands(brandsData);
           setFilteredAssociations(producerAssocs);
           
-          // Se for um novo lote e o produtor for selecionado, sugerir os dados da última propriedade dele
-          // ou dados cadastrados no produtor (legado)
-          if (!formData.property_name && producerData) {
-            setFormData((prev: any) => ({
-              ...prev,
-              property_name: producerData.property_name || "",
-              property_description: producerData.property_description || "",
-              altitude: producerData.altitude || "",
-              average_temperature: producerData.average_temperature || "",
-              city: producerData.city || "",
-              state: producerData.state || "",
-              address: producerData.address || "",
-              cep: producerData.cep || "",
-              latitude: producerData.latitude || "",
-              longitude: producerData.longitude || "",
-              address_internal_only: producerData.address_internal_only || false,
-            }));
-          }
-
+          // Extrair propriedades únicas dos lotes anteriores do produtor
+          const producerLots = allLots.filter((lot: any) => lot.producer_id === formData.producer_id);
+          const uniqueProperties = new Map();
+          
+          producerLots.forEach((lot: any) => {
+            if (lot.property_name && lot.city && lot.state) {
+              const key = `${lot.property_name}|${lot.city}|${lot.state}`;
+              if (!uniqueProperties.has(key)) {
+                uniqueProperties.set(key, {
+                  id: key,
+                  property_name: lot.property_name,
+                  city: lot.city,
+                  state: lot.state,
+                  property_description: lot.property_description || "",
+                  altitude: lot.altitude || "",
+                  average_temperature: lot.average_temperature || "",
+                  latitude: lot.latitude || "",
+                  longitude: lot.longitude || "",
+                  photos: lot.photos || []
+                });
+              }
+            }
+          });
+          
+          setSavedProperties(Array.from(uniqueProperties.values()));
+          
+          // Auto-selecionar associação se houver apenas uma
           if (producerAssocs.length === 1 && !formData.association_id) {
             setFormData((prev: any) => ({ ...prev, association_id: producerAssocs[0].id }));
           }
@@ -167,15 +202,61 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
           console.error("Erro ao carregar dados do produtor:", error);
         } finally {
           setLoadingBrands(false);
+          setLoadingProperties(false);
         }
       } else {
         setBrands([]);
         setFilteredAssociations([]);
+        setSavedProperties([]);
+        setSelectedPropertyId("new");
       }
     };
     
     loadProducerData();
-  }, [formData.producer_id]);
+  }, [formData.producer_id, setFormData]);
+  
+  // Carregar dados da propriedade selecionada
+  useEffect(() => {
+    if (selectedPropertyId && selectedPropertyId !== "new" && savedProperties.length > 0) {
+      const selectedProperty = savedProperties.find(p => p.id === selectedPropertyId);
+      if (selectedProperty) {
+        setFormData((prev: any) => ({
+          ...prev,
+          property_name: selectedProperty.property_name,
+          city: selectedProperty.city,
+          state: selectedProperty.state,
+          property_description: selectedProperty.property_description || "",
+          altitude: selectedProperty.altitude || "",
+          average_temperature: selectedProperty.average_temperature || "",
+          latitude: selectedProperty.latitude || "",
+          longitude: selectedProperty.longitude || "",
+          photos: selectedProperty.photos || []
+        }));
+        // Atualizar showAltTemp baseado nos dados carregados
+        if (selectedProperty.altitude || selectedProperty.average_temperature) {
+          setShowAltTemp(true);
+        }
+      }
+    } else if (selectedPropertyId === "new") {
+      // Limpar campos quando criar nova propriedade (apenas se não houver dados já preenchidos)
+      if (!formData.property_name && !formData.city && !formData.state) {
+        setFormData((prev: any) => ({
+          ...prev,
+          property_name: "",
+          property_description: "",
+          altitude: "",
+          average_temperature: "",
+          city: "",
+          state: "",
+          latitude: "",
+          longitude: "",
+          photos: []
+        }));
+        setShowAltTemp(false);
+      }
+    }
+  }, [selectedPropertyId, savedProperties, setFormData]);
+
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -188,10 +269,17 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
         const url = await uploadImageToSupabase(file);
         urls.push(url);
       }
-      setFormData((prev: any) => ({ 
-        ...prev, 
-        photos: [...(prev.photos || []), ...urls] 
-      }));
+      setFormData((prev: any) => {
+        const updated = { 
+          ...prev, 
+          photos: [...(prev.photos || []), ...urls] 
+        };
+        // Se adicionar fotos, considerar como nova propriedade
+        if (selectedPropertyId !== "new") {
+          setSelectedPropertyId("new");
+        }
+        return updated;
+      });
       toast.success("Fotos da propriedade carregadas!");
     } catch (error) {
       toast.error("Erro no upload das fotos");
@@ -201,10 +289,17 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
   };
 
   const removePhoto = (index: number) => {
-    setFormData((prev: any) => ({
-      ...prev,
-      photos: prev.photos.filter((_: any, i: number) => i !== index)
-    }));
+    setFormData((prev: any) => {
+      const updated = {
+        ...prev,
+        photos: prev.photos?.filter((_: any, i: number) => i !== index) || []
+      };
+      // Se remover fotos, considerar como nova propriedade
+      if (selectedPropertyId !== "new") {
+        setSelectedPropertyId("new");
+      }
+      return updated;
+    });
   };
 
   return (
@@ -221,26 +316,13 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
         </FormSection>
       ) : (
         <>
-          {/* Origem & Propriedade */}
-          <FormSection title="Dados da Propriedade" icon={Buildings} description="Informações específicas do local de cultivo" primaryColor={primaryColor}>
+          {/* Vínculos e Propriedade */}
+          <FormSection title="Vínculos e Propriedade" icon={Buildings} description="Associações e localização do cultivo" primaryColor={primaryColor}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
-              <div className="space-y-2 md:col-span-2">
-                <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                  <Buildings size={16} style={{ color: primaryColor }} /> Nome da Propriedade / Sítio *
-                </Label>
-                <Input 
-                  value={formData.property_name} 
-                  onChange={e => setFormData((prev: any) => ({ ...prev, property_name: e.target.value }))} 
-                  placeholder="Ex: Fazenda Bela Vista - Talhão 4" 
-                  className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus-visible:ring-primary font-bold shadow-sm"
-                  style={{ '--primary': primaryColor } as any}
-                />
-                <p className="text-[10px] text-slate-400 font-bold uppercase ml-1">O local exato onde este lote foi cultivado.</p>
-              </div>
-
+              {/* Vínculos primeiro */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                  <Buildings size={16} style={{ color: primaryColor }} /> Associação / Cooperativa *
+                  <Users size={16} style={{ color: primaryColor }} /> Associação / Cooperativa *
                 </Label>
                 <Select 
                   value={formData.association_id} 
@@ -282,21 +364,212 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
                 </Select>
               </div>
 
-              <div className="space-y-2">
+              {/* Seleção de Propriedade */}
+              {formData.producer_id && (
+                <div className="space-y-2 md:col-span-2">
+                  <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                    <Buildings size={16} style={{ color: primaryColor }} /> Propriedade
+                  </Label>
+                  <Select 
+                    value={selectedPropertyId} 
+                    onValueChange={(value) => {
+                      setSelectedPropertyId(value);
+                    }}
+                    disabled={loadingProperties}
+                  >
+                    <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus:ring-primary font-bold shadow-sm" style={{ '--primary': primaryColor } as any}>
+                      <SelectValue placeholder={loadingProperties ? "Carregando propriedades..." : "Selecione ou crie uma nova"} />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl font-bold">
+                      <SelectItem value="new" className="font-bold">
+                        <div className="flex items-center gap-2">
+                          <Plus size={16} weight="bold" />
+                          <span>Criar Nova Propriedade</span>
+                        </div>
+                      </SelectItem>
+                      {savedProperties.length > 0 && (
+                        <>
+                          <Separator className="my-2" />
+                          {savedProperties.map((prop) => (
+                            <SelectItem key={prop.id} value={prop.id}>
+                              <div className="flex flex-col items-start">
+                                <span className="font-black">{prop.property_name}</span>
+                                <span className="text-xs text-slate-400 font-bold">{prop.city}, {prop.state}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase ml-1">
+                    {selectedPropertyId === "new" ? "Preencha os dados da nova propriedade abaixo" : "Propriedade selecionada - ajuste os dados se necessário"}
+                  </p>
+                </div>
+              )}
+
+              {/* Dados da Propriedade */}
+              <div className="space-y-2 md:col-span-2">
                 <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                  <Calendar size={16} style={{ color: primaryColor }} /> Ano da Safra *
+                  <Buildings size={16} style={{ color: primaryColor }} /> Nome da Propriedade / Sítio *
                 </Label>
                 <Input 
-                  type="number" 
-                  value={formData.harvest_year} 
-                  onChange={e => setFormData((prev: any) => ({ ...prev, harvest_year: e.target.value }))} 
-                  placeholder="2024" 
-                  className="h-12 rounded-xl bg-slate-50 border border-slate-200 font-bold focus-visible:ring-primary shadow-sm"
+                  value={formData.property_name} 
+                  onChange={e => {
+                    setFormData((prev: any) => ({ ...prev, property_name: e.target.value }));
+                    // Se editar manualmente, considerar como nova propriedade
+                    if (selectedPropertyId !== "new") {
+                      setSelectedPropertyId("new");
+                    }
+                  }} 
+                  placeholder="Ex: Fazenda Bela Vista - Talhão 4" 
+                  className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus-visible:ring-primary font-bold shadow-sm"
                   style={{ '--primary': primaryColor } as any}
                 />
-                <p className="text-[10px] text-slate-400 font-bold uppercase ml-1">O ano em que o produto foi colhido.</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase ml-1">O local exato onde este lote foi cultivado.</p>
               </div>
 
+              {/* Localização */}
+              <div className="md:col-span-2 space-y-2">
+                <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                  <MapPin size={16} style={{ color: primaryColor }} /> Localização *
+                </Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Select 
+                      value={formData.state} 
+                      onValueChange={v => {
+                        setFormData((prev: any) => ({ ...prev, state: v, city: "" }));
+                        // Se editar localização, considerar como nova propriedade
+                        if (selectedPropertyId !== "new") {
+                          setSelectedPropertyId("new");
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus:ring-primary font-bold shadow-sm" style={{ '--primary': primaryColor } as any}>
+                        <SelectValue placeholder="Estado (UF)" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl font-bold">
+                        {stateOptions.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Popover open={cityPopoverOpen} onOpenChange={setCityPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={cityPopoverOpen}
+                          className="w-full h-12 justify-between rounded-xl bg-slate-50 border border-slate-200 focus:ring-primary font-bold shadow-sm hover:bg-slate-50"
+                          style={{ '--primary': primaryColor } as any}
+                          disabled={!formData.state || loadingCities}
+                        >
+                          <span className="font-bold">
+                            {formData.city
+                              ? cities.find((city) => city.nome === formData.city)?.nome || formData.city
+                              : loadingCities ? "Carregando cidades..." : "Cidade"}
+                          </span>
+                          <CaretDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent 
+                        className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl border bg-white text-popover-foreground shadow-lg z-[9999]" 
+                        align="start"
+                        onOpenAutoFocus={(e) => e.preventDefault()}
+                      >
+                        <div className="flex flex-col max-h-[384px]">
+                          {/* Campo de busca */}
+                          <div className="px-3 py-2 border-b sticky top-0 bg-white z-10">
+                            <div className="flex items-center gap-2 px-2 py-1.5 border rounded-lg">
+                              <MagnifyingGlass className="h-4 w-4 text-slate-400" />
+                              <Input
+                                placeholder="Buscar cidade..."
+                                value={citySearchTerm}
+                                onChange={(e) => setCitySearchTerm(e.target.value)}
+                                className="h-8 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
+                                autoFocus
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* Lista de cidades */}
+                          <div 
+                            className="overflow-y-auto overflow-x-hidden max-h-[300px]"
+                            onWheel={(e) => {
+                              e.stopPropagation();
+                            }}
+                          >
+                            {filteredCities.length === 0 ? (
+                              <div className="py-6 text-center text-sm text-slate-400">Nenhuma cidade encontrada.</div>
+                            ) : (
+                              <div className="p-1">
+                                {filteredCities.map((city) => {
+                                  const isSelected = formData.city === city.nome;
+                                  
+                                  return (
+                                    <div
+                                      key={city.id}
+                                      onClick={() => {
+                                        const cityName = city.nome;
+                                        const currentState = formData.state;
+                                        
+                                        // Atualizar o estado do formulário
+                                        setFormData((prev: any) => ({ 
+                                          ...prev, 
+                                          city: cityName 
+                                        }));
+                                        
+                                        // Fechar o popover
+                                        setCityPopoverOpen(false);
+                                        
+                                        // Limpar busca
+                                        setCitySearchTerm("");
+                                        
+                                        // Geocodificar para pré-localizar o mapa
+                                        if (cityName && currentState) {
+                                          setTimeout(() => {
+                                            geocodeAddress(cityName, currentState);
+                                          }, 100);
+                                        }
+                                        
+                                        // Se editar localização, considerar como nova propriedade
+                                        if (selectedPropertyId !== "new") {
+                                          setSelectedPropertyId("new");
+                                        }
+                                      }}
+                                      className={cn(
+                                        "relative flex w-full cursor-pointer select-none items-center rounded-sm py-2 px-3 text-sm outline-none transition-colors",
+                                        isSelected 
+                                          ? "text-white" 
+                                          : "text-slate-700 hover:bg-slate-100"
+                                      )}
+                                      style={isSelected ? { 
+                                        backgroundColor: primaryColor
+                                      } : {}}
+                                    >
+                                      <span className="absolute left-2 flex h-4 w-4 items-center justify-center">
+                                        {isSelected && (
+                                          <Check className="h-4 w-4" style={{ color: 'white' }} weight="bold" />
+                                        )}
+                                      </span>
+                                      <span className="font-bold pl-6">{city.nome}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase ml-1">Selecione o estado e cidade para pré-localizar o mapa</p>
+              </div>
+
+              {/* Altitude e Temperatura (Opcional) */}
               <div className="md:col-span-2 space-y-4">
                 <div 
                   className="flex items-center justify-between p-4 rounded-xl border border-slate-200 shadow-sm transition-all bg-white"
@@ -312,7 +585,13 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
                   </div>
                   <Switch 
                     checked={showAltTemp} 
-                    onCheckedChange={setShowAltTemp}
+                    onCheckedChange={(checked) => {
+                      setShowAltTemp(checked);
+                      // Se alterar altitude/temp, considerar como nova propriedade
+                      if (selectedPropertyId !== "new") {
+                        setSelectedPropertyId("new");
+                      }
+                    }}
                     style={{ '--primary': primaryColor } as any}
                   />
                 </div>
@@ -326,7 +605,13 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
                       <Input 
                         type="number" 
                         value={formData.altitude} 
-                        onChange={e => setFormData({ ...formData, altitude: e.target.value })} 
+                        onChange={e => {
+                          setFormData((prev: any) => ({ ...prev, altitude: e.target.value }));
+                          // Se editar altitude, considerar como nova propriedade
+                          if (selectedPropertyId !== "new") {
+                            setSelectedPropertyId("new");
+                          }
+                        }} 
                         placeholder="Ex: 1150" 
                         className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus-visible:ring-primary font-bold shadow-sm"
                         style={{ '--primary': primaryColor } as any}
@@ -340,7 +625,13 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
                       <Input 
                         type="number" 
                         value={formData.average_temperature} 
-                        onChange={e => setFormData({ ...formData, average_temperature: e.target.value })} 
+                        onChange={e => {
+                          setFormData((prev: any) => ({ ...prev, average_temperature: e.target.value }));
+                          // Se editar temperatura, considerar como nova propriedade
+                          if (selectedPropertyId !== "new") {
+                            setSelectedPropertyId("new");
+                          }
+                        }} 
                         placeholder="Ex: 22.5" 
                         className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus-visible:ring-primary font-bold shadow-sm"
                         style={{ '--primary': primaryColor } as any}
@@ -350,130 +641,27 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
                 )}
               </div>
 
-              <div className="md:col-span-2 space-y-2 pt-4">
+              {/* História da Propriedade */}
+              <div className="md:col-span-2 space-y-2">
                 <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                  <MapPin size={16} style={{ color: primaryColor }} /> Endereço / Localização
+                  <ChatCircleText size={16} style={{ color: primaryColor }} /> História da Propriedade (Opcional)
                 </Label>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="md:col-span-1">
-                    <Input 
-                      value={formData.cep} 
-                      onChange={e => setFormData({ ...formData, cep: e.target.value })} 
-                      placeholder="CEP" 
-                      className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus-visible:ring-primary font-bold shadow-sm"
-                      style={{ '--primary': primaryColor } as any}
-                    />
-                  </div>
-                  
-                  <div className="md:col-span-1">
-                    <Select value={formData.state} onValueChange={v => setFormData((prev: any) => ({ ...prev, state: v, city: "" }))}>
-                      <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus:ring-primary font-bold shadow-sm" style={{ '--primary': primaryColor } as any}>
-                        <SelectValue placeholder="UF" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl font-bold">
-                        {stateOptions.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <Popover open={cityPopoverOpen} onOpenChange={setCityPopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={cityPopoverOpen}
-                          className="w-full h-12 justify-between rounded-xl bg-slate-50 border border-slate-200 focus:ring-primary font-bold shadow-sm hover:bg-slate-50"
-                          disabled={!formData.state || loadingCities}
-                        >
-                          {formData.city
-                            ? cities.find((city) => city.nome === formData.city)?.nome || formData.city
-                            : loadingCities ? "Carregando cidades..." : "Cidade"}
-                          <CaretDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[300px] p-0 rounded-2xl shadow-xl border-slate-100">
-                        <Command>
-                          <CommandInput placeholder="Buscar cidade..." className="h-11 font-bold" />
-                          <CommandList>
-                            <CommandEmpty>Nenhuma cidade encontrada.</CommandEmpty>
-                            <CommandGroup className="max-h-60 overflow-y-auto">
-                              {cities.map((city) => (
-                                <CommandItem
-                                  key={city.id}
-                                  value={city.nome}
-                                  onSelect={() => {
-                                    setFormData((prev: any) => ({ ...prev, city: city.nome }));
-                                    setCityPopoverOpen(false);
-                                    geocodeAddress(city.nome, formData.state);
-                                  }}
-                                  className="font-bold cursor-pointer"
-                                >
-                                  <CheckCircle
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      formData.city === city.nome ? "opacity-100" : "opacity-0"
-                                    )}
-                                    style={{ color: primaryColor }}
-                                  />
-                                  {city.nome}
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  <div className="md:col-span-4">
-                    <Input 
-                      value={formData.address} 
-                      onChange={e => setFormData((prev: any) => ({ ...prev, address: e.target.value }))} 
-                      placeholder="Rua, número, bairro, zona rural..." 
-                      className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus-visible:ring-primary font-bold shadow-sm"
-                      style={{ '--primary': primaryColor } as any}
-                    />
-                  </div>
-                </div>
+                <Textarea 
+                  value={formData.property_description} 
+                  onChange={e => {
+                    setFormData((prev: any) => ({ ...prev, property_description: e.target.value }));
+                    // Se editar história, considerar como nova propriedade
+                    if (selectedPropertyId !== "new") {
+                      setSelectedPropertyId("new");
+                    }
+                  }} 
+                  placeholder="Conte a história específica deste local de cultivo..." 
+                  className="min-h-[120px] rounded-xl bg-slate-50 border border-slate-200 focus-visible:ring-primary shadow-sm"
+                  style={{ '--primary': primaryColor } as any}
+                />
               </div>
 
-              <div className="md:col-span-2 space-y-4">
-                <div 
-                  className="flex items-center justify-between p-4 rounded-xl border border-slate-200 shadow-sm transition-all bg-white"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-white shadow-sm border border-slate-100" style={{ color: primaryColor }}>
-                      {formData.address_internal_only ? <Lock size={20} weight="fill" /> : <LockOpen size={20} weight="fill" />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-black text-slate-800">Privacidade do Endereço</p>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase">
-                        {formData.address_internal_only ? "Ocultar endereço no QR Code" : "Mostrar endereço no QR Code"}
-                      </p>
-                    </div>
-                  </div>
-                  <Switch 
-                    checked={formData.address_internal_only} 
-                    onCheckedChange={v => setFormData((prev: any) => ({ ...prev, address_internal_only: v }))}
-                    style={{ '--primary': primaryColor } as any}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                    <ChatCircleText size={16} style={{ color: primaryColor }} /> História da Propriedade (Opcional)
-                  </Label>
-                  <Textarea 
-                    value={formData.property_description} 
-                    onChange={e => setFormData((prev: any) => ({ ...prev, property_description: e.target.value }))} 
-                    placeholder="Conte a história específica deste local de cultivo..." 
-                    className="min-h-[120px] rounded-xl bg-slate-50 border border-slate-200 focus-visible:ring-primary shadow-sm"
-                    style={{ '--primary': primaryColor } as any}
-                  />
-                </div>
-              </div>
-
+              {/* Galeria da Propriedade */}
               <div className="md:col-span-2 space-y-4">
                 <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
                   <Camera size={16} style={{ color: primaryColor }} /> Galeria da Propriedade
@@ -509,6 +697,7 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
                   <input id="lot-property-photos" type="file" multiple className="hidden" accept="image/*" onChange={handlePhotoUpload} />
                 </div>
               </div>
+
             </div>
 
             <Separator className="bg-slate-100" />
@@ -524,7 +713,17 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
               </div>
               <LocationPicker 
                 value={formData.latitude && formData.longitude ? { lat: parseFloat(formData.latitude), lng: parseFloat(formData.longitude) } : null}
-                onChange={(coords) => setFormData((prev: any) => ({ ...prev, latitude: coords.lat.toString(), longitude: coords.lng.toString() }))}
+                onChange={(coords) => {
+                  setFormData((prev: any) => ({ 
+                    ...prev, 
+                    latitude: coords.lat.toString(), 
+                    longitude: coords.lng.toString() 
+                  }));
+                  // Se ajustar o PIN, considerar como nova propriedade
+                  if (selectedPropertyId !== "new") {
+                    setSelectedPropertyId("new");
+                  }
+                }}
                 primaryColor={primaryColor}
               />
             </div>

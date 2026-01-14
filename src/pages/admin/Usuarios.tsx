@@ -323,7 +323,7 @@ const Usuarios = () => {
                         <Label className="font-bold text-slate-700 ml-1">Nome Completo</Label>
                         <Input 
                           value={formData.full_name} 
-                          onChange={e => setFormData({...formData, full_name: e.target.value})}
+                          onChange={e => setFormData((prev: any) => ({...prev, full_name: e.target.value}))}
                           className="rounded-xl bg-slate-50 border-0 h-12 font-medium focus-visible:ring-primary"
                           placeholder="Ex: Carlos Oliveira" 
                           style={{ '--primary': primaryColor } as any}
@@ -338,7 +338,7 @@ const Usuarios = () => {
                             type="email" 
                             required
                             value={formData.email}
-                            onChange={e => setFormData({...formData, email: e.target.value})}
+                            onChange={e => setFormData((prev: any) => ({...prev, email: e.target.value}))}
                             className="rounded-xl bg-slate-50 border-0 h-12 pl-12 font-medium focus-visible:ring-primary"
                             placeholder="email@empresa.com" 
                             style={{ '--primary': primaryColor } as any}
@@ -368,7 +368,7 @@ const Usuarios = () => {
                             type={showPassword ? "text" : "password"} 
                             required
                             value={formData.password}
-                            onChange={e => setFormData({...formData, password: e.target.value})}
+                            onChange={e => setFormData((prev: any) => ({...prev, password: e.target.value}))}
                             className="rounded-xl bg-slate-50 border-0 h-12 pl-12 pr-12 font-medium focus-visible:ring-primary"
                             placeholder="Mínimo 6 caracteres" 
                             style={{ '--primary': primaryColor } as any}
@@ -389,7 +389,7 @@ const Usuarios = () => {
                           type="password" 
                           required
                           value={formData.confirmPassword}
-                          onChange={e => setFormData({...formData, confirmPassword: e.target.value})}
+                          onChange={e => setFormData((prev: any) => ({...prev, confirmPassword: e.target.value}))}
                           className="rounded-xl bg-slate-50 border-0 h-12 font-medium focus-visible:ring-primary"
                           placeholder="Repita a senha acima" 
                           style={{ '--primary': primaryColor } as any}

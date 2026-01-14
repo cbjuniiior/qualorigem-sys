@@ -59,97 +59,69 @@ export const SensoryAnalysis = ({ loteData, branding }: SensoryAnalysisProps) =>
   const hasQuantitative = quantitativeRadar.length > 0 || quantitativeOthers.length > 0 || (useFallback && Object.values(fallbackSensorialData).some(v => v > 0));
 
   return (
-    <div className="mb-16 text-left">
-      <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
-        <div className="p-8 md:p-12 pb-0">
-          <div className="flex items-center gap-4 mb-2">
-            <div className="p-3 rounded-2xl bg-slate-50" style={{ color: primaryColor }}>
-              <ChartPieSlice className="h-8 w-8" weight="duotone" />
+    <div className="mb-12 text-left">
+      <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
+        <div className="p-6 md:p-8 pb-0">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2.5 rounded-xl bg-slate-50" style={{ color: primaryColor }}>
+              <ChartPieSlice className="h-6 w-6" weight="duotone" />
             </div>
             <div>
-              <h2 className="text-3xl font-black text-slate-900 tracking-tight">Análise Sensorial</h2>
-              <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Perfil de qualidade e características do lote</p>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Análise Sensorial</h2>
+              <p className="text-slate-400 font-bold uppercase text-[9px] tracking-widest">Perfil de qualidade e características do lote</p>
             </div>
           </div>
         </div>
         
-        <div className="p-8 md:p-12 pt-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+        <div className="p-6 md:p-8 pt-6">
+          <div className="flex flex-col items-center">
             
-            {/* Lado Esquerdo: Gráfico Radar (se houver dados quantitativos) */}
+            {/* Gráfico Radar Centralizado */}
             {hasQuantitative && (
-              <div className="lg:col-span-5 flex flex-col items-center">
-                <div className="w-full max-w-[400px] aspect-square relative">
-                  <SensorialRadarChart 
-                    data={useFallback ? fallbackSensorialData : radarData} 
-                    branding={branding} 
-                    showAverage={!useFallback ? quantitativeRadar.some(s => s.sensory_attributes.show_average) : true}
-                  />
+              <div className="w-full max-w-[400px] aspect-square relative mb-6">
+                <SensorialRadarChart 
+                  data={useFallback ? fallbackSensorialData : radarData} 
+                  branding={branding} 
+                  showAverage={false} 
+                />
+              </div>
+            )}
+
+            {/* Atributos Qualitativos (Escalas Sensoriais) */}
+            {qualitative.length > 0 && (
+              <div className="w-full space-y-6 pt-8 border-t border-slate-50">
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Percepções Sensoriais</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 max-w-4xl mx-auto w-full">
+                  {qualitative.map(s => (
+                    <div key={s.id} className="space-y-2 group">
+                      <div className="flex justify-between items-center px-1">
+                        <span className="text-xs font-black text-slate-700 uppercase tracking-tight group-hover:text-primary transition-colors" style={{ '--primary': primaryColor } as any}>{s.sensory_attributes.name}</span>
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ color: primaryColor, backgroundColor: `${primaryColor}10` }}>{s.value}%</span>
+                      </div>
+                      <div className="relative h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div 
+                          className="absolute top-0 left-0 h-full transition-all duration-1000 ease-out rounded-full"
+                          style={{ width: `${s.value}%`, backgroundColor: primaryColor }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-widest px-1">
+                        <span>Sutil</span>
+                        <span>Intenso</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Lado Direito: Scores e Escalas Sensoriais */}
-            <div className={`${hasQuantitative ? 'lg:col-span-7' : 'lg:col-span-12'} space-y-10`}>
-              
-              {/* Atributos Quantitativos (Notas) */}
-              {hasQuantitative && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-8">
-                  {useFallback ? (
-                    <>
-                      <AttributeSimple label="Fragrância" value={loteData?.fragrance_score} color={primaryColor} />
-                      <AttributeSimple label="Sabor" value={loteData?.flavor_score} color={primaryColor} />
-                      <AttributeSimple label="Finalização" value={loteData?.finish_score} color={primaryColor} />
-                      <AttributeSimple label="Acidez" value={loteData?.acidity_score} color={primaryColor} />
-                      <AttributeSimple label="Corpo" value={loteData?.body_score} color={primaryColor} />
-                    </>
-                  ) : (
-                    [...quantitativeRadar, ...quantitativeOthers].map(s => (
-                      <AttributeSimple 
-                        key={s.id} 
-                        label={s.sensory_attributes.name} 
-                        value={s.value} 
-                        color={primaryColor} 
-                      />
-                    ))
-                  )}
-                </div>
-              )}
-
-              {/* Atributos Qualitativos (Escalas Sensoriais) */}
-              {qualitative.length > 0 && (
-                <div className="space-y-8 pt-6 border-t border-slate-50">
-                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Percepções Sensoriais</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
-                    {qualitative.map(s => (
-                      <div key={s.id} className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-black text-slate-700 uppercase tracking-tight">{s.sensory_attributes.name}</span>
-                          <span className="text-[10px] font-black text-primary px-2 py-0.5 rounded-full bg-primary/10" style={{ color: primaryColor, backgroundColor: `${primaryColor}10` }}>{s.value}%</span>
-                        </div>
-                        <div className="relative h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div 
-                            className="absolute top-0 left-0 h-full transition-all duration-1000 ease-out rounded-full"
-                            style={{ width: `${s.value}%`, backgroundColor: primaryColor }}
-                          />
-                        </div>
-                        <div className="flex justify-between text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                          <span>Menos</span>
-                          <span>Mais</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {!hasQuantitative && qualitative.length === 0 && (
-                <div className="flex flex-col items-center justify-center p-12 text-center space-y-4">
-                  <ChartPieSlice size={48} weight="thin" className="text-slate-200" />
-                  <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Nenhuma análise sensorial registrada</p>
-                </div>
-              )}
-            </div>
+            {!hasQuantitative && qualitative.length === 0 && (
+              <div className="flex flex-col items-center justify-center p-12 text-center space-y-4">
+                <ChartPieSlice size={48} weight="thin" className="text-slate-200" />
+                <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Nenhuma análise sensorial registrada</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

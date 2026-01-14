@@ -479,6 +479,7 @@ export type Database = {
           updated_at: string | null
           variety: string | null
           video_delay_seconds: number | null
+          video_description: string | null
           views: number
           youtube_video_url: string | null
         }
@@ -520,6 +521,7 @@ export type Database = {
           updated_at?: string | null
           variety?: string | null
           video_delay_seconds?: number | null
+          video_description?: string | null
           views?: number
           youtube_video_url?: string | null
         }
@@ -561,6 +563,7 @@ export type Database = {
           updated_at?: string | null
           variety?: string | null
           video_delay_seconds?: number | null
+          video_description?: string | null
           views?: number
           youtube_video_url?: string | null
         }

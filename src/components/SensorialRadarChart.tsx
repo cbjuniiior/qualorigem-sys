@@ -36,12 +36,12 @@ export const SensorialRadarChart = ({ data, branding, showAverage = true }: Sens
 
   return (
     <div className="w-full relative">
-      <ResponsiveContainer width="100%" height={400}>
+      <ResponsiveContainer width="100%" height={350}>
         <RadarChart data={chartData} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
           <PolarGrid stroke="#e5e7eb" />
           <PolarAngleAxis 
             dataKey="atributo" 
-            tick={{ fontSize: 11, fill: '#64748b', fontWeight: 800 }}
+            tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 900 }}
           />
           <PolarRadiusAxis 
             angle={90} 

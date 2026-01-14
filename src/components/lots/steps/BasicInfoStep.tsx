@@ -55,6 +55,7 @@ interface BasicInfoStepProps {
   producers: any[];
   associations: any[];
   industries: any[];
+  isEditing?: boolean;
 }
 
 export const BasicInfoStep = ({
@@ -66,7 +67,8 @@ export const BasicInfoStep = ({
   branding,
   producers,
   associations,
-  industries
+  industries,
+  isEditing = false
 }: BasicInfoStepProps) => {
   const primaryColor = branding?.primaryColor || '#16a34a';
   const secondaryColor = branding?.secondaryColor || '#22c55e';
@@ -91,8 +93,12 @@ export const BasicInfoStep = ({
     try {
       const config = await systemConfigApi.getLotIdConfig();
       setLotConfig(config);
+      // Se o modo da plataforma for manual, o código completo é manual
+      // Caso contrário, por padrão o número após o prefixo é automático
       if (config.mode === 'manual') {
         setCodeMode('manual');
+      } else {
+        setCodeMode('auto');
       }
     } catch (e) {}
   };
@@ -123,7 +129,13 @@ export const BasicInfoStep = ({
 
   // Efeito para atualizar o código automaticamente quando produtor ou marca mudar
   useEffect(() => {
-    if (!isBlendMode && formData.producer_id && codeMode === 'auto' && lotConfig?.mode !== 'manual') {
+    // Só gera código automaticamente se:
+    // - NÃO estiver editando (o código deve ser imutável após a criação)
+    // - Não for blend
+    // - Tiver produtor selecionado
+    // - O modo for auto (número automático após o prefixo)
+    // - A configuração da plataforma não for manual (código completo manual)
+    if (!isEditing && !isBlendMode && formData.producer_id && codeMode === 'auto' && lotConfig?.mode !== 'manual') {
       const updateCode = async () => {
         let prefix = "";
         if (lotConfig?.mode === 'producer_brand') {
@@ -138,6 +150,8 @@ export const BasicInfoStep = ({
               prefix = generateSlug(producer.name).toUpperCase();
             }
           }
+        } else if (lotConfig?.mode === 'auto') {
+          prefix = lotConfig?.prefix || 'GT';
         }
         
         try {
@@ -150,6 +164,35 @@ export const BasicInfoStep = ({
         }
       };
       updateCode();
+    } else if (!isEditing && !isBlendMode && formData.producer_id && codeMode === 'manual' && lotConfig?.mode !== 'manual') {
+      // Quando o número é manual, atualiza apenas o prefixo se necessário
+      const updatePrefix = () => {
+        let prefix = "";
+        if (lotConfig?.mode === 'producer_brand') {
+          const producer = producers.find(p => p.id === formData.producer_id);
+          if (producer) {
+            if (formData.brand_id && formData.brand_id !== "none" && formData.brand_id !== "") {
+              const brand = brands.find(b => b.id === formData.brand_id);
+              if (brand) {
+                prefix = generateSlug(brand.name).toUpperCase();
+              }
+            } else {
+              prefix = generateSlug(producer.name).toUpperCase();
+            }
+          }
+        } else if (lotConfig?.mode === 'auto') {
+          prefix = lotConfig?.prefix || 'GT';
+        }
+        
+        if (prefix) {
+          const currentCode = formData.code || '';
+          const currentNumber = currentCode.includes('-') ? currentCode.split('-')[1] : '';
+          if (!currentCode.startsWith(prefix + '-')) {
+            setFormData((prev: any) => ({ ...prev, code: currentNumber ? `${prefix}-${currentNumber}` : `${prefix}-` }));
+          }
+        }
+      };
+      updatePrefix();
     }
   }, [formData.producer_id, formData.brand_id, codeMode, lotConfig, isBlendMode, producers, brands]);
 
@@ -389,10 +432,12 @@ export const BasicInfoStep = ({
                         <QrCode size={18} weight="bold" />
                         Código do Lote
                       </Label>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Identificador exclusivo</p>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                        {isEditing ? "Identificador imutável" : "Identificador exclusivo"}
+                      </p>
                     </div>
                     
-                    {lotConfig?.mode === 'producer_brand' && (
+                    {!isEditing && lotConfig?.mode !== 'manual' && (
                       <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-100">
                         <button
                           type="button"
@@ -400,7 +445,7 @@ export const BasicInfoStep = ({
                           className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${codeMode === 'auto' ? 'bg-primary text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
                           style={codeMode === 'auto' ? { backgroundColor: primaryColor } : {}}
                         >
-                          Auto
+                          Número Auto
                         </button>
                         <button
                           type="button"
@@ -408,14 +453,23 @@ export const BasicInfoStep = ({
                           className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${codeMode === 'manual' ? 'bg-primary text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
                           style={codeMode === 'manual' ? { backgroundColor: primaryColor } : {}}
                         >
-                          Manual
+                          Número Manual
                         </button>
                       </div>
                     )}
                   </div>
 
                   <div className="relative group">
-                    {codeMode === 'auto' ? (
+                    {isEditing ? (
+                      <div className="h-14 bg-slate-50 border border-slate-200 rounded-2xl flex items-center px-6 shadow-inner cursor-not-allowed opacity-70">
+                        <span className="text-2xl font-mono font-black text-slate-500 tracking-tighter">
+                          {formData.code}
+                        </span>
+                        <div className="ml-auto flex items-center gap-2">
+                          <Badge className="bg-slate-200 text-slate-500 font-black text-[9px] uppercase">Bloqueado</Badge>
+                        </div>
+                      </div>
+                    ) : codeMode === 'auto' ? (
                       <div className="h-14 bg-white border border-slate-100 rounded-2xl flex items-center px-6 transition-all group-hover:border-primary/30 shadow-inner" style={{ '--primary': primaryColor } as any}>
                         <span className="text-2xl font-mono font-black text-slate-800 tracking-tighter">
                           {formData.code || "GERANDO..."}
@@ -424,23 +478,70 @@ export const BasicInfoStep = ({
                           <div className="ml-auto w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: primaryColor }} />
                         )}
                       </div>
-                    ) : (
+                    ) : lotConfig?.mode === 'manual' ? (
                       <Input 
                         value={formData.code}
                         onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                        placeholder="DIGITE O CÓDIGO"
+                        placeholder="DIGITE O CÓDIGO COMPLETO"
                         className="h-14 bg-white border-slate-200 rounded-2xl font-mono font-black text-2xl text-slate-800 focus-visible:ring-primary text-center uppercase tracking-widest placeholder:text-slate-200"
                         style={{ '--primary': primaryColor } as any}
                       />
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className="h-14 bg-slate-50 border border-slate-200 rounded-2xl flex items-center px-4 font-mono font-black text-xl text-slate-600">
+                          {(() => {
+                            let prefix = lotConfig?.prefix || 'GT';
+                            if (lotConfig?.mode === 'producer_brand' && formData.producer_id) {
+                              const producer = producers.find(p => p.id === formData.producer_id);
+                              if (producer) {
+                                if (formData.brand_id && formData.brand_id !== "none" && formData.brand_id !== "") {
+                                  const brand = brands.find(b => b.id === formData.brand_id);
+                                  if (brand) prefix = generateSlug(brand.name).toUpperCase();
+                                } else {
+                                  prefix = generateSlug(producer.name).toUpperCase();
+                                }
+                              }
+                            }
+                            return prefix;
+                          })()}-
+                        </div>
+                        <Input 
+                          value={formData.code?.split('-')[1] || ''}
+                          onChange={e => {
+                            const prefix = (() => {
+                              let p = lotConfig?.prefix || 'GT';
+                              if (lotConfig?.mode === 'producer_brand' && formData.producer_id) {
+                                const producer = producers.find(p => p.id === formData.producer_id);
+                                if (producer) {
+                                  if (formData.brand_id && formData.brand_id !== "none" && formData.brand_id !== "") {
+                                    const brand = brands.find(b => b.id === formData.brand_id);
+                                    if (brand) p = generateSlug(brand.name).toUpperCase();
+                                  } else {
+                                    p = generateSlug(producer.name).toUpperCase();
+                                  }
+                                }
+                              }
+                              return p;
+                            })();
+                            setFormData({ ...formData, code: `${prefix}-${e.target.value.toUpperCase()}` });
+                          }}
+                          placeholder="0001"
+                          maxLength={10}
+                          className="h-14 bg-white border-slate-200 rounded-2xl font-mono font-black text-2xl text-slate-800 focus-visible:ring-primary text-center uppercase tracking-widest placeholder:text-slate-200 flex-1"
+                          style={{ '--primary': primaryColor } as any}
+                        />
+                      </div>
                     )}
                   </div>
                   
                   <div className="flex items-center gap-2 px-2">
                     <Info size={14} className="text-slate-400" />
                     <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tight leading-relaxed">
-                      {codeMode === 'auto' 
-                        ? "O código é gerado automaticamente seguindo as regras da plataforma." 
-                        : "Você tem total liberdade para definir o código deste lote."}
+                      {lotConfig?.mode === 'manual' 
+                        ? "O prefixo e o código completo são definidos manualmente."
+                        : codeMode === 'auto' 
+                        ? "O prefixo vem das configurações da plataforma e o número é gerado automaticamente." 
+                        : "O prefixo vem das configurações da plataforma. Digite o número após o prefixo."}
                     </p>
                   </div>
                 </div>

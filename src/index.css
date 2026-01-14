@@ -4,6 +4,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Sonner Toast Positioning */
+[data-sonner-toaster] {
+  position: fixed !important;
+  top: auto !important;
+  right: 16px !important;
+  left: auto !important;
+  bottom: 16px !important;
+  z-index: 9999 !important;
+}
+
+[data-sonner-toast] {
+  min-width: 320px !important;
+  max-width: 420px !important;
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */

@@ -917,6 +917,8 @@ export const systemConfigApi = {
       secondaryColor: '#22c55e',
       accentColor: '#10b981',
       logoUrl: null,
+      headerImageUrl: null,
+      videoBackgroundUrl: null,
       siteTitle: 'GeoTrace - Sistema de Rastreabilidade',
       siteDescription: 'Plataforma premium para rastreabilidade de produtos de origem.'
     };

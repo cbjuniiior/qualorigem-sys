@@ -8,6 +8,8 @@ interface BrandingConfig {
   secondaryColor: string;
   accentColor: string;
   logoUrl: string | null;
+  headerImageUrl?: string | null;
+  videoBackgroundUrl?: string | null;
   siteTitle?: string;
   siteDescription?: string;
 }

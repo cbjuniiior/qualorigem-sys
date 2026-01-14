@@ -65,7 +65,6 @@ const Dashboard = () => {
     harvest_year: "",
     quantity: "",
     unit: "",
-    image_url: "",
     producer_id: "",
     brand_id: "",
     industry_id: "",
@@ -376,11 +375,16 @@ const Dashboard = () => {
                     <div key={lot.id} className="group p-6 hover:bg-slate-50/50 transition-all flex items-center justify-between gap-4">
                       <div className="flex items-center gap-5">
                         <div className="relative">
-                          <img 
-                            src={lot.image_url || "/placeholder.svg"} 
-                            className="h-14 w-14 rounded-2xl object-cover shadow-sm group-hover:scale-105 transition-transform" 
-                            alt={lot.name} 
-                          />
+                          <div 
+                            className="h-14 w-14 rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform"
+                            style={{ backgroundColor: `${primaryColor}10` }}
+                          >
+                            <Package 
+                              size={28} 
+                              weight="fill" 
+                              style={{ color: primaryColor }}
+                            />
+                          </div>
                           <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-white rounded-full flex items-center justify-center shadow-sm">
                             <div className="h-3 w-3 rounded-full bg-emerald-500" />
                           </div>
@@ -388,7 +392,7 @@ const Dashboard = () => {
                         <div>
                           <h4 className="font-bold text-slate-900 group-hover:text-primary transition-colors">{lot.name}</h4>
                           <div className="flex items-center gap-3 mt-1 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                            <span className="flex items-center gap-1"><MapPin size={14} weight="fill" className="text-slate-300" /> {lot.producers?.city || "Local não inf."}</span>
+                            <span className="flex items-center gap-1"><MapPin size={14} weight="fill" className="text-slate-300" /> {lot.city && lot.state ? `${lot.city}, ${lot.state}` : lot.city || lot.state || "Local não inf."}</span>
                             <span className="h-1 w-1 bg-slate-300 rounded-full" />
                             <span className="flex items-center gap-1"><Calendar size={14} weight="fill" className="text-slate-300" /> Safra {lot.harvest_year}</span>
                           </div>

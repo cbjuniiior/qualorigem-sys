@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { maskPhone, maskCEP, maskCPFCNPJ } from "@/utils/masks";
+import { useCEP } from "@/hooks/use-cep";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,6 +92,29 @@ const INDUSTRY_STEPS = [
   { id: 2, title: "Localização & Contato" }
 ];
 
+const FormSection = ({ title, icon: Icon, children, description, active, primaryColor }: any) => {
+  if (!active) return null;
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 text-left">
+      <div className="flex items-start gap-4 px-2">
+        <div 
+          className="p-2.5 rounded-xl border shadow-sm"
+          style={{ backgroundColor: `${primaryColor}10`, color: primaryColor, borderColor: `${primaryColor}20` }}
+        >
+          <Icon size={24} weight="duotone" />
+        </div>
+        <div>
+          <h3 className="text-lg font-black text-slate-800 tracking-tight">{title}</h3>
+          {description && <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{description}</p>}
+        </div>
+      </div>
+      <div className="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm space-y-8">
+        {children}
+      </div>
+    </div>
+  );
+};
+
 export default function Industria() {
   const [loading, setLoading] = useState(true);
   const [industries, setIndustries] = useState<any[]>([]);
@@ -101,6 +126,15 @@ export default function Industria() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [industryToDelete, setIndustryToDelete] = useState<string | null>(null);
   const [branding, setBranding] = useState<any>(null);
+
+  const { searchCEP } = useCEP((data) => {
+    setForm((prev: any) => ({
+      ...prev,
+      city: data.localidade,
+      state: data.uf,
+      address: data.logradouro || prev.address,
+    }));
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -227,28 +261,6 @@ export default function Industria() {
     </div>
   );
 
-  const FormSection = ({ title, icon: Icon, children, description, active }: any) => {
-    if (!active) return null;
-    return (
-      <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 text-left">
-        <div className="flex items-start gap-4 px-2">
-          <div 
-            className="p-2.5 rounded-xl border shadow-sm"
-            style={{ backgroundColor: `${primaryColor}10`, color: primaryColor, borderColor: `${primaryColor}20` }}
-          >
-            <Icon size={24} weight="duotone" />
-          </div>
-          <div>
-            <h3 className="text-lg font-black text-slate-800 tracking-tight">{title}</h3>
-            {description && <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{description}</p>}
-          </div>
-        </div>
-        <div className="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm space-y-8">
-          {children}
-        </div>
-      </div>
-    );
-  };
 
   return (
     <AdminLayout>
@@ -389,11 +401,12 @@ export default function Industria() {
               </SheetHeader>
               
               <div className="flex-1 overflow-y-auto p-8 space-y-12 pb-10 min-h-0">
-                <FormSection 
-                  title="Dados da Indústria" 
-                  icon={IdentificationCard} 
+                <FormSection
+                  title="Dados da Indústria"
+                  icon={IdentificationCard}
                   description="Identificação e imagem oficial"
                   active={currentStep === 1}
+                  primaryColor={primaryColor}
                 >
                   <div className="flex flex-col md:flex-row gap-12 items-center md:items-start text-left">
                     <div className="relative group">
@@ -425,7 +438,7 @@ export default function Industria() {
                         </Label>
                         <Input 
                           value={form.name} 
-                          onChange={e => setForm({...form, name: e.target.value})} 
+                          onChange={e => setForm((prev: any) => ({...prev, name: e.target.value}))} 
                           placeholder="Ex: Processadora Vale Verde" 
                           className="focus-visible:ring-primary h-12"
                           style={{ '--primary': primaryColor } as any}
@@ -437,8 +450,12 @@ export default function Industria() {
                         </Label>
                         <Input 
                           value={form.document_number} 
-                          onChange={e => setForm({...form, document_number: e.target.value})} 
+                          onChange={e => {
+                            const masked = maskCPFCNPJ(e.target.value);
+                            setForm((prev: any) => ({...prev, document_number: masked}));
+                          }}
                           placeholder="00.000.000/0000-00" 
+                          maxLength={18}
                           className="focus-visible:ring-primary h-12"
                           style={{ '--primary': primaryColor } as any}
                         />
@@ -449,7 +466,7 @@ export default function Industria() {
                         </Label>
                         <Textarea 
                           value={form.description} 
-                          onChange={e => setForm({...form, description: e.target.value})} 
+                          onChange={e => setForm((prev: any) => ({...prev, description: e.target.value}))} 
                           placeholder="Descreva os processos industriais realizados..." 
                           className="min-h-[150px] focus-visible:ring-primary"
                           style={{ '--primary': primaryColor } as any}
@@ -459,19 +476,30 @@ export default function Industria() {
                   </div>
                 </FormSection>
 
-                <FormSection 
-                  title="Endereço & Contato" 
-                  icon={MapPin} 
+                <FormSection
+                  title="Endereço & Contato"
+                  icon={MapPin}
                   description="Localização da planta industrial"
                   active={currentStep === 2}
+                  primaryColor={primaryColor}
                 >
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-left">
                     <div className="space-y-2">
                       <Label className="font-black text-slate-700 ml-1 mb-1">CEP</Label>
                       <Input 
                         value={form.zip_code} 
-                        onChange={e => setForm({...form, zip_code: e.target.value})} 
+                        onChange={e => {
+                          const masked = maskCEP(e.target.value);
+                          setForm((prev: any) => ({...prev, zip_code: masked}));
+                        }}
+                        onBlur={(e) => {
+                          const cleanCEP = e.target.value.replace(/\D/g, '');
+                          if (cleanCEP.length === 8) {
+                            searchCEP(e.target.value);
+                          }
+                        }}
                         placeholder="00000-000" 
+                        maxLength={9}
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}
                       />
@@ -480,7 +508,7 @@ export default function Industria() {
                       <Label className="font-black text-slate-700 ml-1 mb-1">Cidade *</Label>
                       <Input 
                         value={form.city} 
-                        onChange={e => setForm({...form, city: e.target.value})} 
+                        onChange={e => setForm((prev: any) => ({...prev, city: e.target.value}))} 
                         placeholder="Cidade" 
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}
@@ -488,7 +516,7 @@ export default function Industria() {
                     </div>
                     <div className="space-y-2">
                       <Label className="font-black text-slate-700 ml-1 mb-1">Estado *</Label>
-                      <Select value={form.state} onValueChange={v => setForm({...form, state: v})}>
+                      <Select value={form.state} onValueChange={v => setForm((prev: any) => ({...prev, state: v}))}>
                         <SelectTrigger 
                           className="rounded-xl bg-slate-50 border-0 h-12 focus:ring-primary"
                           style={{ '--primary': primaryColor } as any}
@@ -504,7 +532,7 @@ export default function Industria() {
                       <Label className="font-black text-slate-700 ml-1 mb-1 text-xs uppercase">Endereço Completo</Label>
                       <Input 
                         value={form.address} 
-                        onChange={e => setForm({...form, address: e.target.value})} 
+                        onChange={e => setForm((prev: any) => ({...prev, address: e.target.value}))} 
                         placeholder="Rua, número, bairro..." 
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}
@@ -521,7 +549,7 @@ export default function Industria() {
                       </Label>
                       <Input 
                         value={form.contact_email} 
-                        onChange={e => setForm({...form, contact_email: e.target.value})} 
+                        onChange={e => setForm((prev: any) => ({...prev, contact_email: e.target.value}))} 
                         placeholder="industrial@..." 
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}
@@ -533,8 +561,12 @@ export default function Industria() {
                       </Label>
                       <Input 
                         value={form.contact_phone} 
-                        onChange={e => setForm({...form, contact_phone: e.target.value})} 
+                        onChange={e => {
+                          const masked = maskPhone(e.target.value);
+                          setForm((prev: any) => ({...prev, contact_phone: masked}));
+                        }}
                         placeholder="(00) 00000-0000" 
+                        maxLength={15}
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}
                       />

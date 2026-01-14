@@ -74,6 +74,13 @@ const GestaoPlataforma = () => {
   const [activeTab, setActiveTab] = useState("categorias");
   const { branding: currentBranding, refreshBranding } = useBranding();
   const [branding, setBranding] = useState<any>(currentBranding);
+
+  // Sincronizar estado local com o contexto global quando este carregar
+  useEffect(() => {
+    if (currentBranding) {
+      setBranding(currentBranding);
+    }
+  }, [currentBranding]);
   
   // Categorias
   const [categories, setCategories] = useState<any[]>([]);
@@ -112,7 +119,11 @@ const GestaoPlataforma = () => {
 
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingHeaderImage, setUploadingHeaderImage] = useState(false);
+  const [uploadingVideoBackground, setUploadingVideoBackground] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const headerImageInputRef = useRef<HTMLInputElement>(null);
+  const videoBackgroundInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadData();
@@ -317,12 +328,75 @@ const GestaoPlataforma = () => {
     try {
       setUploadingLogo(true);
       const logoUrl = await uploadLogoToSupabase(file);
-      setBranding({ ...branding, logoUrl });
-      toast.success("Logo atualizado!");
+      const updatedBranding = { ...branding, logoUrl };
+      setBranding(updatedBranding);
+      
+      // Salvar imediatamente para garantir persistência
+      await systemConfigApi.upsert({
+        config_key: 'branding_settings',
+        config_value: updatedBranding as any,
+        description: 'Configurações de personalização e branding'
+      });
+      await refreshBranding();
+      
+      toast.success("Logo atualizado e salvo!");
     } catch (error) {
-      toast.error("Erro no upload do logo");
+      toast.error("Erro ao fazer upload do logo");
     } finally {
       setUploadingLogo(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  };
+
+  const handleHeaderImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingHeaderImage(true);
+      const headerImageUrl = await uploadLogoToSupabase(file);
+      const updatedBranding = { ...branding, headerImageUrl };
+      setBranding(updatedBranding);
+      
+      // Salvar imediatamente para garantir persistência
+      await systemConfigApi.upsert({
+        config_key: 'branding_settings',
+        config_value: updatedBranding as any,
+        description: 'Configurações de personalização e branding'
+      });
+      await refreshBranding();
+      
+      toast.success("Imagem de header atualizada e salva!");
+    } catch (error) {
+      toast.error("Erro ao fazer upload da imagem de header");
+    } finally {
+      setUploadingHeaderImage(false);
+      if (headerImageInputRef.current) headerImageInputRef.current.value = "";
+    }
+  };
+
+  const handleVideoBackgroundUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setUploadingVideoBackground(true);
+      const videoBackgroundUrl = await uploadLogoToSupabase(file);
+      const updatedBranding = { ...branding, videoBackgroundUrl };
+      setBranding(updatedBranding);
+      
+      // Salvar imediatamente para garantir persistência
+      await systemConfigApi.upsert({
+        config_key: 'branding_settings',
+        config_value: updatedBranding as any,
+        description: 'Configurações de personalização e branding'
+      });
+      await refreshBranding();
+      
+      toast.success("Imagem de fundo do vídeo atualizada e salva!");
+    } catch (error) {
+      toast.error("Erro ao fazer upload da imagem de fundo do vídeo");
+    } finally {
+      setUploadingVideoBackground(false);
+      if (videoBackgroundInputRef.current) videoBackgroundInputRef.current.value = "";
     }
   };
 
@@ -759,6 +833,56 @@ const GestaoPlataforma = () => {
                   </CardContent>
                 </Card>
 
+                {/* Imagem de Header */}
+                <Card className="border-0 shadow-sm bg-white rounded-3xl overflow-hidden">
+                  <CardHeader className="border-b border-slate-50 px-8 py-6">
+                    <CardTitle className="text-xl font-black flex items-center gap-2">
+                      <Desktop size={24} weight="fill" style={{ color: primaryColor }} />
+                      Imagem de Header
+                    </CardTitle>
+                    <CardDescription className="font-medium text-slate-400 text-sm">Imagem padrão que será exibida no header da página pública de todos os lotes.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-8">
+                    <div className="flex flex-col sm:flex-row items-center gap-8 p-8 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+                      {branding.headerImageUrl ? (
+                        <div className="relative group">
+                          <div className="w-full max-w-md h-48 bg-white rounded-2xl flex items-center justify-center p-4 shadow-xl ring-1 ring-slate-100 overflow-hidden">
+                            <img src={branding.headerImageUrl} alt="Header Preview" className="max-h-full max-w-full object-cover rounded-xl" />
+                          </div>
+                          <button 
+                            onClick={() => setBranding({...branding, headerImageUrl: null})} 
+                            className="absolute -top-3 -right-3 p-2 bg-rose-500 text-white rounded-full shadow-lg hover:bg-rose-600 transition-colors"
+                          >
+                            <X size={16} weight="bold" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-full max-w-md h-48 bg-white rounded-2xl flex flex-col items-center justify-center p-4 border border-slate-100 text-slate-200">
+                          <Desktop size={48} weight="fill" />
+                          <span className="text-[10px] font-black uppercase mt-2">Sem Imagem</span>
+                        </div>
+                      )}
+                      <div className="flex-1 text-center sm:text-left space-y-4">
+                        <div className="space-y-1">
+                          <h4 className="font-black text-slate-700">Carregar Imagem de Header</h4>
+                          <p className="text-xs text-slate-400 font-medium leading-relaxed">Formatos: JPG, PNG ou WebP.<br/>Recomendado: 1920x400px ou proporção similar.</p>
+                        </div>
+                        <Button 
+                          onClick={() => headerImageInputRef.current?.click()} 
+                          disabled={uploadingHeaderImage} 
+                          variant="outline" 
+                          className="rounded-xl font-bold bg-white border-slate-200 hover:bg-slate-50 h-11 px-6 transition-all"
+                          style={{ color: primaryColor }}
+                        >
+                          {uploadingHeaderImage ? <CircleNotch className="animate-spin mr-2" size={18} /> : <Desktop size={18} weight="bold" className="mr-2" />}
+                          {branding.headerImageUrl ? "Trocar Imagem" : "Selecionar Arquivo"}
+                        </Button>
+                        <input ref={headerImageInputRef} type="file" className="hidden" accept="image/*" onChange={handleHeaderImageUpload} />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Preset de Cores */}
                 <Card className="border-0 shadow-sm bg-white rounded-3xl overflow-hidden">
                   <CardHeader className="border-b border-slate-50 px-8 py-6">
@@ -1079,6 +1203,39 @@ const GestaoPlataforma = () => {
                       className="rounded-xl bg-slate-50 border-0 h-12 font-bold" 
                       style={{ '--primary': primaryColor } as any}
                     />
+                  </div>
+
+                  <div className="pt-4 space-y-4">
+                    <Label className="font-black text-slate-700">Imagem de Fundo (Experiência de Vídeo)</Label>
+                    <div className="flex flex-col gap-4 p-6 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                      {branding.videoBackgroundUrl ? (
+                        <div className="relative group w-full aspect-video bg-white rounded-xl flex items-center justify-center p-2 shadow-sm ring-1 ring-slate-100 overflow-hidden">
+                          <img src={branding.videoBackgroundUrl} alt="Video Background" className="w-full h-full object-cover rounded-lg" />
+                          <button 
+                            onClick={() => setBranding({...branding, videoBackgroundUrl: null})} 
+                            className="absolute top-2 right-2 p-1.5 bg-rose-500 text-white rounded-full shadow-lg hover:bg-rose-600 transition-colors"
+                          >
+                            <X size={14} weight="bold" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-full aspect-video bg-white rounded-xl flex flex-col items-center justify-center p-4 border border-slate-100 text-slate-200">
+                          <ImageIcon size={32} weight="fill" />
+                          <span className="text-[9px] font-black uppercase mt-2 text-slate-400">Sem Fundo Personalizado</span>
+                        </div>
+                      )}
+                      <Button 
+                        onClick={() => videoBackgroundInputRef.current?.click()} 
+                        disabled={uploadingVideoBackground} 
+                        variant="outline" 
+                        className="w-full rounded-xl font-bold bg-white border-slate-200 hover:bg-slate-50 h-10 transition-all text-xs"
+                        style={{ color: primaryColor }}
+                      >
+                        {uploadingVideoBackground ? <CircleNotch className="animate-spin mr-2" size={16} /> : <ImageIcon size={16} weight="bold" className="mr-2" />}
+                        {branding.videoBackgroundUrl ? "Trocar Fundo" : "Selecionar Fundo"}
+                      </Button>
+                      <input ref={videoBackgroundInputRef} type="file" className="hidden" accept="image/*" onChange={handleVideoBackgroundUpload} />
+                    </div>
                   </div>
                 </CardContent>
               </Card>

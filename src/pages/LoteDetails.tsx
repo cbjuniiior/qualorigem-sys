@@ -1,9 +1,9 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, ShareNetwork, Copy, CaretDown, Tag } from "@phosphor-icons/react";
+import { ArrowLeft, ShareNetwork, Copy, CaretDown, Tag, SpeakerHigh, Fingerprint } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { productLotsApi, producersApi } from "@/services/api";
+import { productLotsApi, producersApi, associationsApi } from "@/services/api";
 import { useBranding } from "@/hooks/use-branding";
 import type { ProductLot, LotComponent } from "@/services/api";
 
@@ -29,6 +29,7 @@ interface LoteData {
   seals_quantity?: number | null;
   lot_observations?: string | null;
   youtube_video_url?: string | null;
+  video_description?: string | null;
   video_delay_seconds?: number | null;
   components?: LotComponent[];
   lot_components?: LotComponent[];
@@ -44,6 +45,7 @@ interface LoteData {
     latitude?: string | number;
     longitude?: string | number;
     photos?: string[];
+    profile_picture_url?: string | null;
   };
   fragrance_score: number | null;
   flavor_score: number | null;
@@ -66,6 +68,7 @@ const LoteDetails = () => {
   const { codigo } = useParams();
   const navigate = useNavigate();
   const { branding } = useBranding();
+  console.log('Branding na Página Pública:', branding);
   const [loteData, setLoteData] = useState<LoteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [producer, setProducer] = useState<any | null>(null);
@@ -87,6 +90,7 @@ const LoteDetails = () => {
   const [showTimer, setShowTimer] = useState(true);
   const [showInfoMessage, setShowInfoMessage] = useState(false);
   const [isVideoFloating, setIsVideoFloating] = useState(false);
+  const [videoClosedByUser, setVideoClosedByUser] = useState(false);
   const [currentVideoTime, setCurrentVideoTime] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const floatingIframeRef = useRef<HTMLIFrameElement>(null);
@@ -122,6 +126,18 @@ const LoteDetails = () => {
     }
   };
 
+  const hexToRgba = (hex: string, alpha: number) => {
+    if (!hex) return `rgba(0, 0, 0, ${alpha})`;
+    try {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    } catch (e) {
+      return `rgba(0, 0, 0, ${alpha})`;
+    }
+  };
+
   // Função para ativar som e recomeçar o vídeo
   const handleActivateSound = () => {
     if (!loteData?.youtube_video_url) return;
@@ -131,18 +147,20 @@ const LoteDetails = () => {
     
     // Atualizar o estado de mute primeiro (isso fará o overlay desaparecer)
     setVideoMuted(false);
+    setVideoClosedByUser(false);
     
     // Se a API do YouTube estiver disponível, usar ela para reiniciar
     if (isPlayerReady(mainPlayerRef.current, mainPlayerReadyRef)) {
       try {
+        // Reiniciar do 0 e ativar som conforme novos requisitos
         mainPlayerRef.current.seekTo(0, true);
         mainPlayerRef.current.unMute();
         mainPlayerRef.current.playVideo();
       } catch (error) {
-        console.error('Erro ao reiniciar vídeo com API:', error);
+        console.error('Erro ao ativar som com API:', error);
       }
     } else if (iframeRef.current) {
-      // Fallback: atualizar src do iframe
+      // Fallback: atualizar src do iframe mas mantendo a posição se possível
       const newSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&modestbranding=1&playsinline=1&controls=1&enablejsapi=1&origin=${window.location.origin}&start=0`;
       iframeRef.current.src = newSrc;
     }
@@ -187,8 +205,16 @@ const LoteDetails = () => {
         setLoteData(data);
         productLotsApi.incrementViews(codigo).catch(() => {});
         
-        // Buscar dados do produtor se não for blend
-        if (data.producer_id) {
+        // Tentar obter dados do produtor do relacionamento
+        if (data.producers) {
+          // Lidar com retorno do Supabase que pode ser objeto ou array
+          const producerData = Array.isArray(data.producers) ? data.producers[0] : data.producers;
+          if (producerData) {
+            setProducer(producerData);
+            associationsApi.getByProducer(producerData.id).then(setAssociations).catch(() => {});
+          }
+        } else if (data.producer_id) {
+          // Fallback: buscar dados do produtor se não vieram no join
           const [producerData, associationsData] = await Promise.all([
             producersApi.getById(data.producer_id),
             associationsApi.getByProducer(data.producer_id)
@@ -279,6 +305,17 @@ const LoteDetails = () => {
               onReady: (event: any) => {
                 // Player principal pronto
                 mainPlayerReadyRef.current = true;
+                // Garantir play automático mutado no início
+                if (videoMuted) {
+                  event.target.mute();
+                  event.target.playVideo();
+                }
+              },
+              onStateChange: (event: any) => {
+                // Se o vídeo parar por algum motivo e ainda estiver mutado, tentar dar play novamente (loop)
+                if (event.data === (window as any).YT.PlayerState.ENDED && videoMuted) {
+                  event.target.playVideo();
+                }
               },
               onError: (event: any) => {
                 console.error('Erro no player principal:', event.data);
@@ -589,7 +626,7 @@ const LoteDetails = () => {
 
   // Detectar scroll para fazer o vídeo flutuar na lateral direita (apenas se o som foi ativado)
   useEffect(() => {
-    if (!loteData?.youtube_video_url || !showInfoMessage || !videoSectionRef.current || videoMuted) {
+    if (!loteData?.youtube_video_url || !showInfoMessage || !videoSectionRef.current || videoMuted || videoClosedByUser) {
       setIsVideoFloating(false);
       return;
     }
@@ -626,7 +663,7 @@ const LoteDetails = () => {
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, [loteData?.youtube_video_url, showInfoMessage, videoMuted, isVideoFloating]);
+  }, [loteData?.youtube_video_url, showInfoMessage, videoMuted, isVideoFloating, videoClosedByUser]);
 
   // Função para compartilhar
   const handleShare = async () => {
@@ -649,6 +686,10 @@ const LoteDetails = () => {
   // Detectar se é um blend (precisa estar antes de qualquer return)
   const isBlend = loteData && ((loteData.components && loteData.components.length > 0) || (loteData.lot_components && loteData.lot_components.length > 0));
   const blendComponents = loteData ? (loteData.components || loteData.lot_components || []) : [];
+  
+  // Garantir que temos o produtor correto (prioridade para o estado carregado ou do lote)
+  const currentProducer = producer || loteData?.producers;
+  const producerName = currentProducer?.name || "Produtor não informado";
 
   if (loading) {
     return (
@@ -677,142 +718,138 @@ const LoteDetails = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className={`min-h-screen bg-gray-50 overflow-x-hidden transition-all duration-300 ${isVideoFloating ? 'pb-40 sm:pb-48' : 'pb-0'}`}>
       {/* Vídeo do YouTube - Seção em tela cheia (100vh) quando aguardando, normal após X segundos */}
       {loteData.youtube_video_url && videoConfig?.enabled && (
         <div 
           ref={videoSectionRef}
-          className={`w-full h-screen max-h-screen bg-black relative flex flex-col overflow-hidden ${
+          className={`w-full h-screen max-h-screen relative flex flex-col overflow-hidden transition-all duration-700 ${
             !showInfoMessage ? 'fixed inset-0 z-50' : 'relative z-10'
           }`}
-          style={!showInfoMessage ? { 
-            overscrollBehavior: 'none'
-          } : undefined}
+          style={{ 
+            backgroundColor: 'black',
+            overscrollBehavior: !showInfoMessage ? 'none' : 'auto'
+          }}
         >
-          {/* Container principal com distribuição de espaço */}
-          <div className="flex-1 flex flex-col items-center justify-center relative py-1 px-2 sm:py-4 sm:px-4 min-h-0 max-h-screen overflow-hidden">
-            {/* Vídeo principal - tamanho responsivo para mobile */}
-            <div className={`w-full ${showInfoMessage ? 'max-w-2xl sm:max-w-4xl' : 'max-w-3xl sm:max-w-5xl'} aspect-video relative flex-shrink-0`}>
-              <div id="youtube-player-main" ref={iframeRef} className="w-full h-full rounded-lg sm:rounded-xl shadow-2xl overflow-hidden"></div>
-              
-              {/* Overlay com botão "Ativar Som" centralizado sobre o vídeo */}
-              {videoMuted && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-black/40 via-black/30 to-black/50 backdrop-blur-[2px] overflow-hidden">
-                  <div className="text-center px-3 sm:px-6 w-full max-w-md sm:max-w-lg">
+          {/* Fundo Personalizado com Imagem e Overlay - Sempre visível para evitar fundo preto */}
+          <div className="absolute inset-0 z-0">
+            <div 
+              className="absolute inset-0 bg-cover bg-center scale-105 animate-[pulse_8s_infinite_alternate]"
+              style={{ 
+                backgroundImage: `url(${branding?.videoBackgroundUrl || loteData.image_url || '/placeholder.svg'})`,
+                filter: 'brightness(0.5) contrast(1.1)'
+              }}
+            />
+            <div 
+              className="absolute inset-0 transition-opacity duration-1000"
+              style={{ 
+                background: `linear-gradient(to bottom, ${hexToRgba(branding?.primaryColor || '#000', 0.15)}, ${hexToRgba(branding?.primaryColor || '#000', 0.35)})`
+              }}
+            />
+          </div>
+
+          {/* Container de Conteúdo - Mobile First */}
+          <div className="flex-1 flex flex-col items-center relative z-10 py-12 px-6 sm:py-16 sm:px-10 h-full w-full overflow-hidden">
+            {/* Topo - Logo ou Identificação sutil */}
+            <div className="w-full flex justify-center opacity-80 mb-auto">
+              {branding?.logoUrl && (
+                <div className="relative group">
+                  <div 
+                    className="absolute inset-0 blur-2xl opacity-20 group-hover:opacity-40 transition-opacity duration-1000 rounded-full scale-150"
+                    style={{ backgroundColor: branding.primaryColor }}
+                  />
+                  <img 
+                    src={branding.logoUrl} 
+                    alt="Logo" 
+                    className="h-20 sm:h-28 md:h-36 object-contain filter brightness-0 invert drop-shadow-[0_0_20px_rgba(255,255,255,0.2)] relative z-10 transition-all duration-700 hover:scale-105" 
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Centro - Bloco de Conteúdo Centralizado */}
+            <div className="w-full max-w-4xl flex flex-col items-center gap-8 sm:gap-12 flex-grow justify-center">
+              {/* Texto Dinâmico do Lote */}
+              <div className="text-center space-y-4 px-4 max-w-2xl mx-auto animate-fade-in">
+                <h2 className="text-white text-3xl sm:text-5xl font-black tracking-tight leading-tight drop-shadow-2xl">
+                  {loteData.name}
+                </h2>
+                {loteData.video_description && (
+                  <p className="text-white/80 text-base sm:text-xl font-medium leading-relaxed italic drop-shadow-lg max-w-lg mx-auto">
+                    "{loteData.video_description}"
+                  </p>
+                )}
+              </div>
+
+              {/* Player de Vídeo */}
+              <div className={`w-full ${showInfoMessage ? 'max-w-2xl' : 'max-w-3xl'} aspect-video relative group transition-all duration-500`}>
+                <div 
+                  id="youtube-player-main" 
+                  ref={iframeRef} 
+                  className="w-full h-full rounded-3xl sm:rounded-[3rem] shadow-[0_32px_80px_-12px_rgba(0,0,0,0.8)] overflow-hidden border-4 border-white/10"
+                ></div>
+                
+                {/* Botão Ativar Som - Enxuto e Moderno (Centralizado) */}
+                {videoMuted && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-6">
                     <button
                       onClick={handleActivateSound}
-                      className="group bg-gradient-to-r from-white to-gray-50 hover:from-gray-50 hover:to-white text-gray-900 px-5 py-3 sm:px-10 sm:py-5 rounded-2xl font-bold text-sm sm:text-lg transition-all duration-300 hover:scale-110 active:scale-95 hover:shadow-2xl flex items-center justify-center gap-2.5 sm:gap-3 mx-auto shadow-xl border-2 border-white/20 w-full sm:w-auto min-w-[180px] sm:min-w-[200px]"
+                      className="group relative flex flex-col items-center justify-center gap-4 transition-all duration-300 hover:scale-110 active:scale-95"
                     >
-                      <div className="relative flex-shrink-0">
-                        <svg className="w-5 h-5 sm:w-7 sm:h-7 transition-transform group-hover:scale-110" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.793L4.383 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.383l4-3.617a1 1 0 011.617.793zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
-                        </svg>
-                        <div className="absolute inset-0 bg-white/30 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                      {/* Pulse Rings */}
+                      <div className="absolute inset-0 -m-4">
+                        <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-[ping_2s_infinite]"></div>
+                        <div className="absolute inset-0 rounded-full border border-white/10 animate-[ping_3s_infinite_500ms]"></div>
                       </div>
-                      <span className="tracking-wide flex-shrink-0">Ativar Som</span>
+
+                      <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-white text-gray-900 shadow-[0_0_50px_rgba(255,255,255,0.3)] flex items-center justify-center relative z-10 group-hover:bg-primary group-hover:text-white transition-colors duration-500">
+                        <SpeakerHigh size={32} weight="fill" className="sm:hidden" />
+                        <SpeakerHigh size={44} weight="fill" className="hidden sm:block" />
+                      </div>
+                      
+                      <span className="text-white font-black text-[10px] sm:text-sm uppercase tracking-[0.3em] drop-shadow-xl animate-pulse">
+                        Explorar com Som
+                      </span>
                     </button>
-                    
-                    {/* Timer abaixo do botão com design moderno - responsivo */}
+
+                    {/* Timer Minimalista */}
                     {showTimer && (
-                      <div className="mt-2 sm:mt-4 animate-fade-in">
-                        <div className="bg-black/60 backdrop-blur-md rounded-lg sm:rounded-xl px-3 py-2 sm:px-6 sm:py-4 border border-white/10 shadow-2xl">
-                          <p className="text-white/90 text-[10px] sm:text-xs font-medium mb-1 sm:mb-2 tracking-wide uppercase">
-                            Informações disponível em
-                          </p>
-                          <div className="flex items-center justify-center gap-1.5 sm:gap-2">
-                            {/* Círculo de progresso - responsivo */}
-                            <div className="relative w-11 h-11 sm:w-16 sm:h-16">
-                              <svg className="transform -rotate-90 w-11 h-11 sm:w-16 sm:h-16">
-                                <circle
-                                  cx="22"
-                                  cy="22"
-                                  r="18"
-                                  className="sm:hidden"
-                                  stroke="rgba(255,255,255,0.2)"
-                                  strokeWidth="3"
-                                  fill="none"
-                                />
-                                <circle
-                                  cx="22"
-                                  cy="22"
-                                  r="18"
-                                  className="sm:hidden"
-                                  stroke="white"
-                                  strokeWidth="3"
-                                  fill="none"
-                                  strokeDasharray={`${2 * Math.PI * 18}`}
-                                  strokeDashoffset={`${2 * Math.PI * 18 * (1 - ((videoConfig?.show_after_seconds || 3) - countdown) / (videoConfig?.show_after_seconds || 3))}`}
-                                  style={{ transition: 'stroke-dashoffset 1s linear' }}
-                                  strokeLinecap="round"
-                                />
-                                <circle
-                                  cx="32"
-                                  cy="32"
-                                  r="28"
-                                  className="hidden sm:block"
-                                  stroke="rgba(255,255,255,0.2)"
-                                  strokeWidth="4"
-                                  fill="none"
-                                />
-                                <circle
-                                  cx="32"
-                                  cy="32"
-                                  r="28"
-                                  className="hidden sm:block"
-                                  stroke="white"
-                                  strokeWidth="4"
-                                  fill="none"
-                                  strokeDasharray={`${2 * Math.PI * 28}`}
-                                  strokeDashoffset={`${2 * Math.PI * 28 * (1 - ((videoConfig?.show_after_seconds || 3) - countdown) / (videoConfig?.show_after_seconds || 3))}`}
-                                  style={{ transition: 'stroke-dashoffset 1s linear' }}
-                                  strokeLinecap="round"
-                                />
-                              </svg>
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <span className="text-lg sm:text-2xl font-bold text-white">{countdown}</span>
-                              </div>
-                            </div>
-                            <div className="text-left">
-                              <p className="text-white text-xs sm:text-lg font-bold">{countdown === 1 ? 'segundo' : 'segundos'}</p>
-                            </div>
-                          </div>
+                      <div className="flex flex-col items-center gap-2 px-5 py-2 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
+                        <div className="flex items-center gap-2">
+                          <div className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                          <span className="text-white/90 text-[9px] sm:text-xs font-black uppercase tracking-widest">
+                            Em {countdown}s
+                          </span>
                         </div>
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-            </div>
-            
-            {/* Mensagem após 10 segundos com botão âncora - responsiva */}
-            {showInfoMessage && (
-              <div className="mt-2 sm:mt-4 w-full max-w-3xl sm:max-w-4xl px-2 sm:px-0 animate-fade-in-up">
-                <div className="bg-gradient-to-b from-black/95 via-black/90 to-black backdrop-blur-md rounded-lg sm:rounded-xl border border-white/20 p-4 sm:p-6 text-center">
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
-                    <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-white/10 rounded-full backdrop-blur-sm border border-white/20">
-                      <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-white text-lg sm:text-2xl font-bold tracking-tight">
-                      Informações Disponíveis
-                    </h3>
-                  </div>
-                  <p className="text-gray-300 text-xs sm:text-sm mb-3 sm:mb-4 leading-relaxed px-2">
-                    {loteData.video_description || "Explore detalhes técnicos, composição e características únicas deste lote"}
-                  </p>
-                  <Button
-                    onClick={showLotInfo}
-                    className="group bg-gradient-to-r from-white to-gray-50 hover:from-gray-50 hover:to-white text-gray-900 px-6 py-3 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-bold text-sm sm:text-base transition-all duration-300 hover:scale-105 active:scale-95 hover:shadow-2xl flex items-center gap-2 sm:gap-3 mx-auto shadow-xl border-2 border-white/20 w-full sm:w-auto"
-                  >
-                    <svg className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:translate-y-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                    </svg>
-                    <span className="tracking-wide">Ver Informações do Lote</span>
-                  </Button>
-                </div>
+                )}
               </div>
-            )}
+            </div>
+
+            {/* Rodapé - Fingerprint e Scroll - Aparece apenas após o delay */}
+            <div className={`w-full flex justify-center mt-auto ${showInfoMessage ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+              <div className="flex flex-col items-center gap-6 animate-bounce">
+                <button 
+                  onClick={showLotInfo}
+                  className="flex flex-col items-center gap-2 group/scroll transition-all duration-300 hover:opacity-100 opacity-80"
+                >
+                  <div 
+                    className="w-12 h-12 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-md border border-white/20 shadow-xl group-hover/scroll:bg-white/20 transition-all duration-500"
+                    style={{ color: branding?.primaryColor }}
+                  >
+                    <Fingerprint size={28} weight="duotone" />
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <span className="text-white/60 text-[9px] font-black uppercase tracking-[0.2em]">
+                      Deslize para explorar
+                    </span>
+                    <CaretDown size={16} className="text-white/40" weight="bold" />
+                  </div>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -824,9 +861,19 @@ const LoteDetails = () => {
             {/* Botão para fechar o vídeo flutuante */}
             <button
               onClick={() => {
+                // Marcar como fechado pelo usuário para evitar que o scroll reabra
+                setVideoClosedByUser(true);
                 setIsVideoFloating(false);
-                if (videoSectionRef.current) {
-                  videoSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                
+                try {
+                  if (floatingPlayerRef.current && typeof floatingPlayerRef.current.pauseVideo === 'function') {
+                    floatingPlayerRef.current.pauseVideo();
+                  }
+                  if (mainPlayerRef.current && typeof mainPlayerRef.current.pauseVideo === 'function') {
+                    mainPlayerRef.current.pauseVideo();
+                  }
+                } catch (e) {
+                  console.error("Erro ao pausar vídeos no fechamento:", e);
                 }
               }}
               className="absolute top-2 right-2 z-10 w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-black/60 hover:bg-black/80 rounded-full backdrop-blur-sm transition-all duration-200 hover:scale-110"
@@ -852,29 +899,31 @@ const LoteDetails = () => {
           loteData={loteData}
           isBlend={isBlend}
           blendComponentsCount={blendComponents.length}
-          producerName={producer?.name}
+          producerName={producerName}
+          onScrollToContent={showLotInfo}
           branding={branding ? {
             primaryColor: branding.primaryColor,
             secondaryColor: branding.secondaryColor,
             accentColor: branding.accentColor,
-            logoUrl: branding.logoUrl || null
+            logoUrl: branding.logoUrl || null,
+            headerImageUrl: branding.headerImageUrl || null
           } : undefined}
         />
       
         {/* Barra de ações */}
         <div className="bg-white border-b border-gray-200/60 -mt-2 sticky top-0 z-40 shadow-sm transition-all duration-300">
-          <div className="container mx-auto px-4 sm:px-6 py-3 sm:py-5 max-w-6xl">
-            <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
+          <div className="container mx-auto px-4 sm:px-6 py-2 sm:py-3 max-w-6xl">
+            <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-4">
               {/* Lado esquerdo - Informações contextuais */}
-              <div className="flex items-center gap-3 sm:gap-4">
+              <div className="flex items-center gap-2 sm:gap-4">
                 <div className="flex items-center gap-2 sm:gap-2.5">
-                  <span className="hidden sm:block text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <span className="hidden md:block text-[10px] font-black text-gray-400 uppercase tracking-widest">
                     Compartilhe este lote
                   </span>
-                  <span className="hidden sm:block w-px h-3.5 bg-gray-300"></span>
-                  <div className="flex items-center gap-1.5">
-                    <Tag className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-gray-400" weight="fill" />
-                    <span className="text-xs sm:text-sm font-medium text-gray-600">
+                  <span className="hidden md:block w-px h-3 bg-gray-200"></span>
+                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-gray-50 border border-gray-100">
+                    <Tag className="w-2.5 h-2.5 text-gray-400" weight="fill" />
+                    <span className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">
                       {loteData?.category}
                     </span>
                   </div>
@@ -882,12 +931,12 @@ const LoteDetails = () => {
               </div>
               
               {/* Lado direito - Ações */}
-              <div className="flex items-center gap-1.5 sm:gap-2 ml-auto">
+              <div className="flex items-center gap-1 sm:gap-2 ml-auto">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={showLotInfo}
-                  className="group flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2 h-8 sm:h-9 rounded-lg transition-all duration-200 hover:scale-[1.02]"
+                  className="group flex items-center gap-1.5 text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 rounded-lg transition-all duration-200 hover:scale-[1.02] font-black uppercase tracking-wider"
                   style={{
                     color: branding?.primaryColor || '#16a34a',
                   }}
@@ -899,16 +948,16 @@ const LoteDetails = () => {
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  <CaretDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform duration-200 group-hover:translate-y-0.5" weight="bold" />
-                  <span className="font-medium hidden sm:inline">Ver Informações</span>
-                  <span className="font-medium sm:hidden">Infos</span>
+                  <CaretDown className="h-3 w-3 sm:h-3.5 sm:w-3.5 transition-transform duration-200 group-hover:translate-y-0.5" weight="bold" />
+                  <span className="hidden sm:inline">Ver Informações</span>
+                  <span className="sm:hidden">Infos</span>
                 </Button>
                 
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleShare}
-                  className="group flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2 h-8 sm:h-9 rounded-lg transition-all duration-200 hover:scale-[1.02]"
+                  className="group flex items-center gap-1.5 text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 rounded-lg transition-all duration-200 hover:scale-[1.02] font-black uppercase tracking-wider"
                   style={{
                     color: branding?.secondaryColor || '#22c55e',
                   }}
@@ -920,9 +969,9 @@ const LoteDetails = () => {
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  <ShareNetwork className="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform duration-200 group-hover:rotate-12" weight="fill" />
-                  <span className="font-medium hidden sm:inline">Compartilhar</span>
-                  <span className="font-medium sm:hidden">Share</span>
+                  <ShareNetwork className="h-3 w-3 sm:h-3.5 sm:w-3.5 transition-transform duration-200 group-hover:rotate-12" weight="fill" />
+                  <span className="hidden sm:inline">Compartilhar</span>
+                  <span className="sm:hidden">Share</span>
                 </Button>
                 
                 <Button
@@ -932,7 +981,7 @@ const LoteDetails = () => {
                     navigator.clipboard.writeText(window.location.href);
                     toast.success("URL copiada para a área de transferência!");
                   }}
-                  className="group flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 py-1.5 sm:py-2 h-8 sm:h-9 rounded-lg transition-all duration-200 hover:scale-[1.02]"
+                  className="group flex items-center gap-1.5 text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 rounded-lg transition-all duration-200 hover:scale-[1.02] font-black uppercase tracking-wider"
                   style={{
                     color: branding?.accentColor || '#10b981',
                   }}
@@ -944,9 +993,9 @@ const LoteDetails = () => {
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-transform duration-200 group-hover:scale-110" weight="fill" />
-                  <span className="font-medium hidden sm:inline">Copiar</span>
-                  <span className="font-medium sm:hidden">Copiar</span>
+                  <Copy className="h-3 w-3 sm:h-3.5 sm:w-3.5 transition-transform duration-200 group-hover:scale-110" weight="fill" />
+                  <span className="hidden sm:inline">Copiar URL</span>
+                  <span className="sm:hidden">URL</span>
                 </Button>
               </div>
             </div>
@@ -956,22 +1005,16 @@ const LoteDetails = () => {
         <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12 max-w-7xl">
           {/* Referência para scroll - Seção de informações do produto */}
           <div ref={productDetailsRef} className="scroll-mt-20 sm:scroll-mt-24 space-y-8 sm:space-y-12">
-            {/* Seção Principal - Informações do Lote */}
-            <LotInfoSection 
-              loteData={loteData}
+            {/* 1. De onde veio / Quem plantou - Seção de Produtores */}
+            <ProducersSection 
               isBlend={isBlend}
               blendComponents={blendComponents}
-              producer={producer}
-              producerName={producer?.name}
-              industry={industry}
-              associations={associations}
+              producer={currentProducer}
+              loteData={loteData}
               branding={branding || undefined}
             />
 
-            {/* Seção de Observações */}
-            <LotObservations lotObservations={loteData.lot_observations} />
-
-            {/* Seção de Composição do Blend */}
+            {/* 2. Composição do Blend (se houver) */}
             {isBlend && (
               <BlendComposition 
                 blendComponents={blendComponents}
@@ -982,17 +1025,119 @@ const LoteDetails = () => {
               />
             )}
 
-            {/* Seção de Produtores */}
-            <ProducersSection 
+            {/* 3. Análise Sensorial */}
+            <SensoryAnalysis loteData={loteData} branding={branding || undefined} />
+
+            {/* 4. Observações do Especialista */}
+            <LotObservations lotObservations={loteData.lot_observations} />
+
+            {/* Nova Seção: Procedência e Certificação - Redesign Premium */}
+            {(loteData.seals_quantity || (associations && associations.length > 0) || industry) && (
+              <div className="pt-16 sm:pt-24 border-t border-slate-100">
+                <div className="text-center mb-12 sm:mb-16">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest mb-4">
+                    Garantia de Qualidade
+                  </div>
+                  <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight mb-3">Procedência e Certificação</h2>
+                  <p className="text-slate-500 font-medium text-lg max-w-2xl mx-auto">
+                    Entidades e parceiros que asseguram a excelência e a rastreabilidade deste lote.
+                  </p>
+                </div>
+
+                <div className="max-w-6xl mx-auto px-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {/* Selos de Rastreabilidade */}
+                    {loteData.seals_quantity && (
+                      <div className="lg:col-span-1">
+                        <div className="h-full bg-slate-950 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center relative overflow-hidden group shadow-2xl">
+                          <div 
+                            className="absolute inset-0 opacity-20 pointer-events-none transition-opacity duration-700 group-hover:opacity-30"
+                            style={{ background: `radial-gradient(circle at center, ${branding?.primaryColor || '#16a34a'} 0%, transparent 70%)` }}
+                          />
+                          
+                          <div 
+                            className="w-16 h-16 rounded-2xl flex items-center justify-center relative z-10 shadow-xl mb-6 transition-transform duration-500 group-hover:scale-110"
+                            style={{ backgroundColor: branding?.primaryColor || '#16a34a', color: 'white' }}
+                          >
+                            <Tag size={32} weight="fill" />
+                          </div>
+                          
+                          <div className="relative z-10">
+                            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-2">Selos Gerados</p>
+                            <div className="flex items-baseline gap-2 justify-center mb-2">
+                              <span className="text-5xl font-black text-white tracking-tighter">{loteData.seals_quantity}</span>
+                              <span className="text-sm font-bold text-white/60 uppercase tracking-widest">Unidades</span>
+                            </div>
+                            <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Rastreabilidade Garantida</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Associações e Indústria */}
+                    <div className={`${loteData.seals_quantity ? 'lg:col-span-2' : 'lg:col-span-3'} grid grid-cols-1 sm:grid-cols-2 gap-6`}>
+                      {/* Associações */}
+                      {associations.map((assoc: any) => (
+                        <div key={assoc.id} className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-6 group">
+                          <div className="w-20 h-20 flex-shrink-0 rounded-2xl bg-slate-50 border border-slate-50 flex items-center justify-center p-3 transition-transform duration-500 group-hover:scale-105">
+                            {assoc.logo_url ? (
+                              <img src={assoc.logo_url} alt={assoc.name} className="w-full h-full object-contain filter grayscale group-hover:grayscale-0 transition-all duration-500" />
+                            ) : (
+                              <Building size={32} weight="duotone" className="text-slate-300" />
+                            )}
+                          </div>
+                          <div className="text-left">
+                            <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-50 text-slate-400 text-[8px] font-black uppercase tracking-widest mb-1.5">
+                              {assoc.type || 'Associação'}
+                            </div>
+                            <h4 className="text-lg font-black text-slate-900 leading-tight group-hover:text-primary transition-colors" style={{ '--primary': branding?.primaryColor || '#16a34a' } as any}>
+                              {assoc.name}
+                            </h4>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Parceiro Certificador</p>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Indústria */}
+                      {industry && (
+                        <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-6 group">
+                          <div className="w-20 h-20 flex-shrink-0 rounded-2xl bg-slate-50 border border-slate-50 flex items-center justify-center p-3 transition-transform duration-500 group-hover:scale-105">
+                            {industry.logo_url ? (
+                              <img src={industry.logo_url} alt={industry.name} className="w-full h-full object-contain filter grayscale group-hover:grayscale-0 transition-all duration-500" />
+                            ) : (
+                              <Building size={32} weight="duotone" className="text-slate-300" />
+                            )}
+                          </div>
+                          <div className="text-left">
+                            <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-50 text-slate-400 text-[8px] font-black uppercase tracking-widest mb-1.5">
+                              Indústria Parceira
+                            </div>
+                            <h4 className="text-lg font-black text-slate-900 leading-tight group-hover:text-primary transition-colors" style={{ '--primary': branding?.primaryColor || '#16a34a' } as any}>
+                              {industry.name}
+                            </h4>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                              {industry.city}, {industry.state}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 5. Dados Técnicos - Informações do Lote */}
+            <LotInfoSection 
+              loteData={loteData}
               isBlend={isBlend}
               blendComponents={blendComponents}
-              producer={producer}
-              loteData={loteData}
+              producer={currentProducer}
+              producerName={currentProducer?.name}
+              industry={industry}
+              associations={associations}
               branding={branding || undefined}
             />
-
-            {/* Análise Sensorial */}
-            <SensoryAnalysis loteData={loteData} branding={branding || undefined} />
           </div>
         </div>
       </div>

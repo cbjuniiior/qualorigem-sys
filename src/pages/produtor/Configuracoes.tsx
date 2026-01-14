@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { maskPhone } from "@/utils/masks";
 import { 
   Gear, 
   User, 
@@ -192,7 +193,7 @@ export const ProducerConfiguracoes = () => {
                         <Label className="font-bold text-slate-700 ml-1">Nome Completo</Label>
                         <Input 
                           value={formData.name} 
-                          onChange={e => setFormData({...formData, name: e.target.value})} 
+                          onChange={e => setFormData((prev: any) => ({...prev, name: e.target.value}))} 
                           className="rounded-xl bg-slate-50 border-0 h-12 font-medium focus-visible:ring-primary" 
                           style={{ '--primary': primaryColor } as any}
                         />
@@ -201,7 +202,12 @@ export const ProducerConfiguracoes = () => {
                         <Label className="font-bold text-slate-700 ml-1">Telefone/WhatsApp</Label>
                         <Input 
                           value={formData.phone} 
-                          onChange={e => setFormData({...formData, phone: e.target.value})} 
+                          onChange={e => {
+                            const masked = maskPhone(e.target.value);
+                            setFormData((prev: any) => ({...prev, phone: masked}));
+                          }}
+                          placeholder="(00) 00000-0000"
+                          maxLength={15}
                           className="rounded-xl bg-slate-50 border-0 h-12 font-medium focus-visible:ring-primary" 
                           style={{ '--primary': primaryColor } as any}
                         />
@@ -225,7 +231,7 @@ export const ProducerConfiguracoes = () => {
                         <Label className="font-bold text-slate-700 ml-1">Nome da Fazenda/Sítio</Label>
                         <Input 
                           value={formData.property_name} 
-                          onChange={e => setFormData({...formData, property_name: e.target.value})} 
+                          onChange={e => setFormData((prev: any) => ({...prev, property_name: e.target.value}))} 
                           className="rounded-xl bg-slate-50 border-0 h-12 font-black" 
                           style={{ color: primaryColor, '--primary': primaryColor } as any}
                         />
@@ -234,7 +240,7 @@ export const ProducerConfiguracoes = () => {
                         <Label className="font-bold text-slate-700 ml-1">Descrição & História</Label>
                         <Textarea 
                           value={formData.property_description} 
-                          onChange={e => setFormData({...formData, property_description: e.target.value})} 
+                          onChange={e => setFormData((prev: any) => ({...prev, property_description: e.target.value}))} 
                           className="rounded-xl bg-slate-50 border-0 min-h-[120px] font-medium focus-visible:ring-primary" 
                           style={{ '--primary': primaryColor } as any}
                         />
@@ -247,7 +253,7 @@ export const ProducerConfiguracoes = () => {
                           <Input 
                             type="number" 
                             value={formData.altitude} 
-                            onChange={e => setFormData({...formData, altitude: e.target.value})} 
+                            onChange={e => setFormData((prev: any) => ({...prev, altitude: e.target.value}))} 
                             className="rounded-xl bg-slate-50 border-0 h-12 font-bold focus-visible:ring-primary" 
                             style={{ '--primary': primaryColor } as any}
                           />
@@ -257,7 +263,7 @@ export const ProducerConfiguracoes = () => {
                           <Input 
                             type="number" 
                             value={formData.average_temperature} 
-                            onChange={e => setFormData({...formData, average_temperature: e.target.value})} 
+                            onChange={e => setFormData((prev: any) => ({...prev, average_temperature: e.target.value}))} 
                             className="rounded-xl bg-slate-50 border-0 h-12 font-bold focus-visible:ring-primary" 
                             style={{ '--primary': primaryColor } as any}
                           />
@@ -278,7 +284,7 @@ export const ProducerConfiguracoes = () => {
                       <Label className="font-bold text-slate-700 ml-1">Cidade</Label>
                       <Input 
                         value={formData.city} 
-                        onChange={e => setFormData({...formData, city: e.target.value})} 
+                        onChange={e => setFormData((prev: any) => ({...prev, city: e.target.value}))} 
                         className="rounded-xl bg-slate-50 border-0 h-12 font-medium focus-visible:ring-primary" 
                         style={{ '--primary': primaryColor } as any}
                       />
@@ -287,7 +293,7 @@ export const ProducerConfiguracoes = () => {
                       <Label className="font-bold text-slate-700 ml-1">Estado</Label>
                       <Input 
                         value={formData.state} 
-                        onChange={e => setFormData({...formData, state: e.target.value})} 
+                        onChange={e => setFormData((prev: any) => ({...prev, state: e.target.value}))} 
                         className="rounded-xl bg-slate-50 border-0 h-12 font-medium focus-visible:ring-primary" 
                         style={{ '--primary': primaryColor } as any}
                       />

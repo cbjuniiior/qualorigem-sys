@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
+import { maskPhone, maskCEP } from "@/utils/masks";
+import { useCEP } from "@/hooks/use-cep";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,6 +105,29 @@ const ASSOCIATION_STEPS = [
   { id: 2, title: "Endereço & Contato" }
 ];
 
+const FormSection = ({ title, icon: Icon, children, description, active, primaryColor }: any) => {
+  if (!active) return null;
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 text-left">
+      <div className="flex items-start gap-4 px-2">
+        <div 
+          className="p-2.5 rounded-xl border shadow-sm"
+          style={{ backgroundColor: `${primaryColor}10`, color: primaryColor, borderColor: `${primaryColor}20` }}
+        >
+          <Icon size={24} weight="duotone" />
+        </div>
+        <div>
+          <h3 className="text-lg font-black text-slate-800 tracking-tight">{title}</h3>
+          {description && <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{description}</p>}
+        </div>
+      </div>
+      <div className="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm space-y-8">
+        {children}
+      </div>
+    </div>
+  );
+};
+
 export default function Associacoes() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<any[]>([]);
@@ -115,6 +140,18 @@ export default function Associacoes() {
   const [filterType, setFilterType] = useState("all");
   const [assocToDelete, setAssocToDelete] = useState<string | null>(null);
   const [branding, setBranding] = useState<any>(null);
+
+  const { searchCEP } = useCEP((data) => {
+    setForm((prev: any) => ({
+      ...prev,
+      city: data.localidade,
+      state: data.uf,
+      contact_info: {
+        ...prev.contact_info,
+        address: data.logradouro || prev.contact_info.address,
+      },
+    }));
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -153,15 +190,21 @@ export default function Associacoes() {
 
   const handleEdit = (item: any) => {
     setEditing(item);
+    const contactInfo = item.contact_info || {};
     setForm({
       id: item.id,
       name: item.name || "",
       type: item.type || "associacao",
       city: item.city || "",
       state: item.state || "",
-      cep: item.cep || "",
+      cep: contactInfo.cep || item.cep || "",
       description: item.description || "",
-      contact_info: item.contact_info || { email: "", phone: "", website: "", address: "" },
+      contact_info: {
+        email: contactInfo.email || "",
+        phone: contactInfo.phone || "",
+        website: contactInfo.website || "",
+        address: contactInfo.address || "",
+      },
       logo_url: item.logo_url || "",
     });
     setCurrentStep(1);
@@ -195,17 +238,37 @@ export default function Associacoes() {
         toast.error("Nome é obrigatório");
         return;
       }
+      
+      // Preparar dados para envio - mover cep para contact_info
+      const dataToSend = {
+        name: form.name,
+        type: form.type,
+        city: form.city,
+        state: form.state,
+        description: form.description || null,
+        logo_url: form.logo_url || null,
+        contact_info: {
+          ...form.contact_info,
+          cep: form.cep || undefined,
+          address: form.contact_info.address || undefined,
+          email: form.contact_info.email || undefined,
+          phone: form.contact_info.phone || undefined,
+          website: form.contact_info.website || undefined,
+        },
+      };
+      
       if (editing) {
-        await associationsApi.update(editing.id, form as any);
+        await associationsApi.update(editing.id, dataToSend as any);
         toast.success("Associação atualizada!");
       } else {
-        await associationsApi.create(form as any);
+        await associationsApi.create(dataToSend as any);
         toast.success("Associação criada!");
       }
       setIsSheetOpen(false);
       fetchAll();
-    } catch (e) {
-      toast.error("Erro ao salvar");
+    } catch (e: any) {
+      console.error("Erro ao salvar associação:", e);
+      toast.error(e?.message || "Erro ao salvar");
     }
   };
 
@@ -253,29 +316,6 @@ export default function Associacoes() {
       ))}
     </div>
   );
-
-  const FormSection = ({ title, icon: Icon, children, description, active }: any) => {
-    if (!active) return null;
-    return (
-      <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 text-left">
-        <div className="flex items-start gap-4 px-2">
-          <div 
-            className="p-2.5 rounded-xl border shadow-sm"
-            style={{ backgroundColor: `${primaryColor}10`, color: primaryColor, borderColor: `${primaryColor}20` }}
-          >
-            <Icon size={24} weight="duotone" />
-          </div>
-          <div>
-            <h3 className="text-lg font-black text-slate-800 tracking-tight">{title}</h3>
-            {description && <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{description}</p>}
-          </div>
-        </div>
-        <div className="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm space-y-8">
-          {children}
-        </div>
-      </div>
-    );
-  };
 
   return (
     <AdminLayout>
@@ -440,6 +480,7 @@ export default function Associacoes() {
                   icon={IdentificationCard} 
                   description="Dados básicos e visuais"
                   active={currentStep === 1}
+                  primaryColor={primaryColor}
                 >
                   <div className="flex flex-col md:flex-row gap-12 items-center md:items-start text-left">
                     <div className="relative group">
@@ -471,7 +512,7 @@ export default function Associacoes() {
                         </Label>
                         <Input 
                           value={form.name} 
-                          onChange={e => setForm({...form, name: e.target.value})} 
+                          onChange={e => setForm((prev: any) => ({...prev, name: e.target.value}))} 
                           placeholder="Ex: Cooperativa dos Produtores..." 
                           className="focus-visible:ring-primary h-12"
                           style={{ '--primary': primaryColor } as any}
@@ -481,7 +522,7 @@ export default function Associacoes() {
                         <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
                           <Tag size={16} style={{ color: primaryColor }} /> Tipo de Entidade
                         </Label>
-                        <Select value={form.type} onValueChange={v => setForm({...form, type: v})}>
+                        <Select value={form.type} onValueChange={v => setForm((prev: any) => ({...prev, type: v}))}>
                           <SelectTrigger 
                             className="rounded-xl bg-slate-50 border-0 h-12 focus:ring-primary"
                             style={{ '--primary': primaryColor } as any}
@@ -500,7 +541,7 @@ export default function Associacoes() {
                         </Label>
                         <Textarea 
                           value={form.description} 
-                          onChange={e => setForm({...form, description: e.target.value})} 
+                          onChange={e => setForm((prev: any) => ({...prev, description: e.target.value}))} 
                           placeholder="Breve história da entidade, missão e valores..." 
                           className="min-h-[150px] focus-visible:ring-primary"
                           style={{ '--primary': primaryColor } as any}
@@ -515,14 +556,25 @@ export default function Associacoes() {
                   icon={MapPin} 
                   description="Localização e meios de comunicação"
                   active={currentStep === 2}
+                  primaryColor={primaryColor}
                 >
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-left">
                     <div className="space-y-2">
                       <Label className="font-black text-slate-700 ml-1 mb-1">CEP</Label>
                       <Input 
                         value={form.cep} 
-                        onChange={e => setForm({...form, cep: e.target.value})} 
+                        onChange={e => {
+                          const masked = maskCEP(e.target.value);
+                          setForm((prev: any) => ({...prev, cep: masked}));
+                        }}
+                        onBlur={(e) => {
+                          const cleanCEP = e.target.value.replace(/\D/g, '');
+                          if (cleanCEP.length === 8) {
+                            searchCEP(e.target.value);
+                          }
+                        }}
                         placeholder="00000-000" 
+                        maxLength={9}
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}
                       />
@@ -531,7 +583,7 @@ export default function Associacoes() {
                       <Label className="font-black text-slate-700 ml-1 mb-1">Cidade *</Label>
                       <Input 
                         value={form.city} 
-                        onChange={e => setForm({...form, city: e.target.value})} 
+                        onChange={e => setForm((prev: any) => ({...prev, city: e.target.value}))} 
                         placeholder="Cidade" 
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}
@@ -539,7 +591,7 @@ export default function Associacoes() {
                     </div>
                     <div className="space-y-2">
                       <Label className="font-black text-slate-700 ml-1 mb-1">Estado *</Label>
-                      <Select value={form.state} onValueChange={v => setForm({...form, state: v})}>
+                      <Select value={form.state} onValueChange={v => setForm((prev: any) => ({...prev, state: v}))}>
                         <SelectTrigger 
                           className="rounded-xl bg-slate-50 border-0 h-12 focus:ring-primary"
                           style={{ '--primary': primaryColor } as any}
@@ -555,7 +607,7 @@ export default function Associacoes() {
                       <Label className="font-black text-slate-700 ml-1 mb-1 text-xs uppercase">Endereço Completo</Label>
                       <Input 
                         value={form.contact_info.address} 
-                        onChange={e => setForm({...form, contact_info: {...form.contact_info, address: e.target.value}})} 
+                        onChange={e => setForm((prev: any) => ({...prev, contact_info: {...prev.contact_info, address: e.target.value}}))} 
                         placeholder="Rua, número, bairro..." 
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}
@@ -572,7 +624,7 @@ export default function Associacoes() {
                       </Label>
                       <Input 
                         value={form.contact_info.email} 
-                        onChange={e => setForm({...form, contact_info: {...form.contact_info, email: e.target.value}})} 
+                        onChange={e => setForm((prev: any) => ({...prev, contact_info: {...prev.contact_info, email: e.target.value}}))} 
                         placeholder="contato@..." 
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}
@@ -584,8 +636,12 @@ export default function Associacoes() {
                       </Label>
                       <Input 
                         value={form.contact_info.phone} 
-                        onChange={e => setForm({...form, contact_info: {...form.contact_info, phone: e.target.value}})} 
+                        onChange={e => {
+                          const masked = maskPhone(e.target.value);
+                          setForm((prev: any) => ({...prev, contact_info: {...prev.contact_info, phone: masked}}));
+                        }}
                         placeholder="(00) 00000-0000" 
+                        maxLength={15}
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}
                       />
@@ -596,7 +652,7 @@ export default function Associacoes() {
                       </Label>
                       <Input 
                         value={form.contact_info.website} 
-                        onChange={e => setForm({...form, contact_info: {...form.contact_info, website: e.target.value}})} 
+                        onChange={e => setForm((prev: any) => ({...prev, contact_info: {...prev.contact_info, website: e.target.value}}))} 
                         placeholder="www.entidade.com.br" 
                         className="focus-visible:ring-primary h-12"
                         style={{ '--primary': primaryColor } as any}

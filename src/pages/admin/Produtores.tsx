@@ -38,7 +38,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { producersApi, associationsApi, systemConfigApi } from "@/services/api";
+import { producersApi, associationsApi, systemConfigApi, brandsApi } from "@/services/api";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
@@ -50,7 +50,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm, FormProvider } from "react-hook-form";
+import { maskPhone, maskCPFCNPJ } from "@/utils/masks";
 import { uploadImageToSupabase } from "@/services/upload";
+import { generateSlug } from "@/utils/slug-generator";
 import { FormStepIndicator } from "@/components/ui/step-indicator";
 import {
   DropdownMenu,
@@ -89,8 +91,6 @@ interface Producer {
   photos: string[];
   latitude: string | null;
   longitude: string | null;
-  lot_prefix_mode: 'auto' | 'manual';
-  custom_prefix: string | null;
   profile_picture_url: string | null;
   address_internal_only: boolean;
 }
@@ -102,10 +102,35 @@ const stateOptions = [
 const PRODUCER_STEPS = [
   { id: 1, title: "Responsável" },
   { id: 2, title: "Vínculos" },
+  { id: 3, title: "Marcas" },
 ];
+
+const FormSection = ({ title, icon: Icon, children, description, active, primaryColor }: any) => {
+  if (!active) return null;
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 text-left">
+      <div className="flex items-start gap-4 px-2">
+        <div 
+          className="p-2.5 rounded-xl border shadow-sm"
+          style={{ backgroundColor: `${primaryColor}10`, color: primaryColor, borderColor: `${primaryColor}20` }}
+        >
+          <Icon size={24} weight="duotone" />
+        </div>
+        <div>
+          <h3 className="text-lg font-black text-slate-800 tracking-tight">{title}</h3>
+          {description && <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{description}</p>}
+        </div>
+      </div>
+      <div className="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm space-y-8">
+        {children}
+      </div>
+    </div>
+  );
+};
 
 const Produtores = () => {
   const [producers, setProducers] = useState<Producer[]>([]);
+  const [producersBrands, setProducersBrands] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -133,6 +158,18 @@ const Produtores = () => {
       setLoading(true);
       const data = await producersApi.getAll();
       setProducers(data as Producer[]);
+      
+      // Buscar marcas de todos os produtores
+      const brandsMap: Record<string, any[]> = {};
+      for (const producer of data) {
+        try {
+          const brands = await brandsApi.getByProducer(producer.id);
+          brandsMap[producer.id] = brands || [];
+        } catch (error) {
+          brandsMap[producer.id] = [];
+        }
+      }
+      setProducersBrands(brandsMap);
     } catch (error) {
       toast.error("Erro ao carregar produtores");
     } finally {
@@ -161,8 +198,8 @@ const Produtores = () => {
 
   const filteredProducers = producers.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.property_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.city?.toLowerCase().includes(searchTerm.toLowerCase())
+    p.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.phone?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const primaryColor = branding?.primaryColor || '#16a34a';
@@ -174,11 +211,16 @@ const Produtores = () => {
           <div className="flex h-40">
             <Skeleton className="w-1/3 h-full rounded-none" />
             <div className="w-2/3 p-6 space-y-3">
-              <Skeleton className="h-6 w-3/4" />
+              <div className="flex items-start justify-between">
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-8 w-8 rounded-lg" />
+              </div>
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
               <Skeleton className="h-4 w-1/2" />
-              <div className="flex gap-2">
-                <Skeleton className="h-8 w-20 rounded-full" />
-                <Skeleton className="h-8 w-20 rounded-full" />
+              <div className="flex gap-2 pt-2">
+                <Skeleton className="h-6 w-24 rounded-full" />
+                <Skeleton className="h-6 w-16 rounded-full" />
               </div>
             </div>
           </div>
@@ -217,7 +259,7 @@ const Produtores = () => {
             <div className="relative">
               <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
               <Input
-                placeholder="Buscar por nome, propriedade ou cidade..."
+                placeholder="Buscar por nome, e-mail ou telefone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-12 h-12 bg-slate-50 border-0 rounded-xl focus-visible:ring-primary font-medium"
@@ -247,15 +289,22 @@ const Produtores = () => {
               >
                 <CardContent className="p-0">
                   <div className="flex h-full min-h-[180px]">
-                    <div className="w-1/3 relative overflow-hidden">
-                      <img 
-                        src={prod.photos?.[0] || "/placeholder.svg"} 
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110" 
-                        alt={prod.name} 
-                      />
+                    <div className="w-1/3 relative overflow-hidden bg-slate-100 flex-shrink-0">
+                      {prod.profile_picture_url ? (
+                        <img 
+                          src={prod.profile_picture_url} 
+                          className="h-full w-full object-cover object-center transition-transform duration-500 group-hover:scale-110" 
+                          alt={prod.name}
+                          style={{ minHeight: '180px', maxHeight: '180px' }}
+                        />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200" style={{ minHeight: '180px', maxHeight: '180px' }}>
+                          <UserCircle size={48} className="text-slate-400" weight="duotone" />
+                        </div>
+                      )}
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
-                    <div className="w-2/3 p-6 flex flex-col justify-between">
+                    <div className="w-2/3 p-6 flex flex-col justify-between flex-grow">
                       <div>
                         <div className="flex items-start justify-between gap-2">
                           <h4 className="text-xl font-black text-slate-900 line-clamp-1">{prod.name}</h4>
@@ -278,27 +327,41 @@ const Produtores = () => {
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
-                        <p className="font-bold text-sm mb-3 flex items-center gap-1.5" style={{ color: primaryColor }}>
-                          <Buildings size={16} weight="fill" /> {prod.property_name}
-                        </p>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                            <MapPin size={14} weight="fill" className="text-slate-300" /> {prod.city}, {prod.state}
-                          </div>
-                          <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
-                            <Phone size={14} weight="fill" className="text-slate-300" /> {prod.phone || "Sem telefone"}
-                          </div>
+                        <div className="space-y-2 mt-3">
+                          {prod.email && (
+                            <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                              <Envelope size={14} weight="fill" className="text-slate-300" /> {prod.email}
+                            </div>
+                          )}
+                          {prod.phone && (
+                            <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
+                              <Phone size={14} weight="fill" className="text-slate-300" /> {prod.phone}
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <div className="flex gap-2 pt-4">
-                        {prod.altitude && (
-                          <Badge variant="secondary" className="bg-slate-50 text-slate-500 border-0 font-bold px-2 py-0.5 rounded-md text-[10px]">
-                            <Mountains size={12} className="mr-1" /> {prod.altitude}m
+                      <div className="flex flex-wrap gap-2 pt-4">
+                        {producersBrands[prod.id] && producersBrands[prod.id].length > 0 ? (
+                          producersBrands[prod.id].slice(0, 3).map((brand: any) => (
+                            <Badge 
+                              key={brand.id} 
+                              variant="secondary" 
+                              className="bg-slate-50 text-slate-500 border-0 font-bold px-2 py-0.5 rounded-md text-[10px] flex items-center gap-1"
+                            >
+                              {brand.logo_url && (
+                                <img src={brand.logo_url} alt={brand.name} className="w-3 h-3 rounded object-cover" />
+                              )}
+                              {brand.name}
+                            </Badge>
+                          ))
+                        ) : (
+                          <Badge variant="secondary" className="bg-slate-50 text-slate-400 border-0 font-bold px-2 py-0.5 rounded-md text-[10px]">
+                            Sem marcas
                           </Badge>
                         )}
-                        {prod.average_temperature && (
-                          <Badge variant="secondary" className="bg-slate-50 text-slate-500 border-0 font-bold px-2 py-0.5 rounded-md text-[10px]">
-                            <Thermometer size={12} className="mr-1" /> {prod.average_temperature}°C
+                        {producersBrands[prod.id] && producersBrands[prod.id].length > 3 && (
+                          <Badge variant="secondary" className="bg-slate-50 text-slate-400 border-0 font-bold px-2 py-0.5 rounded-md text-[10px]">
+                            +{producersBrands[prod.id].length - 3}
                           </Badge>
                         )}
                       </div>
@@ -376,6 +439,11 @@ const Produtores = () => {
 const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, setCurrentStep }: { initialData?: any; onSubmit: (data: any) => void; onCancel: () => void; branding?: any; currentStep: number; setCurrentStep: (step: number) => void; }) => {
   const [loading, setLoading] = useState(false);
   const [allAssociations, setAllAssociations] = useState<any[]>([]);
+  const [selectedAssociations, setSelectedAssociations] = useState<string[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
+  const [editingBrand, setEditingBrand] = useState<any | null>(null);
+  const [brandForm, setBrandForm] = useState({ name: "", logo_url: "" });
+  const [producerId, setProducerId] = useState<string | null>(initialData?.id || null);
   const [photoPreviews, setPhotoPreviews] = useState<any[]>(() => {
     if (initialData?.photos) return initialData.photos.map((url: string) => ({ url, uploaded: true }));
     return [];
@@ -390,20 +458,6 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
       email: "",
       phone: "",
       profile_picture_url: "",
-      property_name: "",
-      property_description: "",
-      photos: [],
-      altitude: "",
-      average_temperature: "",
-      cep: "",
-      address: "",
-      city: "",
-      state: "",
-      address_internal_only: false,
-      latitude: "",
-      longitude: "",
-      lot_prefix_mode: "auto",
-      custom_prefix: "",
       associations: [],
     },
   });
@@ -412,12 +466,16 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
 
   useEffect(() => {
     associationsApi.getAll().then(setAllAssociations);
-    if (initialData?.id) {
-      associationsApi.getByProducer(initialData.id).then(assocs => {
-        setValue("associations", assocs.map(a => a.id));
+    const id = producerId || initialData?.id;
+    if (id) {
+      associationsApi.getByProducer(id).then(assocs => {
+        const assocIds = assocs.map(a => a.id);
+        setSelectedAssociations(assocIds);
+        setValue("associations", assocIds);
       });
+      brandsApi.getByProducer(id).then(setBrands);
     }
-  }, [initialData, setValue]);
+  }, [producerId, initialData, setValue]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: "profile" | "property") => {
     const files = Array.from(e.target.files || []);
@@ -441,51 +499,146 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
     }
   };
 
+  const handleBrandLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const url = await uploadImageToSupabase(file, "brands");
+      setBrandForm((prev) => ({ ...prev, logo_url: url }));
+      toast.success("Logo enviada!");
+    } catch (error) {
+      toast.error("Erro ao enviar logo");
+    }
+  };
+
+  const handleSaveBrand = async () => {
+    const id = producerId || initialData?.id;
+    if (!id) {
+      toast.error("Salve o produtor primeiro");
+      return;
+    }
+
+    try {
+      if (editingBrand) {
+        // Ao editar, apenas atualizar a logo (nome e slug não podem ser alterados)
+        await brandsApi.update(editingBrand.id, {
+          logo_url: brandForm.logo_url || null,
+        });
+        toast.success("Logo da marca atualizada!");
+      } else {
+        // Ao criar nova marca, validar nome
+        if (!brandForm.name.trim()) {
+          toast.error("Nome da marca é obrigatório");
+          return;
+        }
+        const slug = generateSlug(brandForm.name);
+        await brandsApi.create({
+          producer_id: id,
+          name: brandForm.name,
+          slug,
+          logo_url: brandForm.logo_url || null,
+        });
+        toast.success("Marca criada!");
+      }
+      
+      const updatedBrands = await brandsApi.getByProducer(id);
+      setBrands(updatedBrands);
+      setBrandForm({ name: "", logo_url: "" });
+      setEditingBrand(null);
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao salvar marca");
+    }
+  };
+
+  const handleDeleteBrand = async (brandId: string) => {
+    if (!confirm("Deseja realmente excluir esta marca?")) return;
+    
+    try {
+      await brandsApi.delete(brandId);
+      toast.success("Marca excluída!");
+      const id = producerId || initialData!.id;
+      const updatedBrands = await brandsApi.getByProducer(id);
+      setBrands(updatedBrands);
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao excluir marca");
+    }
+  };
+
+  const handleEditBrand = (brand: any) => {
+    setEditingBrand(brand);
+    setBrandForm({ name: brand.name, logo_url: brand.logo_url || "" });
+  };
+
   const onFormSubmit = async (data: any) => {
+    // Só permitir submit se estiver na etapa 3
+    if (currentStep !== 3) {
+      return;
+    }
+    
     setLoading(true);
     try {
-      const { associations, ...rest } = data;
-      if (initialData) {
-        await producersApi.update(initialData.id, rest);
-        const currentAssocs = await associationsApi.getByProducer(initialData.id);
+      // Usar selectedAssociations como fonte de verdade
+      const associations = selectedAssociations.length > 0 ? selectedAssociations : (data.associations || []);
+      const { associations: _, ...rest } = data;
+      
+      // Filtrar apenas os campos que devem ser salvos no produtor
+      // Remover campos de propriedade que agora são do lote
+      // A tabela ainda exige city, state e property_name como obrigatórios,
+      // então enviamos valores padrão temporários até aplicar a migration 009
+      const producerData: any = {
+        name: rest.name,
+        document_number: rest.document_number || null,
+        email: rest.email || null,
+        phone: rest.phone || null,
+        profile_picture_url: rest.profile_picture_url || null,
+        // Campos obrigatórios da tabela (valores padrão temporários)
+        // TODO: Aplicar migration 009_remove_property_fields_from_producers.sql para tornar opcionais
+        city: "N/A", // Valor temporário - será removido após migration
+        state: "N/A", // Valor temporário - será removido após migration
+        property_name: "N/A", // Valor temporário - será removido após migration
+      };
+      
+      const id = producerId || initialData?.id;
+      
+      // Se o produtor já foi salvo (tem ID), apenas atualizar se necessário
+      if (id) {
+        // Atualizar dados do produtor
+        await producersApi.update(id, producerData);
+        
+        // Atualizar associações
+        const currentAssocs = await associationsApi.getByProducer(id);
         const currentIds = currentAssocs.map(a => a.id);
-        for (const id of currentIds) if (!associations.includes(id)) await associationsApi.removeProducerFromAssociation(initialData.id, id);
-        for (const id of associations) if (!currentIds.includes(id)) await associationsApi.addProducerToAssociation(initialData.id, id);
+        for (const idToRemove of currentIds) {
+          if (!associations.includes(idToRemove)) {
+            await associationsApi.removeProducerFromAssociation(id, idToRemove);
+          }
+        }
+        for (const idToAdd of associations) {
+          if (!currentIds.includes(idToAdd)) {
+            await associationsApi.addProducerToAssociation(id, idToAdd);
+          }
+        }
       } else {
-        const newProd = await producersApi.create(rest);
-        for (const id of associations) await associationsApi.addProducerToAssociation(newProd.id, id);
+        // Se não tem ID, criar novo produtor (não deveria acontecer, mas por segurança)
+        const newProd = await producersApi.create(producerData);
+        setProducerId(newProd.id);
+        for (const idToAdd of associations) {
+          await associationsApi.addProducerToAssociation(newProd.id, idToAdd);
+        }
       }
-      toast.success("Dados salvos!");
+      
+      // As marcas já foram salvas durante a etapa 3 (quando o usuário clicou em "Adicionar Marca")
+      toast.success(initialData ? "Produtor atualizado com sucesso!" : "Produtor cadastrado com sucesso!");
       onSubmit(data);
-    } catch (error) {
-      toast.error("Erro ao salvar");
+    } catch (error: any) {
+      console.error("Erro ao salvar produtor:", error);
+      toast.error(error?.message || "Erro ao salvar");
     } finally {
       setLoading(false);
     }
   };
 
-  const FormSection = ({ title, icon: Icon, children, description, active }: any) => {
-    if (!active) return null;
-    return (
-      <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 text-left">
-        <div className="flex items-start gap-4 px-2">
-          <div 
-            className="p-2.5 rounded-xl border shadow-sm"
-            style={{ backgroundColor: `${primaryColor}10`, color: primaryColor, borderColor: `${primaryColor}20` }}
-          >
-            <Icon size={24} weight="duotone" />
-          </div>
-          <div>
-            <h3 className="text-lg font-black text-slate-800 tracking-tight">{title}</h3>
-            {description && <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{description}</p>}
-          </div>
-        </div>
-        <div className="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm space-y-8">
-          {children}
-        </div>
-      </div>
-    );
-  };
 
   const validateCurrentStep = () => {
     if (currentStep === 1) {
@@ -501,13 +654,22 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
 
   return (
     <FormProvider {...methods}>
-      <form onSubmit={handleSubmit(onFormSubmit)} className="h-full flex flex-col min-h-0">
+      <form 
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (currentStep === 3) {
+            handleSubmit(onFormSubmit)(e);
+          }
+        }} 
+        className="h-full flex flex-col min-h-0"
+      >
         <div className="flex-1 overflow-y-auto p-8 space-y-12 pb-10">
           <FormSection 
             title="Dados do Responsável" 
             icon={IdentificationCard} 
             description="Informações de contato e identificação"
             active={currentStep === 1}
+            primaryColor={primaryColor}
           >
             <div className="flex flex-col md:flex-row gap-12 items-center md:items-start text-left">
               <div className="relative group">
@@ -548,43 +710,37 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
                   <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
                     <IdentificationCard size={16} style={{ color: primaryColor }} /> CPF/CNPJ
                   </Label>
-                  <Input {...register("document_number")} placeholder="000.000.000-00" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
+                  <Input 
+                    {...register("document_number")} 
+                    onChange={(e) => {
+                      const masked = maskCPFCNPJ(e.target.value);
+                      setValue("document_number", masked);
+                    }}
+                    placeholder="000.000.000-00" 
+                    maxLength={18}
+                    className="h-12 focus-visible:ring-primary" 
+                    style={{ '--primary': primaryColor } as any} 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
                     <Phone size={16} style={{ color: primaryColor }} /> Telefone/WhatsApp
                   </Label>
-                  <Input {...register("phone")} placeholder="(00) 00000-0000" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
+                  <Input 
+                    {...register("phone")} 
+                    onChange={(e) => {
+                      const masked = maskPhone(e.target.value);
+                      setValue("phone", masked);
+                    }}
+                    placeholder="(00) 00000-0000" 
+                    maxLength={15}
+                    className="h-12 focus-visible:ring-primary" 
+                    style={{ '--primary': primaryColor } as any} 
+                  />
                 </div>
               </div>
             </div>
 
-            <Separator className="bg-slate-100" />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 text-left">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                  <Tag size={16} style={{ color: primaryColor }} /> Prefixo de Lote
-                </Label>
-                <Select value={watch("lot_prefix_mode")} onValueChange={v => setValue("lot_prefix_mode", v as any)}>
-                  <SelectTrigger className="rounded-xl bg-slate-50 border-0 h-12 focus:ring-primary" style={{ '--primary': primaryColor } as any}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="auto">Automático (3 letras nome)</SelectItem>
-                    <SelectItem value="manual">Manual (Personalizado)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {watch("lot_prefix_mode") === "manual" && (
-                <div className="space-y-2 animate-in slide-in-from-left-4 duration-300">
-                  <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                    <IdentificationCard size={16} style={{ color: primaryColor }} /> Prefixo Personalizado
-                  </Label>
-                  <Input {...register("custom_prefix")} className="uppercase font-mono h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} placeholder="EX: FZDA" maxLength={5} />
-                </div>
-              )}
-            </div>
           </FormSection>
 
           <FormSection 
@@ -592,25 +748,40 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
             icon={Users} 
             description="Associações e cooperativas parceiras"
             active={currentStep === 2}
+            primaryColor={primaryColor}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
               {allAssociations.map(assoc => {
-                const isSelected = watch("associations")?.includes(assoc.id);
+                const isSelected = selectedAssociations.includes(assoc.id);
                 return (
                   <div 
                     key={assoc.id} 
-                    onClick={() => {
-                      const current = watch("associations") || [];
-                      const next = current.includes(assoc.id) ? current.filter((id: string) => id !== assoc.id) : [...current, assoc.id];
-                      setValue("associations", next);
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const next = isSelected
+                        ? selectedAssociations.filter((id: string) => id !== assoc.id)
+                        : [...selectedAssociations, assoc.id];
+                      setSelectedAssociations(next);
+                      setValue("associations", next, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
                     }}
                     className={`flex items-center gap-5 p-5 rounded-[1.5rem] border-2 transition-all cursor-pointer group ${
                       isSelected ? "shadow-sm" : "bg-white border-slate-100 hover:border-slate-200"
                     }`}
                     style={isSelected ? { backgroundColor: `${primaryColor}05`, borderColor: primaryColor } : {}}
                   >
-                    <div className={`p-1 rounded-xl border ${isSelected ? 'bg-white' : 'bg-slate-50 border-slate-100'}`} style={isSelected ? { borderColor: `${primaryColor}20` } : {}}>
-                      <Checkbox checked={isSelected} className="rounded-md" style={{ '--primary': primaryColor } as any} />
+                    <div 
+                      className={`p-1 rounded-xl border-2 flex items-center justify-center w-6 h-6 transition-all ${
+                        isSelected ? 'bg-white border-primary' : 'bg-slate-50 border-slate-200'
+                      }`}
+                      style={isSelected ? { borderColor: primaryColor } : {}}
+                    >
+                      {isSelected && (
+                        <div 
+                          className="w-3 h-3 rounded-sm"
+                          style={{ backgroundColor: primaryColor }}
+                        />
+                      )}
                     </div>
                     <Avatar className="h-12 w-12 rounded-xl shadow-sm border border-slate-100">
                       <AvatarImage src={assoc.logo_url} />
@@ -636,6 +807,167 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
               )}
             </div>
           </FormSection>
+
+          <FormSection 
+            title="Marcas do Produtor" 
+            icon={Tag} 
+            description="Gerencie as marcas associadas ao produtor"
+            active={currentStep === 3}
+            primaryColor={primaryColor}
+          >
+            {!producerId && !initialData?.id ? (
+              <div className="py-20 text-center space-y-4">
+                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
+                  <WarningCircle size={40} className="text-slate-200" />
+                </div>
+                <p className="text-slate-400 font-bold">Salve o produtor primeiro para adicionar marcas.</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Formulário de Marca */}
+                <div className="bg-slate-50 rounded-2xl p-6 space-y-4 border border-slate-100">
+                  <h4 className="font-black text-slate-900 text-lg">{editingBrand ? "Editar Marca" : "Nova Marca"}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="font-black text-slate-700">Nome da Marca *</Label>
+                      {editingBrand ? (
+                        <div className="space-y-2">
+                          <Input
+                            value={brandForm.name}
+                            disabled
+                            className="h-12 bg-slate-100 text-slate-600 cursor-not-allowed"
+                          />
+                          <p className="text-xs text-slate-400 font-bold">O nome não pode ser alterado após a criação</p>
+                          <div className="space-y-1">
+                            <Label className="text-xs font-bold text-slate-500">Slug (URL)</Label>
+                            <Input
+                              value={editingBrand.slug}
+                              disabled
+                              className="h-10 bg-slate-100 text-slate-500 text-xs font-mono cursor-not-allowed"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <Input
+                          value={brandForm.name}
+                          onChange={(e) => setBrandForm((prev) => ({ ...prev, name: e.target.value }))}
+                          placeholder="Ex: Café Premium"
+                          className="h-12"
+                        />
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="font-black text-slate-700">Logo da Marca</Label>
+                      <div className="flex items-center gap-3">
+                        {brandForm.logo_url && (
+                          <img src={brandForm.logo_url} alt="Logo" className="w-16 h-16 rounded-lg object-cover border border-slate-200 shadow-sm" />
+                        )}
+                        <label className="flex-1">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleBrandLogoUpload}
+                            className="hidden"
+                            id="brand-logo-input"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full h-12 rounded-xl font-bold border-slate-200"
+                            onClick={() => {
+                              const input = document.getElementById('brand-logo-input') as HTMLInputElement;
+                              input?.click();
+                            }}
+                          >
+                            <Camera size={18} className="mr-2" /> {brandForm.logo_url ? "Alterar Logo" : "Enviar Logo"}
+                          </Button>
+                        </label>
+                      </div>
+                      {editingBrand && !brandForm.logo_url && (
+                        <p className="text-xs text-slate-400 font-bold">Nenhuma logo cadastrada</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      onClick={handleSaveBrand}
+                      className="flex-1 rounded-xl h-12 font-black text-white"
+                      style={{ backgroundColor: primaryColor }}
+                    >
+                      {editingBrand ? "Atualizar Logo" : "Adicionar Marca"}
+                    </Button>
+                    {editingBrand && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingBrand(null);
+                          setBrandForm({ name: "", logo_url: "" });
+                        }}
+                        className="rounded-xl h-12 font-black border-slate-200"
+                      >
+                        Cancelar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Lista de Marcas */}
+                <div className="space-y-3">
+                  <h4 className="font-black text-slate-900 text-lg">Marcas Cadastradas</h4>
+                  {brands.length === 0 ? (
+                    <div className="py-12 text-center bg-slate-50 rounded-2xl border border-slate-100">
+                      <Tag size={32} className="text-slate-300 mx-auto mb-3" />
+                      <p className="text-slate-400 font-bold">Nenhuma marca cadastrada</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {brands.map((brand) => (
+                        <div
+                          key={brand.id}
+                          className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-100 hover:border-slate-200 transition-all"
+                        >
+                          {brand.logo_url ? (
+                            <img src={brand.logo_url} alt={brand.name} className="w-12 h-12 rounded-lg object-cover border border-slate-200" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center">
+                              <Tag size={20} className="text-slate-400" />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <p className="font-black text-slate-900">{brand.name}</p>
+                            <p className="text-xs text-slate-400 font-bold">{brand.slug}</p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEditBrand(brand)}
+                              className="h-8 w-8 rounded-lg text-slate-400 hover:text-primary"
+                              style={{ '--primary': primaryColor } as any}
+                            >
+                              <PencilSimple size={16} />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteBrand(brand.id)}
+                              className="h-8 w-8 rounded-lg text-slate-400 hover:text-rose-600"
+                            >
+                              <Trash size={16} />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </FormSection>
         </div>
 
         {/* Rodapé de Navegação Fixo */}
@@ -647,14 +979,54 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
               <Button type="button" variant="outline" onClick={() => setCurrentStep(currentStep - 1)} className="flex-1 rounded-2xl h-14 font-black border-slate-200 text-slate-700 hover:bg-slate-50 transition-all gap-2"><ArrowLeft size={20} weight="bold" /> Voltar</Button>
             )}
 
-            {currentStep < 2 ? (
+            {currentStep < 3 ? (
               <Button 
                 type="button" 
-                onClick={() => validateCurrentStep() && setCurrentStep(currentStep + 1)} 
+                onClick={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (validateCurrentStep()) {
+                    // Se for novo produtor e estiver indo para etapa 3, salvar primeiro
+                    if (!initialData?.id && currentStep === 2) {
+                      try {
+                        setLoading(true);
+                        const formData = watch();
+                        const associations = selectedAssociations;
+                        const { associations: _, ...rest } = formData;
+                        
+                        const producerData: any = {
+                          name: rest.name,
+                          document_number: rest.document_number || null,
+                          email: rest.email || null,
+                          phone: rest.phone || null,
+                          profile_picture_url: rest.profile_picture_url || null,
+                          city: "N/A",
+                          state: "N/A",
+                          property_name: "N/A",
+                        };
+                        
+                        const newProd = await producersApi.create(producerData);
+                        for (const id of associations) await associationsApi.addProducerToAssociation(newProd.id, id);
+                        
+                        // Atualizar producerId para permitir adicionar marcas
+                        setProducerId(newProd.id);
+                        setCurrentStep(3);
+                        toast.success("Produtor salvo! Agora você pode adicionar marcas.");
+                      } catch (error: any) {
+                        toast.error(error?.message || "Erro ao salvar produtor");
+                      } finally {
+                        setLoading(false);
+                      }
+                    } else {
+                      setCurrentStep(currentStep + 1);
+                    }
+                  }
+                }} 
                 className="flex-[2] rounded-2xl h-14 font-black text-white hover:opacity-90 shadow-2xl transition-all gap-3"
                 style={{ backgroundColor: primaryColor }}
+                disabled={loading}
               >
-                Próxima Etapa <ArrowRight size={24} weight="bold" />
+                {loading ? <CircleNotch className="h-5 w-5 animate-spin" /> : <>Próxima Etapa <ArrowRight size={24} weight="bold" /></>}
               </Button>
             ) : (
               <Button 
