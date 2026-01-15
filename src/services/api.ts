@@ -1061,6 +1061,16 @@ export const associationsApi = {
 
 // Serviços para Marcas
 export const brandsApi = {
+  // Buscar todas as marcas (admin/relatórios)
+  async getAll() {
+    const { data, error } = await supabase
+      .from("brands")
+      .select("*")
+      .order("name");
+    if (error) throw error;
+    return data;
+  },
+
   // Buscar todas as marcas de um produtor
   async getByProducer(producerId: string) {
     const { data, error } = await supabase
