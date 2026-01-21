@@ -1,78 +1,74 @@
 -- =====================================================
--- SCHEMA COMPLETO DO BANCO DE DADOS - VIVA RASTREA
--- Sistema de Rastreabilidade para Produtos com IG
+-- SCHEMA COMPLETO DO BANCO DE DADOS - VIVA RASTREA (V3)
+-- Atualizado para bater 100% com o código da aplicação
 -- =====================================================
 -- Gerado em: 2026-01-21
--- Projeto: SysRastreabilidade (giomnnxpgjrpwyjrkkwr)
--- Região: sa-east-1 (São Paulo, Brasil)
--- PostgreSQL: 17.6.1.008
+-- PostgreSQL: 17.6
 -- =====================================================
+
+-- =====================================================
+-- LIMPEZA TOTAL (RESET)
+-- ATENÇÃO: Isso apagará TODOS os dados existentes!
+-- =====================================================
+
+-- Apagar políticas de storage
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can update" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can delete" ON storage.objects;
+
+-- Limpar buckets de storage
+DELETE FROM storage.buckets WHERE id IN ('propriedades', 'branding');
+
+-- Apagar TODAS as tabelas do schema public
+DROP TABLE IF EXISTS public.tasks CASCADE;
+DROP TABLE IF EXISTS public.producers_associations CASCADE;
+DROP TABLE IF EXISTS public.system_configurations CASCADE;
+DROP TABLE IF EXISTS public.seal_controls CASCADE;
+DROP TABLE IF EXISTS public.product_lot_sensory CASCADE;
+DROP TABLE IF EXISTS public.product_lot_characteristics CASCADE;
+DROP TABLE IF EXISTS public.lot_components CASCADE;
+DROP TABLE IF EXISTS public.product_lots CASCADE;
+DROP TABLE IF EXISTS public.sensory_attributes CASCADE;
+DROP TABLE IF EXISTS public.characteristics CASCADE;
+DROP TABLE IF EXISTS public.categories CASCADE;
+DROP TABLE IF EXISTS public.industries CASCADE;
+DROP TABLE IF EXISTS public.brands CASCADE;
+DROP TABLE IF EXISTS public.associations CASCADE;
+DROP TABLE IF EXISTS public.producers CASCADE;
+
+-- Apagar funções
+DROP FUNCTION IF EXISTS public.update_updated_at_column CASCADE;
+DROP FUNCTION IF EXISTS public.handle_updated_at CASCADE;
+DROP FUNCTION IF EXISTS public.increment_lot_views CASCADE;
+DROP FUNCTION IF EXISTS public.generate_unique_lot_code CASCADE;
 
 -- =====================================================
 -- EXTENSÕES
 -- =====================================================
 
--- Habilitar extensão para UUID (caso não esteja habilitada)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- =====================================================
--- STORAGE BUCKETS (Supabase Storage)
+-- STORAGE BUCKETS
 -- =====================================================
 
--- Criar bucket para imagens de propriedades e lotes
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-    'propriedades',
-    'propriedades',
-    true,
-    5242880, -- 5MB
-    ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
-)
+VALUES 
+    ('propriedades', 'propriedades', true, 5242880, ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']),
+    ('branding', 'branding', true, 2097152, ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/svg+xml'])
 ON CONFLICT (id) DO NOTHING;
 
--- Criar bucket para logos e branding
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES (
-    'branding',
-    'branding',
-    true,
-    2097152, -- 2MB
-    ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/svg+xml']
-)
-ON CONFLICT (id) DO NOTHING;
-
--- =====================================================
--- POLÍTICAS DE STORAGE (RLS para Buckets)
--- =====================================================
-
--- Política: Qualquer pessoa pode visualizar arquivos públicos
-CREATE POLICY "Public Access"
-ON storage.objects FOR SELECT
-USING (bucket_id IN ('propriedades', 'branding'));
-
--- Política: Usuários autenticados podem fazer upload
-CREATE POLICY "Authenticated users can upload"
-ON storage.objects FOR INSERT
-TO authenticated
-WITH CHECK (bucket_id IN ('propriedades', 'branding'));
-
--- Política: Usuários autenticados podem atualizar seus arquivos
-CREATE POLICY "Authenticated users can update"
-ON storage.objects FOR UPDATE
-TO authenticated
-USING (bucket_id IN ('propriedades', 'branding'));
-
--- Política: Usuários autenticados podem deletar arquivos
-CREATE POLICY "Authenticated users can delete"
-ON storage.objects FOR DELETE
-TO authenticated
-USING (bucket_id IN ('propriedades', 'branding'));
+-- Políticas de Storage
+CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING (bucket_id IN ('propriedades', 'branding'));
+CREATE POLICY "Authenticated users can upload" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id IN ('propriedades', 'branding'));
+CREATE POLICY "Authenticated users can update" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id IN ('propriedades', 'branding'));
+CREATE POLICY "Authenticated users can delete" ON storage.objects FOR DELETE TO authenticated USING (bucket_id IN ('propriedades', 'branding'));
 
 -- =====================================================
 -- FUNÇÕES AUXILIARES
 -- =====================================================
 
--- Função para atualizar o campo updated_at automaticamente
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -81,7 +77,6 @@ BEGIN
 END;
 $$ LANGUAGE 'plpgsql';
 
--- Função alternativa para updated_at (compatibilidade)
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -90,25 +85,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Função para incrementar visualizações de lotes
 CREATE OR REPLACE FUNCTION public.increment_lot_views(lot_code text)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
-    UPDATE product_lots 
-    SET views = views + 1 
-    WHERE code = lot_code;
+    UPDATE product_lots SET views = views + 1 WHERE code = lot_code;
 END;
 $$;
 
 -- =====================================================
--- TABELA: producers (Produtores)
+-- TABELAS
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS public.producers (
+-- 1. PRODUTORES
+CREATE TABLE public.producers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     document_number TEXT,
@@ -120,13 +109,13 @@ CREATE TABLE IF NOT EXISTS public.producers (
     city TEXT NOT NULL,
     state TEXT NOT NULL,
     altitude INTEGER,
-    average_temperature NUMERIC(4,2),
-    cep VARCHAR,
+    average_temperature NUMERIC,
+    cep TEXT,
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
-    photos TEXT[],
-    use_coordinates BOOLEAN,
-    lot_prefix_mode TEXT DEFAULT 'auto' CHECK (lot_prefix_mode IN ('auto', 'manual')),
+    photos TEXT[] DEFAULT '{}',
+    use_coordinates BOOLEAN DEFAULT FALSE,
+    lot_prefix_mode TEXT DEFAULT 'auto',
     custom_prefix TEXT,
     profile_picture_url TEXT,
     address_internal_only BOOLEAN DEFAULT FALSE,
@@ -134,30 +123,22 @@ CREATE TABLE IF NOT EXISTS public.producers (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
--- TABELA: associations (Associações)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS public.associations (
+-- 2. ASSOCIAÇÕES
+CREATE TABLE public.associations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     type TEXT,
     description TEXT,
     logo_url TEXT,
-    contact_email TEXT,
-    contact_phone TEXT,
-    address TEXT,
+    contact_info JSONB DEFAULT '{}',
     city TEXT,
     state TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
--- TABELA: brands (Marcas)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS public.brands (
+-- 3. MARCAS
+CREATE TABLE public.brands (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     producer_id UUID NOT NULL REFERENCES public.producers(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -168,11 +149,8 @@ CREATE TABLE IF NOT EXISTS public.brands (
     UNIQUE(producer_id, slug)
 );
 
--- =====================================================
--- TABELA: industries (Indústrias)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS public.industries (
+-- 4. INDÚSTRIAS
+CREATE TABLE public.industries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     document_number TEXT,
@@ -188,11 +166,8 @@ CREATE TABLE IF NOT EXISTS public.industries (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
--- TABELA: categories (Categorias de Produtos)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS public.categories (
+-- 5. CATEGORIAS e CARACTERÍSTICAS
+CREATE TABLE public.categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT UNIQUE NOT NULL,
     description TEXT,
@@ -200,11 +175,7 @@ CREATE TABLE IF NOT EXISTS public.categories (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
--- TABELA: characteristics (Características)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS public.characteristics (
+CREATE TABLE public.characteristics (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT UNIQUE NOT NULL,
     description TEXT,
@@ -212,26 +183,19 @@ CREATE TABLE IF NOT EXISTS public.characteristics (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
--- TABELA: sensory_attributes (Atributos Sensoriais)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS public.sensory_attributes (
+CREATE TABLE public.sensory_attributes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT UNIQUE NOT NULL,
     description TEXT,
-    type TEXT NOT NULL CHECK (type IN ('quantitative', 'qualitative')),
+    type TEXT NOT NULL,
     show_radar BOOLEAN DEFAULT TRUE,
     show_average BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
--- TABELA: product_lots (Lotes de Produtos)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS public.product_lots (
+-- 6. LOTES DE PRODUTOS
+CREATE TABLE public.product_lots (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
@@ -243,22 +207,22 @@ CREATE TABLE IF NOT EXISTS public.product_lots (
     image_url TEXT,
     producer_id UUID REFERENCES public.producers(id) ON DELETE CASCADE,
     
-    -- Análise sensorial (campos legados - mantidos para compatibilidade)
-    fragrance_score NUMERIC(3,1) CHECK (fragrance_score >= 0 AND fragrance_score <= 10),
-    flavor_score NUMERIC(3,1) CHECK (flavor_score >= 0 AND flavor_score <= 10),
-    finish_score NUMERIC(3,1) CHECK (finish_score >= 0 AND finish_score <= 10),
-    acidity_score NUMERIC(3,1) CHECK (acidity_score >= 0 AND acidity_score <= 10),
-    body_score NUMERIC(3,1) CHECK (body_score >= 0 AND body_score <= 10),
+    -- Análise sensorial legada
+    fragrance_score NUMERIC(3,1),
+    flavor_score NUMERIC(3,1),
+    finish_score NUMERIC(3,1),
+    acidity_score NUMERIC(3,1),
+    body_score NUMERIC(3,1),
     sensory_notes TEXT,
     
-    -- Campos adicionais
+    -- Novos campos
     views INTEGER NOT NULL DEFAULT 0,
-    brand_id UUID REFERENCES public.brands(id) ON DELETE SET NULL,
+    brand_id UUID REFERENCES public.brands(id),
     industry_id UUID REFERENCES public.industries(id),
     association_id UUID REFERENCES public.associations(id),
     sensory_type TEXT DEFAULT 'nota',
     
-    -- Geolocalização e propriedade (campos movidos do produtor)
+    -- Localização
     latitude NUMERIC,
     longitude NUMERIC,
     altitude INTEGER,
@@ -272,19 +236,19 @@ CREATE TABLE IF NOT EXISTS public.product_lots (
     cep TEXT,
     address_internal_only BOOLEAN DEFAULT FALSE,
     
-    -- Vídeo
+    -- Vídeo e Controle
+    lot_observations TEXT,
+    seals_quantity INTEGER,
+    video_delay_seconds INTEGER DEFAULT 3,
     video_description TEXT,
+    youtube_video_url TEXT,
     
-    -- Metadados
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
--- TABELA: lot_components (Componentes de Blend)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS public.lot_components (
+-- 7. COMPONENTES DE BLEND
+CREATE TABLE public.lot_components (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     lot_id UUID REFERENCES public.product_lots(id) ON DELETE CASCADE,
     component_name TEXT NOT NULL,
@@ -294,12 +258,9 @@ CREATE TABLE IF NOT EXISTS public.lot_components (
     component_unit TEXT,
     component_origin TEXT,
     component_harvest_year TEXT,
+    producer_id UUID REFERENCES public.producers(id),
+    association_id UUID REFERENCES public.associations(id),
     
-    -- Relacionamentos
-    producer_id UUID REFERENCES public.producers(id) ON DELETE SET NULL,
-    association_id UUID REFERENCES public.associations(id) ON DELETE SET NULL,
-    
-    -- Geolocalização do componente
     latitude NUMERIC,
     longitude NUMERIC,
     altitude INTEGER,
@@ -311,16 +272,12 @@ CREATE TABLE IF NOT EXISTS public.lot_components (
     state TEXT,
     cep TEXT,
     
-    -- Metadados
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
--- TABELA: product_lot_characteristics (Características dos Lotes)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS public.product_lot_characteristics (
+-- 8. RELAÇÕES E CARACTERÍSTICAS
+CREATE TABLE public.product_lot_characteristics (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     lot_id UUID REFERENCES public.product_lots(id) ON DELETE CASCADE,
     characteristic_id UUID REFERENCES public.characteristics(id) ON DELETE CASCADE,
@@ -328,11 +285,7 @@ CREATE TABLE IF NOT EXISTS public.product_lot_characteristics (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
--- TABELA: product_lot_sensory (Análise Sensorial dos Lotes)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS public.product_lot_sensory (
+CREATE TABLE public.product_lot_sensory (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     lot_id UUID REFERENCES public.product_lots(id) ON DELETE CASCADE,
     sensory_attribute_id UUID REFERENCES public.sensory_attributes(id) ON DELETE CASCADE,
@@ -340,53 +293,42 @@ CREATE TABLE IF NOT EXISTS public.product_lot_sensory (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
--- TABELA: seal_controls (Controle de Selos)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS public.seal_controls (
+-- 9. CONTROLE DE SELOS (ATUALIZADO)
+CREATE TABLE public.seal_controls (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     lot_id UUID REFERENCES public.product_lots(id) ON DELETE CASCADE,
     producer_id UUID REFERENCES public.producers(id) ON DELETE CASCADE,
-    seal_number_start INTEGER,
-    seal_number_end INTEGER,
-    quantity INTEGER,
+    seal_type TEXT NOT NULL,
+    package_size NUMERIC NOT NULL,
+    package_unit TEXT NOT NULL,
+    total_packages INTEGER NOT NULL,
+    total_seals_generated INTEGER NOT NULL,
+    notes TEXT,
     generation_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    observations TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
--- TABELA: system_configurations (Configurações do Sistema)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS public.system_configurations (
+-- 10. CONFIGURAÇÕES E VÍNCULOS
+CREATE TABLE public.system_configurations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    key TEXT UNIQUE NOT NULL,
-    value JSONB,
+    config_key TEXT UNIQUE NOT NULL,
+    config_value JSONB NOT NULL,
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- =====================================================
--- TABELA: producers_associations (Relação Produtores-Associações)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS public.producers_associations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE public.producers_associations (
     producer_id UUID REFERENCES public.producers(id) ON DELETE CASCADE,
     association_id UUID REFERENCES public.associations(id) ON DELETE CASCADE,
-    joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(producer_id, association_id)
+    since TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    role TEXT,
+    PRIMARY KEY (producer_id, association_id)
 );
 
--- =====================================================
--- TABELA: tasks (Sistema de Tarefas)
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS public.tasks (
+-- 11. TAREFAS
+CREATE TABLE public.tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title TEXT NOT NULL,
     description TEXT,
@@ -400,360 +342,46 @@ CREATE TABLE IF NOT EXISTS public.tasks (
 );
 
 -- =====================================================
--- ÍNDICES PARA PERFORMANCE
+-- RLS - SEGURANÇA
 -- =====================================================
 
--- Índices para product_lots
-CREATE INDEX IF NOT EXISTS idx_product_lots_code ON public.product_lots(code);
-CREATE INDEX IF NOT EXISTS idx_product_lots_producer ON public.product_lots(producer_id);
-CREATE INDEX IF NOT EXISTS idx_product_lots_category ON public.product_lots(category);
-CREATE INDEX IF NOT EXISTS idx_product_lots_brand ON public.product_lots(brand_id);
-CREATE INDEX IF NOT EXISTS idx_product_lots_industry ON public.product_lots(industry_id);
-CREATE INDEX IF NOT EXISTS idx_product_lots_association ON public.product_lots(association_id);
-
--- Índices para lot_components
-CREATE INDEX IF NOT EXISTS idx_lot_components_lot ON public.lot_components(lot_id);
-CREATE INDEX IF NOT EXISTS idx_lot_components_producer ON public.lot_components(producer_id);
-CREATE INDEX IF NOT EXISTS idx_lot_components_association ON public.lot_components(association_id);
-
--- Índices para brands
-CREATE INDEX IF NOT EXISTS idx_brands_producer ON public.brands(producer_id);
-CREATE INDEX IF NOT EXISTS idx_brands_slug ON public.brands(slug);
-
--- Índices para seal_controls
-CREATE INDEX IF NOT EXISTS idx_seal_controls_lot ON public.seal_controls(lot_id);
-CREATE INDEX IF NOT EXISTS idx_seal_controls_producer ON public.seal_controls(producer_id);
-
--- Índices para características e análise sensorial
-CREATE INDEX IF NOT EXISTS idx_lot_characteristics_lot ON public.product_lot_characteristics(lot_id);
-CREATE INDEX IF NOT EXISTS idx_lot_sensory_lot ON public.product_lot_sensory(lot_id);
-
--- =====================================================
--- TRIGGERS PARA UPDATED_AT
--- =====================================================
-
--- Producers
-CREATE TRIGGER update_producers_updated_at 
-    BEFORE UPDATE ON public.producers 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Product Lots
-CREATE TRIGGER update_product_lots_updated_at 
-    BEFORE UPDATE ON public.product_lots 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Brands
-CREATE TRIGGER update_brands_updated_at 
-    BEFORE UPDATE ON public.brands 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Lot Components
-CREATE TRIGGER update_lot_components_updated_at 
-    BEFORE UPDATE ON public.lot_components 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Categories
-CREATE TRIGGER update_categories_updated_at 
-    BEFORE UPDATE ON public.categories 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Characteristics
-CREATE TRIGGER update_characteristics_updated_at 
-    BEFORE UPDATE ON public.characteristics 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Sensory Attributes
-CREATE TRIGGER update_sensory_attributes_updated_at 
-    BEFORE UPDATE ON public.sensory_attributes 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Seal Controls
-CREATE TRIGGER update_seal_controls_updated_at 
-    BEFORE UPDATE ON public.seal_controls 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- System Configurations
-CREATE TRIGGER update_system_configurations_updated_at 
-    BEFORE UPDATE ON public.system_configurations 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Industries
-CREATE TRIGGER update_industries_updated_at 
-    BEFORE UPDATE ON public.industries 
-    FOR EACH ROW EXECUTE FUNCTION handle_updated_at();
-
--- Associations
-CREATE TRIGGER update_associations_updated_at 
-    BEFORE UPDATE ON public.associations 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- Tasks
-CREATE TRIGGER update_tasks_updated_at 
-    BEFORE UPDATE ON public.tasks 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- =====================================================
--- ROW LEVEL SECURITY (RLS)
--- =====================================================
-
--- Habilitar RLS em todas as tabelas
-ALTER TABLE public.producers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.product_lots ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.brands ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.lot_components ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.seal_controls ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.system_configurations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.associations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.industries ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.characteristics ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.product_lot_characteristics ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.sensory_attributes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.product_lot_sensory ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
-
--- =====================================================
--- POLÍTICAS RLS - LEITURA PÚBLICA
--- =====================================================
-
--- Producers
-CREATE POLICY "Anyone can view producers" 
-    ON public.producers FOR SELECT 
-    USING (true);
-
--- Product Lots
-CREATE POLICY "Anyone can view product lots" 
-    ON public.product_lots FOR SELECT 
-    USING (true);
-
--- Brands
-CREATE POLICY "Anyone can view brands" 
-    ON public.brands FOR SELECT 
-    USING (true);
-
--- Lot Components
-CREATE POLICY "Anyone can view lot components" 
-    ON public.lot_components FOR SELECT 
-    USING (true);
-
--- Categories
-CREATE POLICY "Anyone can view categories" 
-    ON public.categories FOR SELECT 
-    USING (true);
-
--- Characteristics
-CREATE POLICY "Anyone can view characteristics" 
-    ON public.characteristics FOR SELECT 
-    USING (true);
-
--- Product Lot Characteristics
-CREATE POLICY "Anyone can view lot characteristics" 
-    ON public.product_lot_characteristics FOR SELECT 
-    USING (true);
-
--- Sensory Attributes
-CREATE POLICY "Anyone can view sensory attributes" 
-    ON public.sensory_attributes FOR SELECT 
-    USING (true);
-
--- Product Lot Sensory
-CREATE POLICY "Anyone can view lot sensory analysis" 
-    ON public.product_lot_sensory FOR SELECT 
-    USING (true);
-
--- Industries
-CREATE POLICY "Anyone can view industries" 
-    ON public.industries FOR SELECT 
-    USING (true);
-
--- Associations
-CREATE POLICY "Anyone can view associations" 
-    ON public.associations FOR SELECT 
-    USING (true);
-
--- =====================================================
--- POLÍTICAS RLS - ESCRITA AUTENTICADA
--- =====================================================
-
--- Producers
-CREATE POLICY "Authenticated users can insert producers" 
-    ON public.producers FOR INSERT 
-    TO authenticated 
-    WITH CHECK (true);
-
-CREATE POLICY "Authenticated users can update producers" 
-    ON public.producers FOR UPDATE 
-    TO authenticated 
-    USING (true);
-
-CREATE POLICY "Authenticated users can delete producers" 
-    ON public.producers FOR DELETE 
-    TO authenticated 
-    USING (true);
-
--- Product Lots
-CREATE POLICY "Authenticated users can insert product lots" 
-    ON public.product_lots FOR INSERT 
-    TO authenticated 
-    WITH CHECK (true);
-
-CREATE POLICY "Authenticated users can update product lots" 
-    ON public.product_lots FOR UPDATE 
-    TO authenticated 
-    USING (true);
-
-CREATE POLICY "Authenticated users can delete product lots" 
-    ON public.product_lots FOR DELETE 
-    TO authenticated 
-    USING (true);
-
--- Brands
-CREATE POLICY "Authenticated users can insert brands" 
-    ON public.brands FOR INSERT 
-    TO authenticated 
-    WITH CHECK (true);
-
-CREATE POLICY "Authenticated users can update brands" 
-    ON public.brands FOR UPDATE 
-    TO authenticated 
-    USING (true);
-
-CREATE POLICY "Authenticated users can delete brands" 
-    ON public.brands FOR DELETE 
-    TO authenticated 
-    USING (true);
-
--- Lot Components
-CREATE POLICY "Authenticated users can insert lot components" 
-    ON public.lot_components FOR INSERT 
-    TO authenticated 
-    WITH CHECK (true);
-
-CREATE POLICY "Authenticated users can update lot components" 
-    ON public.lot_components FOR UPDATE 
-    TO authenticated 
-    USING (true);
-
-CREATE POLICY "Authenticated users can delete lot components" 
-    ON public.lot_components FOR DELETE 
-    TO authenticated 
-    USING (true);
-
--- Categories
-CREATE POLICY "Authenticated users can manage categories" 
-    ON public.categories FOR ALL 
-    TO authenticated 
-    USING (true);
-
--- Characteristics
-CREATE POLICY "Authenticated users can manage characteristics" 
-    ON public.characteristics FOR ALL 
-    TO authenticated 
-    USING (true);
-
--- Product Lot Characteristics
-CREATE POLICY "Authenticated users can manage lot characteristics" 
-    ON public.product_lot_characteristics FOR ALL 
-    TO authenticated 
-    USING (true);
-
--- Sensory Attributes
-CREATE POLICY "Authenticated users can manage sensory attributes" 
-    ON public.sensory_attributes FOR ALL 
-    TO authenticated 
-    USING (true);
-
--- Product Lot Sensory
-CREATE POLICY "Authenticated users can manage lot sensory analysis" 
-    ON public.product_lot_sensory FOR ALL 
-    TO authenticated 
-    USING (true);
-
--- Industries
-CREATE POLICY "Authenticated users can manage industries" 
-    ON public.industries FOR ALL 
-    TO authenticated 
-    USING (true);
-
--- Associations
-CREATE POLICY "Authenticated users can manage associations" 
-    ON public.associations FOR ALL 
-    TO authenticated 
-    USING (true);
-
--- Seal Controls
-CREATE POLICY "Authenticated users can manage seal controls" 
-    ON public.seal_controls FOR ALL 
-    TO authenticated 
-    USING (true);
-
--- System Configurations
-CREATE POLICY "Authenticated users can manage system configurations" 
-    ON public.system_configurations FOR ALL 
-    TO authenticated 
-    USING (true);
-
--- Tasks
-CREATE POLICY "Authenticated users can manage tasks" 
-    ON public.tasks FOR ALL 
-    TO authenticated 
-    USING (true);
+DO $$ 
+DECLARE 
+    t TEXT;
+BEGIN
+    FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' LOOP
+        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+        EXECUTE format('DROP POLICY IF EXISTS "Public Select" ON public.%I', t);
+        EXECUTE format('CREATE POLICY "Public Select" ON public.%I FOR SELECT USING (true)', t);
+        EXECUTE format('DROP POLICY IF EXISTS "Auth All" ON public.%I', t);
+        EXECUTE format('CREATE POLICY "Auth All" ON public.%I FOR ALL TO authenticated USING (true)', t);
+    END LOOP;
+END $$;
 
 -- =====================================================
 -- DADOS INICIAIS
 -- =====================================================
 
--- Inserir categorias padrão
-INSERT INTO public.categories (name, description) 
-VALUES 
-    ('Café', 'Produtos de café com indicação geográfica'),
-    ('Erva-Mate', 'Produtos de erva-mate'),
-    ('Cacau', 'Produtos de cacau'),
-    ('Açaí', 'Produtos de açaí'),
-    ('Outros', 'Outras categorias de produtos')
-ON CONFLICT (name) DO NOTHING;
-
--- Inserir características padrão
-INSERT INTO public.characteristics (name, description) 
-VALUES 
-    ('Variedade', 'Variedade do produto'),
-    ('Processamento', 'Tipo de processamento'),
-    ('Torra', 'Nível de torra (para café)'),
-    ('Peneira', 'Classificação por peneira'),
-    ('Altitude', 'Altitude de cultivo')
-ON CONFLICT (name) DO NOTHING;
-
--- Inserir atributos sensoriais padrão
-INSERT INTO public.sensory_attributes (name, description, type, show_radar, show_average) 
-VALUES 
-    ('Fragrância', 'Aroma do produto', 'quantitative', true, true),
-    ('Sabor', 'Sabor predominante', 'quantitative', true, true),
-    ('Finalização', 'Finalização/retrogosto', 'quantitative', true, true),
-    ('Acidez', 'Nível de acidez', 'quantitative', true, true),
-    ('Corpo', 'Corpo/textura', 'quantitative', true, true),
-    ('Doçura', 'Nível de doçura', 'qualitative', false, false),
-    ('Amargor', 'Nível de amargor', 'qualitative', false, false)
-ON CONFLICT (name) DO NOTHING;
+INSERT INTO public.categories (name) VALUES ('Café'), ('Erva-Mate'), ('Cacau'), ('Açaí'), ('Outros') ON CONFLICT DO NOTHING;
+INSERT INTO public.characteristics (name) VALUES ('Variedade'), ('Processamento'), ('Torra'), ('Peneira'), ('Altitude') ON CONFLICT DO NOTHING;
+INSERT INTO public.sensory_attributes (name, type) VALUES 
+    ('Fragrância', 'quantitative'), ('Sabor', 'quantitative'), ('Finalização', 'quantitative'), 
+    ('Acidez', 'quantitative'), ('Corpo', 'quantitative'), ('Doçura', 'qualitative'), ('Amargor', 'qualitative') 
+ON CONFLICT DO NOTHING;
 
 -- =====================================================
--- COMENTÁRIOS NAS TABELAS
+-- TRIGGERS
 -- =====================================================
 
-COMMENT ON TABLE public.producers IS 'Tabela de produtores cadastrados no sistema';
-COMMENT ON TABLE public.product_lots IS 'Tabela de lotes de produtos rastreáveis';
-COMMENT ON TABLE public.lot_components IS 'Componentes de blend para lotes compostos';
-COMMENT ON TABLE public.brands IS 'Marcas dos produtores';
-COMMENT ON TABLE public.industries IS 'Indústrias parceiras';
-COMMENT ON TABLE public.associations IS 'Associações de produtores';
-COMMENT ON TABLE public.categories IS 'Categorias de produtos';
-COMMENT ON TABLE public.characteristics IS 'Características dos produtos';
-COMMENT ON TABLE public.sensory_attributes IS 'Atributos para análise sensorial';
-COMMENT ON TABLE public.seal_controls IS 'Controle de selos de rastreabilidade';
-COMMENT ON TABLE public.system_configurations IS 'Configurações gerais do sistema';
+DO $$ 
+DECLARE 
+    t TEXT;
+BEGIN
+    FOR t IN SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name != 'product_lot_characteristics' AND table_name != 'product_lot_sensory' AND table_name != 'producers_associations' LOOP
+        EXECUTE format('CREATE TRIGGER tr_updated_at_%I BEFORE UPDATE ON public.%I FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()', t, t);
+    END LOOP;
+END $$;
 
 -- =====================================================
--- FIM DO SCHEMA
+-- FIM
 -- =====================================================
-
--- Para verificar se tudo foi criado corretamente, execute:
--- SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name;
