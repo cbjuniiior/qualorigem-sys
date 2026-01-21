@@ -9,6 +9,15 @@ RUN npm ci
 
 # Copy the rest of the application source and build it
 COPY . .
+
+# Build arguments para variáveis de ambiente
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_ANON_KEY
+
+# Definir as variáveis de ambiente para o build
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
+
 RUN npm run build
 
 # Production stage: serve the built assets via nginx

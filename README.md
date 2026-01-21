@@ -144,14 +144,32 @@ npm install
 
 3. **Configure o Supabase**
    - Crie um projeto no [Supabase](https://supabase.com)
-   - Configure as variáveis de ambiente (veja `.env.example`)
+   - Configure as variáveis de ambiente (veja abaixo)
    - Execute as migrações do banco de dados
 
 4. **Configure as variáveis de ambiente**
-```bash
-cp .env.example .env.local
-# Edite o arquivo .env.local com suas credenciais do Supabase
-```
+
+   **Opção 1: Script Automático (Recomendado)**
+   ```bash
+   # Windows
+   setup-env.bat
+   
+   # Linux/Mac
+   chmod +x setup-env.sh
+   ./setup-env.sh
+   ```
+
+   **Opção 2: Manual**
+   ```bash
+   cp .env.example .env
+   # Edite o arquivo .env com suas credenciais do Supabase
+   ```
+
+   Você precisará das seguintes variáveis:
+   - `VITE_SUPABASE_URL`: URL do seu projeto Supabase
+   - `VITE_SUPABASE_ANON_KEY`: Chave pública (anon key)
+
+   📚 **Para deploy em produção (EasyPanel, Vercel, etc.)**, consulte o guia completo: **[EASYPANEL_SETUP.md](./EASYPANEL_SETUP.md)**
 
 5. **Execute as migrações**
 ```bash
