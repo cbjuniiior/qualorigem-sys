@@ -7,19 +7,29 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copy the rest of the application source
+# Copy the rest of the application source and build it
 COPY . .
 
 # Build arguments para variáveis de ambiente
+# Aceita tanto via ARG (build-time) quanto via ENV (runtime)
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_ANON_KEY
 
-# Exportar como variáveis de ambiente
+# Definir as variáveis de ambiente para o build
+# Se ARG não for fornecido, tenta usar ENV
 ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
 ENV VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
 
-# Dar permissão de execução ao script de build e executar
-RUN chmod +x build.sh && ./build.sh
+# Debug: Mostrar se as variáveis foram definidas (remover em produção se necessário)
+RUN echo "Building with VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:0:30}..." && \
+    if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then \
+    echo "ERROR: Environment variables not set!"; \
+    echo "VITE_SUPABASE_URL: $VITE_SUPABASE_URL"; \
+    echo "VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:0:20}..."; \
+    exit 1; \
+    fi
+
+RUN npm run build
 
 # Production stage: serve the built assets via nginx
 FROM nginx:1.27-alpine AS production
