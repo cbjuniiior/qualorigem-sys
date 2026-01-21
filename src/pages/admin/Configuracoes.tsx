@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { 
-  Gear, 
-  CircleNotch, 
-  User, 
-  Eye, 
-  EyeSlash, 
-  Lock, 
-  UserCircle, 
+import {
+  Gear,
+  CircleNotch,
+  User,
+  Eye,
+  EyeSlash,
+  Lock,
+  UserCircle,
   Info,
   ShieldCheck,
   CheckCircle,
@@ -20,6 +20,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { authApi } from "@/services/api";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
 import { toast } from "sonner";
@@ -31,7 +32,7 @@ const Configuracoes = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("perfil");
-  
+
   // Perfil e Senha
   const [userProfile, setUserProfile] = useState({ full_name: "" });
   const [passwordData, setPasswordData] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
@@ -54,10 +55,26 @@ const Configuracoes = () => {
   const handleUpdateProfile = async () => {
     try {
       setSaving(true);
-      // Aqui integraria com authApi.updateProfile se necessário
+
+      // Atualizar os metadados do usuário no auth
+      await authApi.updateProfile({ full_name: userProfile.full_name });
+
+      // Atualizar também na tabela profiles
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (currentUser) {
+        await (supabase as any)
+          .from('profiles')
+          .update({ full_name: userProfile.full_name })
+          .eq('id', currentUser.id);
+      }
+
       toast.success("Perfil atualizado com sucesso!");
-    } catch (e) {
-      toast.error("Erro ao atualizar perfil");
+
+      // Recarregar a página para atualizar o nome na sidebar
+      window.location.reload();
+    } catch (e: any) {
+      console.error('Erro ao atualizar perfil:', e);
+      toast.error(e.message || "Erro ao atualizar perfil");
     } finally {
       setSaving(false);
     }
@@ -99,15 +116,15 @@ const Configuracoes = () => {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="inline-flex h-14 items-center justify-center rounded-2xl bg-slate-100 p-1.5 mb-8">
-            <TabsTrigger 
-              value="perfil" 
+            <TabsTrigger
+              value="perfil"
               className="rounded-xl px-8 font-bold text-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm h-full transition-all"
               style={{ color: activeTab === 'perfil' ? primaryColor : undefined }}
             >
               <UserCircle size={18} className="mr-2" weight="bold" /> Meu Perfil
             </TabsTrigger>
-            <TabsTrigger 
-              value="seguranca" 
+            <TabsTrigger
+              value="seguranca"
               className="rounded-xl px-8 font-bold text-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm h-full transition-all"
               style={{ color: activeTab === 'seguranca' ? primaryColor : undefined }}
             >
@@ -126,10 +143,10 @@ const Configuracoes = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label className="font-bold text-slate-700 ml-1">Nome Completo</Label>
-                      <Input 
-                        value={userProfile.full_name} 
-                        onChange={e => setUserProfile({...userProfile, full_name: e.target.value})} 
-                        className="rounded-xl bg-slate-50 border-0 h-12 font-medium focus-visible:ring-primary" 
+                      <Input
+                        value={userProfile.full_name}
+                        onChange={e => setUserProfile({ ...userProfile, full_name: e.target.value })}
+                        className="rounded-xl bg-slate-50 border-0 h-12 font-medium focus-visible:ring-primary"
                         style={{ '--primary': primaryColor } as any}
                       />
                     </div>
@@ -138,7 +155,7 @@ const Configuracoes = () => {
                       <Input value={user?.email || ""} disabled className="rounded-xl bg-slate-100 border-0 h-12 font-medium opacity-60 cursor-not-allowed" />
                     </div>
                   </div>
-                  <Button 
+                  <Button
                     onClick={handleUpdateProfile}
                     disabled={saving}
                     className="rounded-xl font-bold text-white h-12 px-8 transition-all shadow-lg"
@@ -149,13 +166,13 @@ const Configuracoes = () => {
                   </Button>
                 </CardContent>
               </Card>
-              
+
               <div className="space-y-6">
-                <div 
+                <div
                   className="p-8 rounded-3xl border space-y-4 shadow-sm"
                   style={{ backgroundColor: `${primaryColor}05`, borderColor: `${primaryColor}10` }}
                 >
-                  <div 
+                  <div
                     className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center"
                     style={{ color: primaryColor }}
                   >
@@ -183,11 +200,11 @@ const Configuracoes = () => {
                   <div className="space-y-2">
                     <Label className="font-bold text-slate-700">Nova Senha</Label>
                     <div className="relative">
-                      <Input 
-                        type={showNewPassword ? "text" : "password"} 
-                        value={passwordData.newPassword} 
-                        onChange={e => setPasswordData({...passwordData, newPassword: e.target.value})} 
-                        className="rounded-xl bg-slate-50 border-0 h-12 font-medium focus-visible:ring-primary" 
+                      <Input
+                        type={showNewPassword ? "text" : "password"}
+                        value={passwordData.newPassword}
+                        onChange={e => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                        className="rounded-xl bg-slate-50 border-0 h-12 font-medium focus-visible:ring-primary"
                         style={{ '--primary': primaryColor } as any}
                       />
                       <button onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors"><Eye size={20} /></button>
@@ -195,16 +212,16 @@ const Configuracoes = () => {
                   </div>
                   <div className="space-y-2">
                     <Label className="font-bold text-slate-700">Confirmar Nova Senha</Label>
-                    <Input 
-                      type="password" 
-                      value={passwordData.confirmPassword} 
-                      onChange={e => setPasswordData({...passwordData, confirmPassword: e.target.value})} 
-                      className="rounded-xl bg-slate-50 border-0 h-12 font-medium focus-visible:ring-primary" 
+                    <Input
+                      type="password"
+                      value={passwordData.confirmPassword}
+                      onChange={e => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                      className="rounded-xl bg-slate-50 border-0 h-12 font-medium focus-visible:ring-primary"
                       style={{ '--primary': primaryColor } as any}
                     />
                   </div>
                 </div>
-                <Button 
+                <Button
                   className="rounded-xl font-bold text-white h-12 px-8 shadow-lg transition-all"
                   style={{ backgroundColor: primaryColor }}
                 >

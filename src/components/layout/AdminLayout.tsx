@@ -113,8 +113,8 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                       to={item.href}
                       className={`
                         group flex gap-x-3 rounded-xl p-2.5 text-sm leading-6 font-semibold transition-all duration-200
-                        ${isActive 
-                          ? "bg-primary text-white shadow-md shadow-primary/20" 
+                        ${isActive
+                          ? "bg-primary text-white shadow-md shadow-primary/20"
                           : "text-slate-600 hover:bg-slate-50 hover:text-primary"}
                       `}
                     >
@@ -169,7 +169,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                 name="search"
               />
             </form>
-            
+
             <div className="flex items-center gap-x-4 lg:gap-x-6">
               {/* Notifications */}
               <button type="button" className="-m-2.5 p-2.5 text-slate-400 hover:text-primary transition-colors relative">
@@ -204,9 +204,6 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                 <DropdownMenuContent align="end" className="w-56 mt-2 rounded-xl shadow-lg border-slate-100 p-1">
                   <DropdownMenuLabel className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Minha Conta</DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-slate-50" />
-                  <DropdownMenuItem onClick={() => navigate("/admin/perfil")} className="rounded-lg py-2 cursor-pointer focus:bg-slate-50">
-                    <UserCircle className="mr-2 h-4 w-4" /> Perfil
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/admin/configuracoes")} className="rounded-lg py-2 cursor-pointer focus:bg-slate-50">
                     <Gear className="mr-2 h-4 w-4" /> Configurações
                   </DropdownMenuItem>
