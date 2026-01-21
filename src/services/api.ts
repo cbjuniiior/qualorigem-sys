@@ -1,8 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
-const SUPABASE_URL = "https://giomnnxpgjrpwyjrkkwr.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdpb21ubnhwZ2pycHd5anJra3dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE0MTg1MzUsImV4cCI6MjA2Njk5NDUzNX0.L0WG0KW0keg2IwdraGVOmNxokIaZXNWrdCKty79bYv4";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Tipos para facilitar o uso
 export type Producer = Tables<"producers">;
