@@ -480,103 +480,75 @@ export const productLotsApi = {
 };
 
 // Serviços para Gerenciamento de Usuários (Admin)
-// Usa Edge Function para segurança
+// Usa tabela user_profiles + Supabase Auth (compatível com self-hosted)
 export const usersApi = {
-  // Listar todos os usuários (requer admin)
+  // Listar todos os usuários
   async getAll() {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data, error } = await supabase
+      .from("user_profiles")
+      .select("*")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
 
-    if (!session) {
-      throw new Error("Usuário não autenticado");
-    }
+    if (error) throw error;
 
-    // Usar fetch diretamente para GET
-    const response = await fetch(
-      `${SUPABASE_URL}/functions/v1/manage-users?action=list`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': SUPABASE_ANON_KEY,
-        },
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Erro ao listar usuários');
-    }
-
-    const data = await response.json();
-    return data;
+    // Mapear para o formato esperado pelo componente
+    return (data || []).map((user: any) => ({
+      id: user.id,
+      email: user.email,
+      full_name: user.full_name,
+      created_at: user.created_at,
+      email_confirmed_at: user.created_at, // user_profiles não tem esse campo, usar created_at
+    }));
   },
 
-  // Criar novo usuário (requer admin)
+  // Criar novo usuário
   async create(userData: { email: string; password: string; full_name?: string }) {
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      throw new Error("Usuário não autenticado");
-    }
-
-    const response = await fetch(
-      `${SUPABASE_URL}/functions/v1/manage-users`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': SUPABASE_ANON_KEY,
-          'Content-Type': 'application/json',
+    // Usar signUp padrão do Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+      email: userData.email,
+      password: userData.password,
+      options: {
+        data: {
+          full_name: userData.full_name || '',
         },
-        body: JSON.stringify({
-          action: 'create',
-          email: userData.email,
-          password: userData.password,
-          full_name: userData.full_name,
-        }),
-      }
-    );
+        // Não enviar email de confirmação (usuário já confirmado)
+        emailRedirectTo: undefined,
+      },
+    });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Erro ao criar usuário');
+    if (error) throw error;
+
+    // O trigger on_auth_user_created vai criar o perfil automaticamente
+    // Mas também podemos garantir aqui
+    if (data.user) {
+      await supabase.from("user_profiles").upsert({
+        id: data.user.id,
+        email: userData.email,
+        full_name: userData.full_name || '',
+        is_active: true,
+      }, { onConflict: 'id' });
     }
 
-    const data = await response.json();
-    return data;
+    return {
+      id: data.user?.id,
+      email: userData.email,
+      full_name: userData.full_name,
+      created_at: new Date().toISOString(),
+    };
   },
 
-  // Deletar usuário (requer admin)
+  // Desativar usuário (soft delete)
   async delete(userId: string) {
-    const { data: { session } } = await supabase.auth.getSession();
+    // Em vez de deletar, marcamos como inativo
+    const { error } = await supabase
+      .from("user_profiles")
+      .update({ is_active: false })
+      .eq("id", userId);
 
-    if (!session) {
-      throw new Error("Usuário não autenticado");
-    }
+    if (error) throw error;
 
-    const response = await fetch(
-      `${SUPABASE_URL}/functions/v1/manage-users`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': SUPABASE_ANON_KEY,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'delete',
-          userId,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Erro ao deletar usuário');
-    }
-
-    const data = await response.json();
-    return data;
+    return { success: true };
   },
 };
 
