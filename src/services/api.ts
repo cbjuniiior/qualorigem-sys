@@ -625,6 +625,15 @@ export const authApi = {
     const { data: userData, error } = await supabase.auth.updateUser(updateData);
 
     if (error) throw error;
+
+    // Também atualizar na tabela user_profiles para sincronizar
+    if (userData.user && data.full_name !== undefined) {
+      await supabase
+        .from("user_profiles")
+        .update({ full_name: data.full_name })
+        .eq("id", userData.user.id);
+    }
+
     return userData;
   },
 
