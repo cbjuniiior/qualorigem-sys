@@ -504,38 +504,57 @@ export const usersApi = {
 
   // Criar novo usuário
   async create(userData: { email: string; password: string; full_name?: string }) {
-    // Usar signUp padrão do Supabase Auth
-    const { data, error } = await supabase.auth.signUp({
-      email: userData.email,
-      password: userData.password,
-      options: {
-        data: {
-          full_name: userData.full_name || '',
-        },
-        // Não enviar email de confirmação (usuário já confirmado)
-        emailRedirectTo: undefined,
-      },
-    });
-
-    if (error) throw error;
-
-    // O trigger on_auth_user_created vai criar o perfil automaticamente
-    // Mas também podemos garantir aqui
-    if (data.user) {
-      await supabase.from("user_profiles").upsert({
-        id: data.user.id,
+    try {
+      // Usar signUp padrão do Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
         email: userData.email,
-        full_name: userData.full_name || '',
-        is_active: true,
-      }, { onConflict: 'id' });
-    }
+        password: userData.password,
+        options: {
+          data: {
+            full_name: userData.full_name || '',
+          },
+        },
+      });
 
-    return {
-      id: data.user?.id,
-      email: userData.email,
-      full_name: userData.full_name,
-      created_at: new Date().toISOString(),
-    };
+      if (error) {
+        // Se o erro for relacionado a email, dar uma mensagem mais clara
+        if (error.message.includes('email') || error.message.includes('confirmation') || error.message.includes('smtp')) {
+          throw new Error(
+            'Não foi possível criar o usuário. ' +
+            'Verifique se a confirmação de email está desabilitada no Supabase Auth ' +
+            '(Auth > Providers > Email > Confirm email = OFF)'
+          );
+        }
+        throw error;
+      }
+
+      // O trigger on_auth_user_created vai criar o perfil automaticamente
+      // Mas também podemos garantir aqui
+      if (data.user) {
+        await supabase.from("user_profiles").upsert({
+          id: data.user.id,
+          email: userData.email,
+          full_name: userData.full_name || '',
+          is_active: true,
+        }, { onConflict: 'id' });
+      }
+
+      return {
+        id: data.user?.id,
+        email: userData.email,
+        full_name: userData.full_name,
+        created_at: new Date().toISOString(),
+      };
+    } catch (err: any) {
+      // Erro 500 normalmente indica problema com envio de email
+      if (err.status === 500 || err.message?.includes('500')) {
+        throw new Error(
+          'Erro no servidor de autenticação. ' +
+          'No Supabase Dashboard, vá em Auth > Providers > Email e desabilite "Confirm email".'
+        );
+      }
+      throw err;
+    }
   },
 
   // Desativar usuário (soft delete)
