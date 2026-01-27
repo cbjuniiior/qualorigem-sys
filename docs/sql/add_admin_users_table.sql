@@ -1,12 +1,20 @@
 -- =====================================================
--- SOLUÇÃO ALTERNATIVA PARA GESTÃO DE USUÁRIOS
--- Para Supabase Self-Hosted sem Edge Functions
+-- SETUP DE GESTÃO DE USUÁRIOS - SUPABASE SELF-HOSTED
 -- =====================================================
--- Execute este script no SQL Editor do seu Supabase
+-- Este script configura a gestão de usuários para
+-- funcionar sem Edge Functions em Supabase self-hosted.
+-- 
+-- Execute este script no SQL Editor do Supabase.
+-- =====================================================
+-- Última atualização: Janeiro 2026
 -- =====================================================
 
--- 1. CRIAR TABELA DE PERFIS DE USUÁRIOS
--- Esta tabela armazena metadados dos usuários autenticados
+-- =====================================================
+-- PASSO 1: CRIAR TABELA DE PERFIS DE USUÁRIOS
+-- =====================================================
+-- Esta tabela armazena metadados dos usuários do Auth
+-- e permite gerenciá-los pelo painel administrativo.
+
 CREATE TABLE IF NOT EXISTS public.user_profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email TEXT NOT NULL,
@@ -17,24 +25,37 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 2. HABILITAR RLS
+-- =====================================================
+-- PASSO 2: HABILITAR ROW LEVEL SECURITY (RLS)
+-- =====================================================
+
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 
--- 3. POLÍTICAS DE SEGURANÇA
--- Todos podem ler (para listar usuários)
+-- =====================================================
+-- PASSO 3: CRIAR POLÍTICAS DE SEGURANÇA
+-- =====================================================
+
+-- Política: Todos podem visualizar perfis
 DROP POLICY IF EXISTS "Users can view all profiles" ON public.user_profiles;
 CREATE POLICY "Users can view all profiles" 
-    ON public.user_profiles FOR SELECT 
+    ON public.user_profiles 
+    FOR SELECT 
     USING (true);
 
--- Usuários autenticados podem inserir/atualizar
+-- Política: Usuários autenticados podem gerenciar perfis
 DROP POLICY IF EXISTS "Authenticated users can manage profiles" ON public.user_profiles;
 CREATE POLICY "Authenticated users can manage profiles" 
-    ON public.user_profiles FOR ALL 
+    ON public.user_profiles 
+    FOR ALL 
     TO authenticated 
     USING (true);
 
--- 4. TRIGGER PARA CRIAR PERFIL AUTOMÁTICO AO REGISTRAR USUÁRIO
+-- =====================================================
+-- PASSO 4: CRIAR TRIGGER AUTOMÁTICO
+-- =====================================================
+-- Este trigger cria automaticamente um perfil quando
+-- um novo usuário é registrado no Auth.
+
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -55,32 +76,99 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- Remover trigger antigo se existir
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
--- Criar trigger
+-- Criar novo trigger
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- 5. SINCRONIZAR USUÁRIOS EXISTENTES
--- Este comando copia todos os usuários já existentes para a tabela user_profiles
+-- =====================================================
+-- PASSO 5: SINCRONIZAR USUÁRIOS EXISTENTES
+-- =====================================================
+-- Copia todos os usuários já existentes no Auth
+-- para a tabela user_profiles.
+
 INSERT INTO public.user_profiles (id, email, full_name, created_at)
 SELECT 
     id,
     email,
-    raw_user_meta_data->>'full_name',
+    COALESCE(raw_user_meta_data->>'full_name', ''),
     created_at
 FROM auth.users
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+    full_name = COALESCE(EXCLUDED.full_name, public.user_profiles.full_name);
 
--- 6. TRIGGER PARA ATUALIZAR updated_at
+-- =====================================================
+-- PASSO 6: CRIAR TRIGGER PARA UPDATED_AT
+-- =====================================================
+-- Atualiza automaticamente o campo updated_at.
+
+DROP TRIGGER IF EXISTS tr_updated_at_user_profiles ON public.user_profiles;
+
 CREATE TRIGGER tr_updated_at_user_profiles 
     BEFORE UPDATE ON public.user_profiles 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- =====================================================
--- APÓS EXECUTAR ESTE SCRIPT:
--- 1. Faça reload do schema: NOTIFY pgrst, 'reload schema';
--- 2. Faça deploy da aplicação novamente
+-- PASSO 7: RECARREGAR SCHEMA DO POSTGREST
 -- =====================================================
+-- IMPORTANTE: Isso faz a API reconhecer as novas tabelas.
 
--- Executar reload do schema automaticamente
 NOTIFY pgrst, 'reload schema';
+
+-- =====================================================
+-- VERIFICAÇÃO
+-- =====================================================
+-- Execute estas queries para verificar se tudo funcionou:
+
+-- Ver usuários sincronizados:
+SELECT id, email, full_name, is_active, created_at 
+FROM public.user_profiles 
+ORDER BY created_at DESC;
+
+-- Verificar se o trigger existe:
+SELECT tgname, tgtype 
+FROM pg_trigger 
+WHERE tgname = 'on_auth_user_created';
+
+-- =====================================================
+-- SCRIPT OPCIONAL: CRIAR PRIMEIRO ADMIN MANUALMENTE
+-- =====================================================
+-- Descomente e execute apenas se precisar criar o
+-- primeiro usuário sem acesso ao painel.
+
+/*
+INSERT INTO auth.users (
+    instance_id,
+    id,
+    aud,
+    role,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    created_at,
+    updated_at,
+    confirmation_token,
+    email_change_token_current,
+    email_change_token_new,
+    recovery_token
+) VALUES (
+    '00000000-0000-0000-0000-000000000000',
+    gen_random_uuid(),
+    'authenticated',
+    'authenticated',
+    'admin@seudominio.com',                           -- Altere aqui
+    crypt('SuaSenhaSegura123', gen_salt('bf')),       -- Altere aqui
+    NOW(),
+    '{"provider": "email", "providers": ["email"]}',
+    '{"full_name": "Administrador"}',                 -- Altere aqui
+    NOW(),
+    NOW(),
+    '', '', '', ''
+);
+*/
+
+-- =====================================================
+-- FIM DO SCRIPT
+-- =====================================================
