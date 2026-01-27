@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Tipos para facilitar o uso
@@ -55,7 +55,7 @@ export const producersApi = {
       .from("producers")
       .select("*")
       .order("name");
-    
+
     if (error) throw error;
     return data;
   },
@@ -67,7 +67,7 @@ export const producersApi = {
       .select("*")
       .eq("id", id)
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -79,7 +79,7 @@ export const producersApi = {
       .insert(producer)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -92,7 +92,7 @@ export const producersApi = {
       .eq("id", id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -103,7 +103,7 @@ export const producersApi = {
       .from("producers")
       .delete()
       .eq("id", id);
-    
+
     if (error) throw error;
   }
 };
@@ -147,9 +147,9 @@ export const productLotsApi = {
         )
       `)
       .order("created_at", { ascending: false });
-    
+
     if (error) throw error;
-    
+
     // Buscar componentes separadamente para cada lote
     const lotsWithComponents = await Promise.all(
       data.map(async (lot) => {
@@ -194,7 +194,7 @@ export const productLotsApi = {
             )
           `)
           .eq("lot_id", lot.id);
-        
+
         return {
           ...lot,
           lot_components: components || [],
@@ -203,7 +203,7 @@ export const productLotsApi = {
         };
       })
     );
-    
+
     return lotsWithComponents;
   },
 
@@ -245,9 +245,9 @@ export const productLotsApi = {
       `)
       .eq("code", code)
       .single();
-    
+
     if (error) throw error;
-    
+
     // Buscar componentes do blend incluindo produtor e associação, se existirem
     const { data: components } = await supabase
       .from("lot_components")
@@ -258,7 +258,7 @@ export const productLotsApi = {
       `)
       .eq("lot_id", data.id)
       .order("created_at");
-    
+
     return {
       ...data,
       components: components || [],
@@ -305,9 +305,9 @@ export const productLotsApi = {
       `)
       .eq("id", id)
       .single();
-    
+
     if (error) throw error;
-    
+
     // Buscar componentes do blend incluindo produtor e associação, se existirem
     const { data: components } = await supabase
       .from("lot_components")
@@ -317,7 +317,7 @@ export const productLotsApi = {
         associations:associations(*)
       `)
       .eq("lot_id", id);
-    
+
     return {
       ...data,
       components: components || [],
@@ -350,7 +350,7 @@ export const productLotsApi = {
       `)
       .eq("producer_id", producerId)
       .order("created_at", { ascending: false });
-    
+
     if (error) throw error;
     return data;
   },
@@ -378,7 +378,7 @@ export const productLotsApi = {
         )
       `)
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -407,7 +407,7 @@ export const productLotsApi = {
         )
       `)
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -418,7 +418,7 @@ export const productLotsApi = {
       .from("product_lots")
       .delete()
       .eq("id", id);
-    
+
     if (error) throw error;
   },
 
@@ -429,7 +429,7 @@ export const productLotsApi = {
       .insert(component)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -440,7 +440,7 @@ export const productLotsApi = {
       .from("lot_components")
       .delete()
       .eq("lot_id", lotId);
-    
+
     if (error) throw error;
   },
 
@@ -467,7 +467,7 @@ export const productLotsApi = {
       `)
       .eq("category", category)
       .order("created_at", { ascending: false });
-    
+
     if (error) throw error;
     return data;
   },
@@ -485,7 +485,7 @@ export const usersApi = {
   // Listar todos os usuários (requer admin)
   async getAll() {
     const { data: { session } } = await supabase.auth.getSession();
-    
+
     if (!session) {
       throw new Error("Usuário não autenticado");
     }
@@ -514,7 +514,7 @@ export const usersApi = {
   // Criar novo usuário (requer admin)
   async create(userData: { email: string; password: string; full_name?: string }) {
     const { data: { session } } = await supabase.auth.getSession();
-    
+
     if (!session) {
       throw new Error("Usuário não autenticado");
     }
@@ -549,7 +549,7 @@ export const usersApi = {
   // Deletar usuário (requer admin)
   async delete(userId: string) {
     const { data: { session } } = await supabase.auth.getSession();
-    
+
     if (!session) {
       throw new Error("Usuário não autenticado");
     }
@@ -588,7 +588,7 @@ export const authApi = {
       email,
       password,
     });
-    
+
     if (error) throw error;
     return data;
   },
@@ -599,7 +599,7 @@ export const authApi = {
       email,
       password,
     });
-    
+
     if (error) throw error;
     return data;
   },
@@ -625,14 +625,14 @@ export const authApi = {
   // Atualizar perfil do usuário (apenas nome)
   async updateProfile(data: { full_name?: string }) {
     const updateData: { data?: { full_name?: string } } = {};
-    
+
     // Atualizar nome nos metadados do usuário
     if (data.full_name !== undefined) {
       updateData.data = { full_name: data.full_name };
     }
-    
+
     const { data: userData, error } = await supabase.auth.updateUser(updateData);
-    
+
     if (error) throw error;
     return userData;
   },
@@ -642,7 +642,7 @@ export const authApi = {
     const { data, error } = await supabase.auth.updateUser({
       password: newPassword,
     });
-    
+
     if (error) throw error;
     return data;
   },
@@ -652,7 +652,7 @@ export const authApi = {
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/reset-password`,
     });
-    
+
     if (error) throw error;
     return data;
   }
@@ -667,7 +667,7 @@ export const lotComponentsApi = {
       .select("*")
       .eq("lot_id", lotId)
       .order("created_at");
-    
+
     if (error) throw error;
     return data;
   },
@@ -679,7 +679,7 @@ export const lotComponentsApi = {
       .insert(component)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -692,7 +692,7 @@ export const lotComponentsApi = {
       .eq("id", id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -703,7 +703,7 @@ export const lotComponentsApi = {
       .from("lot_components")
       .delete()
       .eq("id", id);
-    
+
     if (error) throw error;
   },
 
@@ -713,7 +713,7 @@ export const lotComponentsApi = {
       .from("lot_components")
       .delete()
       .eq("lot_id", lotId);
-    
+
     if (error) throw error;
   }
 };
@@ -734,7 +734,7 @@ export const sealControlsApi = {
       `)
       .eq("lot_id", lotId)
       .order("generation_date", { ascending: false });
-    
+
     if (error) throw error;
     return data;
   },
@@ -754,7 +754,7 @@ export const sealControlsApi = {
       `)
       .eq("producer_id", producerId)
       .order("generation_date", { ascending: false });
-    
+
     if (error) throw error;
     return data;
   },
@@ -779,7 +779,7 @@ export const sealControlsApi = {
         )
       `)
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -805,7 +805,7 @@ export const sealControlsApi = {
         )
       `)
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -816,7 +816,7 @@ export const sealControlsApi = {
       .from("seal_controls")
       .delete()
       .eq("id", id);
-    
+
     if (error) throw error;
   },
 
@@ -846,7 +846,7 @@ export const systemConfigApi = {
       .select("*")
       .eq("config_key", key)
       .single();
-    
+
     // Se não encontrar, retorna null ao invés de lançar erro
     if (error) {
       if (error.code === 'PGRST116') {
@@ -863,7 +863,7 @@ export const systemConfigApi = {
       .from("system_configurations")
       .select("*")
       .order("config_key");
-    
+
     if (error) throw error;
     return data;
   },
@@ -872,13 +872,13 @@ export const systemConfigApi = {
   async upsert(config: SystemConfigurationInsert) {
     const { data, error } = await supabase
       .from("system_configurations")
-      .upsert(config, { 
+      .upsert(config, {
         onConflict: 'config_key',
-        ignoreDuplicates: false 
+        ignoreDuplicates: false
       })
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -889,7 +889,7 @@ export const systemConfigApi = {
       .from("system_configurations")
       .delete()
       .eq("config_key", key);
-    
+
     if (error) throw error;
   },
 
@@ -911,7 +911,7 @@ export const systemConfigApi = {
 
   async getBrandingConfig() {
     const config = await this.getByKey('branding_settings');
-    return config?.config_value || { 
+    return config?.config_value || {
       preset: 'default',
       primaryColor: '#16a34a',
       secondaryColor: '#22c55e',
@@ -923,7 +923,7 @@ export const systemConfigApi = {
       siteDescription: 'Plataforma premium para rastreabilidade de produtos de origem.'
     };
   }
-}; 
+};
 
 // Serviços para Associações/Cooperativas
 export const associationsApi = {
@@ -1030,7 +1030,7 @@ export const associationsApi = {
       .from("producers_associations")
       .delete()
       .eq("association_id", id);
-    
+
     if (relationError) throw relationError;
 
     // 2. Limpar referência em lotes (set null)
@@ -1038,7 +1038,7 @@ export const associationsApi = {
       .from("product_lots")
       .update({ association_id: null })
       .eq("association_id", id);
-    
+
     if (lotError) throw lotError;
 
     // 3. Limpar referência em componentes de blend (set null)
@@ -1046,7 +1046,7 @@ export const associationsApi = {
       .from("lot_components")
       .update({ association_id: null })
       .eq("association_id", id);
-    
+
     if (componentError) throw componentError;
 
     // 4. Finalmente remover a associação em si
@@ -1054,7 +1054,7 @@ export const associationsApi = {
       .from("associations")
       .delete()
       .eq("id", id);
-    
+
     if (error) throw error;
   },
 };
@@ -1078,7 +1078,7 @@ export const brandsApi = {
       .select("*")
       .eq("producer_id", producerId)
       .order("name");
-    
+
     if (error) throw error;
     return data;
   },
@@ -1090,7 +1090,7 @@ export const brandsApi = {
       .insert(brand)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -1103,7 +1103,7 @@ export const brandsApi = {
       .eq("id", id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -1114,7 +1114,7 @@ export const brandsApi = {
       .from("brands")
       .delete()
       .eq("id", id);
-    
+
     if (error) throw error;
   }
 };
@@ -1127,7 +1127,7 @@ export const industriesApi = {
       .from("industries")
       .select("*")
       .order("name");
-    
+
     if (error) throw error;
     return data;
   },
@@ -1139,7 +1139,7 @@ export const industriesApi = {
       .select("*")
       .eq("id", id)
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -1151,7 +1151,7 @@ export const industriesApi = {
       .insert(industry)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -1164,7 +1164,7 @@ export const industriesApi = {
       .eq("id", id)
       .select()
       .single();
-    
+
     if (error) throw error;
     return data;
   },
@@ -1175,7 +1175,7 @@ export const industriesApi = {
       .from("industries")
       .delete()
       .eq("id", id);
-    
+
     if (error) throw error;
   }
 };
