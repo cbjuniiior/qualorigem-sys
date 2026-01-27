@@ -505,6 +505,10 @@ export const usersApi = {
   // Criar novo usuário
   async create(userData: { email: string; password: string; full_name?: string }) {
     try {
+      // Salvar a sessão atual do admin ANTES de criar o novo usuário
+      const { data: currentSession } = await supabase.auth.getSession();
+      const adminSession = currentSession?.session;
+
       // Usar signUp padrão do Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email: userData.email,
@@ -537,6 +541,14 @@ export const usersApi = {
           full_name: userData.full_name || '',
           is_active: true,
         }, { onConflict: 'id' });
+      }
+
+      // IMPORTANTE: Restaurar a sessão do admin se o signUp trocou para o novo usuário
+      if (adminSession) {
+        await supabase.auth.setSession({
+          access_token: adminSession.access_token,
+          refresh_token: adminSession.refresh_token,
+        });
       }
 
       return {
