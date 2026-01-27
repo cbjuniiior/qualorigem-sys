@@ -1,8 +1,8 @@
-# 🌱 GeoTrace - Sistema de Rastreabilidade para Produtos com Indicação Geográfica
+# 🌱 Raízes Acre - Sistema de Rastreabilidade para Produtos com Indicação Geográfica
 
 ## 📋 Sobre o Projeto
 
-O **GeoTrace** é um sistema completo de rastreabilidade para produtos com Indicação Geográfica, desenvolvido com tecnologias modernas para garantir transparência e confiança na cadeia produtiva.
+O **Raízes Acre** é um sistema completo de rastreabilidade para produtos com Indicação Geográfica, desenvolvido com tecnologias modernas para garantir transparência e confiança na cadeia produtiva.
 
 ### 🎯 Objetivos
 - **Rastreabilidade Completa**: Acompanhar produtos desde a origem até o consumidor final
@@ -169,7 +169,7 @@ npm install
    - `VITE_SUPABASE_URL`: URL do seu projeto Supabase
    - `VITE_SUPABASE_ANON_KEY`: Chave pública (anon key)
 
-   📚 **Para deploy em produção (EasyPanel, Vercel, etc.)**, consulte o guia completo: **[EASYPANEL_SETUP.md](./EASYPANEL_SETUP.md)**
+   📚 **Para deploy em produção (EasyPanel, Vercel, etc.)**, consulte o guia completo:    **[EASYPANEL_SETUP.md](./docs/EASYPANEL_SETUP.md)**
 
 5. **Execute as migrações**
 ```bash

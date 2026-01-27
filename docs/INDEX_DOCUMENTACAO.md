@@ -48,7 +48,7 @@ Este arquivo serve como índice para toda a documentação relacionada a deploy 
 
 ## 🔧 Arquivos de Configuração
 
-### 4. [.env.example](./.env.example)
+### 4. [.env.example](../.env.example)
 **Descrição:** Template de variáveis de ambiente  
 **Uso:** Copie e preencha com suas credenciais
 
@@ -59,13 +59,13 @@ cp .env.example .env
 
 ---
 
-### 5. [easypanel.config.example](./easypanel.config.example)
+### 5. [easypanel.config.example](../easypanel.config.example)
 **Descrição:** Exemplo de configuração para EasyPanel  
 **Uso:** Referência para configurar no painel do EasyPanel
 
 ---
 
-### 6. [Dockerfile](./Dockerfile)
+### 6. [Dockerfile](../Dockerfile)
 **Descrição:** Configuração Docker com suporte a variáveis de ambiente  
 **Uso:** Usado automaticamente pelo EasyPanel
 
@@ -73,7 +73,7 @@ cp .env.example .env
 
 ## 🛠️ Scripts de Configuração
 
-### 7. [setup-env.bat](./setup-env.bat) (Windows)
+### 7. [setup-env.bat](../setup-env.bat) (Windows)
 **Descrição:** Script interativo para configurar variáveis de ambiente  
 **Uso:**
 ```bash
@@ -82,7 +82,7 @@ setup-env.bat
 
 ---
 
-### 8. [setup-env.sh](./setup-env.sh) (Linux/Mac)
+### 8. [setup-env.sh](../setup-env.sh) (Linux/Mac)
 **Descrição:** Script interativo para configurar variáveis de ambiente  
 **Uso:**
 ```bash
@@ -102,7 +102,7 @@ chmod +x setup-env.sh
 
 ## 🗄️ Banco de Dados
 
-### 10. [database_complete_schema.sql](./database_complete_schema.sql)
+### 10. [database_complete_schema.sql](./sql/database_complete_schema.sql)
 **Descrição:** Schema completo do banco de dados  
 **Uso:** Execute no Supabase SQL Editor
 
@@ -122,7 +122,7 @@ chmod +x setup-env.sh
 
 ## 📖 Outros Guias
 
-### 13. [README.md](./README.md)
+### 13. [README.md](../README.md)
 **Descrição:** Documentação geral do projeto  
 **Uso:** Visão geral e instruções gerais
 
