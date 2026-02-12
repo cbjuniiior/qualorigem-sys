@@ -16,7 +16,8 @@ import {
   Buildings,
   CircleNotch,
   Medal,
-  CaretDown
+  CaretDown,
+  X as XIcon
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -24,6 +25,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { QRCodeSVG } from "qrcode.react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
@@ -31,6 +34,7 @@ import { useState, useEffect } from "react";
 import { categoriesApi, characteristicsApi, brandsApi, associationsApi, producersApi, systemConfigApi } from "@/services/api";
 import { generateSlug } from "@/utils/slug-generator";
 import { generateLotCode } from "@/utils/lot-code-generator";
+import { useTenantLabels } from "@/hooks/use-tenant-labels";
 import { 
   Dialog, 
   DialogContent, 
@@ -41,6 +45,7 @@ import {
 } from "@/components/ui/dialog";
 
 interface BasicInfoStepProps {
+  tenantId: string;
   formData: any;
   setFormData: (data: any) => void;
   isBlendMode: boolean;
@@ -59,6 +64,7 @@ interface BasicInfoStepProps {
 }
 
 export const BasicInfoStep = ({
+  tenantId,
   formData,
   setFormData,
   isBlendMode,
@@ -70,6 +76,7 @@ export const BasicInfoStep = ({
   industries,
   isEditing = false
 }: BasicInfoStepProps) => {
+  const labels = useTenantLabels();
   const primaryColor = branding?.primaryColor || '#16a34a';
   const secondaryColor = branding?.secondaryColor || '#22c55e';
   const accentColor = branding?.accentColor || '#10b981';
@@ -83,15 +90,33 @@ export const BasicInfoStep = ({
   const [loadingBrands, setLoadingBrands] = useState(false);
   const [lotConfig, setLotConfig] = useState<any>(null);
   const [codeMode, setCodeMode] = useState<'auto' | 'manual'>('auto');
+  const [industryPopoverOpen, setIndustryPopoverOpen] = useState(false);
+
+  // Backward compatibility: initialize industry_ids from industry_id if not set
+  useEffect(() => {
+    if (!formData.industry_ids && formData.industry_id) {
+      setFormData((prev: any) => ({
+        ...prev,
+        industry_ids: [prev.industry_id]
+      }));
+    } else if (!formData.industry_ids) {
+      setFormData((prev: any) => ({
+        ...prev,
+        industry_ids: []
+      }));
+    }
+  }, []);
 
   useEffect(() => {
-    loadEntities();
-    loadLotConfig();
-  }, []);
+    if (tenantId) {
+      loadEntities();
+      loadLotConfig();
+    }
+  }, [tenantId]);
 
   const loadLotConfig = async () => {
     try {
-      const config = await systemConfigApi.getLotIdConfig();
+      const config = await systemConfigApi.getLotIdConfig(tenantId);
       setLotConfig(config);
       // Se o modo da plataforma for manual, o código completo é manual
       // Caso contrário, por padrão o número após o prefixo é automático
@@ -105,11 +130,11 @@ export const BasicInfoStep = ({
 
   useEffect(() => {
     const loadProducerData = async () => {
-      if (formData.producer_id) {
+      if (formData.producer_id && tenantId) {
         setLoadingBrands(true);
         try {
           const [brandsData] = await Promise.all([
-            brandsApi.getByProducer(formData.producer_id),
+            brandsApi.getByProducer(formData.producer_id, tenantId),
           ]);
           setBrands(brandsData);
         } catch (error) {
@@ -125,7 +150,7 @@ export const BasicInfoStep = ({
     if (!isBlendMode) {
       loadProducerData();
     }
-  }, [formData.producer_id, isBlendMode]);
+  }, [formData.producer_id, isBlendMode, tenantId]);
 
   // Efeito para atualizar o código automaticamente quando produtor ou marca mudar
   useEffect(() => {
@@ -155,7 +180,7 @@ export const BasicInfoStep = ({
         }
         
         try {
-          const newCode = await generateLotCode(prefix || undefined, false);
+          const newCode = await generateLotCode(tenantId, prefix || undefined, false);
           if (newCode !== formData.code) {
             setFormData((prev: any) => ({ ...prev, code: newCode }));
           }
@@ -194,7 +219,7 @@ export const BasicInfoStep = ({
       };
       updatePrefix();
     }
-  }, [formData.producer_id, formData.brand_id, codeMode, lotConfig, isBlendMode, producers, brands]);
+  }, [formData.producer_id, formData.brand_id, codeMode, lotConfig, isBlendMode, producers, brands, tenantId]);
 
   const handleProducerChange = (value: string) => {
     setFormData((prev: any) => ({ 
@@ -209,11 +234,40 @@ export const BasicInfoStep = ({
     setFormData((prev: any) => ({ ...prev, brand_id: value }));
   };
 
+  const toggleIndustry = (industryId: string) => {
+    setFormData((prev: any) => {
+      const current = prev.industry_ids || [];
+      const isSelected = current.includes(industryId);
+      const updated = isSelected
+        ? current.filter((id: string) => id !== industryId)
+        : [...current, industryId];
+      return {
+        ...prev,
+        industry_ids: updated,
+        // Keep backward compat: set industry_id to first selected or empty
+        industry_id: updated.length > 0 ? updated[0] : ""
+      };
+    });
+  };
+
+  const removeIndustry = (industryId: string) => {
+    setFormData((prev: any) => {
+      const updated = (prev.industry_ids || []).filter((id: string) => id !== industryId);
+      return {
+        ...prev,
+        industry_ids: updated,
+        industry_id: updated.length > 0 ? updated[0] : ""
+      };
+    });
+  };
+
+  const selectedIndustryIds: string[] = formData.industry_ids || [];
+
   const loadEntities = async () => {
     try {
       const [cats, chars] = await Promise.all([
-        categoriesApi.getAll(),
-        characteristicsApi.getAll()
+        categoriesApi.getAll(tenantId),
+        characteristicsApi.getAll(tenantId)
       ]);
       setCategories(cats);
       setAllCharacteristics(chars);
@@ -225,9 +279,9 @@ export const BasicInfoStep = ({
   };
 
   const handleCreateCategory = async () => {
-    if (!newCategoryName) return;
+    if (!newCategoryName || !tenantId) return;
     try {
-      const newCat = await categoriesApi.create({ name: newCategoryName });
+      const newCat = await categoriesApi.create({ name: newCategoryName, tenant_id: tenantId });
       setCategories([...categories, newCat]);
       setFormData((prev: any) => ({ ...prev, category: newCat.name }));
       setIsNewCategoryModalOpen(false);
@@ -338,11 +392,11 @@ export const BasicInfoStep = ({
                   <div className="grid grid-cols-1 gap-6 p-6 bg-slate-50/50 rounded-3xl border border-slate-100">
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                        <Users size={16} style={{ color: primaryColor }} /> Produtor Responsável *
+                        <Users size={16} style={{ color: primaryColor }} /> {labels.producerDescription} *
                       </Label>
                       <Select value={formData.producer_id} onValueChange={handleProducerChange}>
                         <SelectTrigger className="h-12 rounded-xl bg-white border-slate-200 focus:ring-primary font-bold shadow-sm" style={{ '--primary': primaryColor } as any}>
-                          <SelectValue placeholder="Selecione o produtor" />
+                          <SelectValue placeholder={`Selecione ${labels.producer.toLowerCase()}`} />
                         </SelectTrigger>
                         <SelectContent className="rounded-xl font-bold">
                           {producers.map((producer) => (
@@ -373,6 +427,97 @@ export const BasicInfoStep = ({
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {/* Multi-select de Indústrias */}
+                    {industries.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                          <Buildings size={16} style={{ color: primaryColor }} /> Indústrias Vinculadas
+                        </Label>
+                        <Popover open={industryPopoverOpen} onOpenChange={setIndustryPopoverOpen}>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className="w-full min-h-[3rem] rounded-xl bg-white border border-slate-200 shadow-sm px-4 py-2.5 text-left font-bold text-sm flex items-center gap-2 flex-wrap hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-0"
+                              style={{ '--primary': primaryColor, '--tw-ring-color': primaryColor } as any}
+                            >
+                              {selectedIndustryIds.length === 0 ? (
+                                <span className="text-slate-400 font-bold">Selecione as indústrias...</span>
+                              ) : (
+                                selectedIndustryIds.map((id: string) => {
+                                  const ind = industries.find((i: any) => i.id === id);
+                                  if (!ind) return null;
+                                  return (
+                                    <Badge
+                                      key={id}
+                                      className="border-0 font-black text-[11px] rounded-lg px-2.5 py-1 flex items-center gap-1.5 cursor-default"
+                                      style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
+                                    >
+                                      <Buildings size={12} weight="fill" />
+                                      {ind.name}
+                                      <span
+                                        role="button"
+                                        tabIndex={0}
+                                        className="ml-0.5 rounded-full hover:bg-black/10 p-0.5 cursor-pointer"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          removeIndustry(id);
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            e.stopPropagation();
+                                            removeIndustry(id);
+                                          }
+                                        }}
+                                      >
+                                        <XIcon size={10} weight="bold" />
+                                      </span>
+                                    </Badge>
+                                  );
+                                })
+                              )}
+                              <CaretDown size={16} className="ml-auto text-slate-400 flex-shrink-0" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2 rounded-xl shadow-xl border-slate-100" align="start">
+                            <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                              {industries.map((industry: any) => {
+                                const isChecked = selectedIndustryIds.includes(industry.id);
+                                return (
+                                  <label
+                                    key={industry.id}
+                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
+                                      isChecked ? 'bg-slate-50' : 'hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    <Checkbox
+                                      checked={isChecked}
+                                      onCheckedChange={() => toggleIndustry(industry.id)}
+                                      className="rounded-md border-slate-300 data-[state=checked]:border-transparent"
+                                      style={isChecked ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
+                                    />
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <Buildings size={14} weight={isChecked ? "fill" : "regular"} style={{ color: isChecked ? primaryColor : '#94a3b8' }} />
+                                      <span className={`text-sm truncate ${isChecked ? 'font-black text-slate-800' : 'font-bold text-slate-600'}`}>
+                                        {industry.name}
+                                      </span>
+                                    </div>
+                                  </label>
+                                );
+                              })}
+                              {industries.length === 0 && (
+                                <p className="text-xs text-slate-400 font-bold text-center py-3">Nenhuma indústria cadastrada</p>
+                              )}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase ml-1">
+                          {selectedIndustryIds.length > 0
+                            ? `${selectedIndustryIds.length} indústria${selectedIndustryIds.length > 1 ? 's' : ''} selecionada${selectedIndustryIds.length > 1 ? 's' : ''}`
+                            : "Selecione uma ou mais indústrias para este lote."}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Layout,
@@ -11,18 +11,18 @@ import {
   X,
   Leaf,
   CaretDown,
-  Palette,
   UserCircle,
   Buildings,
   Tag,
   Bell,
   MagnifyingGlass,
-  Plus,
   SquaresFour
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
+import { useTenant } from "@/hooks/use-tenant";
+import { useTenantLabels } from "@/hooks/use-tenant-labels";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -33,43 +33,58 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
-const navigation = [
-  { name: "Dashboard", href: "/admin", icon: Layout },
-  { name: "Associações", href: "/admin/associacoes", icon: Buildings },
-  { name: "Produtores", href: "/admin/produtores", icon: Users },
-  { name: "Indústria", href: "/admin/industria", icon: Tag },
-  { name: "Lotes", href: "/admin/lotes", icon: Package },
-  { name: "Relatórios", href: "/admin/relatorios", icon: ChartBar },
-  { name: "Gestão", href: "/admin/gestao", icon: SquaresFour },
-  { name: "Usuários", href: "/admin/usuarios", icon: UserCircle },
-  { name: "Configurações", href: "/admin/configuracoes", icon: Gear },
-];
-
 export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { branding } = useBranding();
+  const { tenant } = useTenant();
+  const labels = useTenantLabels();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
 
+  // Prefixo da URL baseada no tenant
+  const tenantSlug = tenant?.slug || 'default';
+  const baseUrl = `/${tenantSlug}/admin`;
+
+  // Menu dinâmico baseado no tipo de tenant
+  const baseNavigation = [
+    { name: "Dashboard", href: `${baseUrl}`, icon: Layout },
+    { name: labels.associations, href: `${baseUrl}/associacoes`, icon: Buildings },
+    { name: labels.producers, href: `${baseUrl}/produtores`, icon: Users },
+    { name: "Indústria", href: `${baseUrl}/industria`, icon: Tag },
+    { name: "Lotes", href: `${baseUrl}/lotes`, icon: Package },
+    { name: "Relatórios", href: `${baseUrl}/relatorios`, icon: ChartBar },
+    { name: "Gestão", href: `${baseUrl}/gestao`, icon: SquaresFour },
+    { name: "Usuários", href: `${baseUrl}/usuarios`, icon: UserCircle },
+    { name: "Configurações", href: `${baseUrl}/configuracoes`, icon: Gear },
+  ];
+
+  // Itens extras para marca coletiva
+  const marcaColetivaExtras = labels.isMarcaColetiva ? [
+    { name: "Produtores Internos", href: `${baseUrl}/produtores-internos`, icon: Users },
+    { name: "Certificações", href: `${baseUrl}/certificacoes`, icon: Tag },
+  ] : [];
+
+  // Inserir itens extras após "Produtores/Cooperativas" (índice 2)
+  const navigation = [
+    ...baseNavigation.slice(0, 3),
+    ...marcaColetivaExtras,
+    ...baseNavigation.slice(3),
+  ];
+
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate("/auth/login");
+      navigate(`/${tenantSlug}/auth/login`);
     } catch (error) {
       toast.error("Erro ao fazer logout");
     }
   };
-
-  const primaryColor = branding.primaryColor;
-  const secondaryColor = branding.secondaryColor;
-  const accentColor = branding.accentColor;
 
   const userInitials = (user?.user_metadata?.full_name || user?.email || "U")
     .split(" ")
@@ -85,7 +100,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
         <div className="flex grow flex-col gap-y-6 overflow-y-auto bg-white px-6 pb-4 border-r border-slate-200/60 shadow-sm">
           {/* Logo Section */}
           <div className="flex h-24 shrink-0 items-center justify-center py-6">
-            <Link to="/admin" className="flex items-center gap-3 transition-all duration-300 hover:opacity-80">
+            <Link to={baseUrl} className="flex items-center gap-3 transition-all duration-300 hover:opacity-80">
               {branding?.logoUrl ? (
                 <img src={branding.logoUrl} alt="Logo" className="h-12 w-auto object-contain max-w-[180px]" />
               ) : (
@@ -106,7 +121,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-4 px-2">Menu Principal</div>
             <ul role="list" className="flex flex-1 flex-col gap-y-1">
               {navigation.map((item) => {
-                const isActive = location.pathname === item.href;
+                const isActive = location.pathname === item.href || (item.href !== baseUrl && location.pathname.startsWith(item.href));
                 return (
                   <li key={item.name}>
                     <Link
@@ -204,7 +219,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                 <DropdownMenuContent align="end" className="w-56 mt-2 rounded-xl shadow-lg border-slate-100 p-1">
                   <DropdownMenuLabel className="px-3 py-2 text-xs font-semibold text-slate-500 uppercase">Minha Conta</DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-slate-50" />
-                  <DropdownMenuItem onClick={() => navigate("/admin/configuracoes")} className="rounded-lg py-2 cursor-pointer focus:bg-slate-50">
+                  <DropdownMenuItem onClick={() => navigate(`${baseUrl}/configuracoes`)} className="rounded-lg py-2 cursor-pointer focus:bg-slate-50">
                     <Gear className="mr-2 h-4 w-4" /> Configurações
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-slate-50" />

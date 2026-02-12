@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "selfhosted-supabase": {
+      "command": "node",
+      "args": [
+        "C:/Users/Cassio/Documents/Projetos IA/qualorigem-sys/.mcp-servers/selfhosted-supabase-mcp/dist/index.js",
+        "--url",
+        "SUA_URL_SUPABASE",
+        "--anon-key",
+        "SUA_ANON_KEY",
+        "--service-key",
+        "SUA_SERVICE_ROLE_KEY",
+        "--db-url",
+        "postgresql://postgres:SUA_SENHA@db.REFERENCIA_PROJETO.supabase.co:5432/postgres",
+        "--jwt-secret",
+        "SEU_JWT_SECRET"
+      ]
+    }
+  }
+}

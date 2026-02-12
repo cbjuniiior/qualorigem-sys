@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { maskPhone, maskCEP } from "@/utils/masks";
 import { useCEP } from "@/hooks/use-cep";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,19 +17,14 @@ import { toast } from "sonner";
 import { 
   Plus, 
   PencilSimple, 
-  Image as ImageIcon, 
-  Upload, 
   MagnifyingGlass, 
   FunnelSimple, 
   MapPin, 
-  Envelope, 
   Phone, 
   Globe, 
   Trash, 
-  Eye, 
   Buildings, 
   Users, 
-  X,
   DotsThreeOutlineVertical,
   Export,
   IdentificationCard,
@@ -37,10 +32,10 @@ import {
   ChatCircleText,
   CheckCircle,
   Camera,
-  MapTrifold,
   Tag,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  WarningCircle
 } from "@phosphor-icons/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -62,6 +57,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useTenant } from "@/hooks/use-tenant";
 
 interface AssociationFormData {
   id?: string;
@@ -140,6 +136,7 @@ export default function Associacoes() {
   const [filterType, setFilterType] = useState("all");
   const [assocToDelete, setAssocToDelete] = useState<string | null>(null);
   const [branding, setBranding] = useState<any>(null);
+  const { tenant } = useTenant();
 
   const { searchCEP } = useCEP((data) => {
     setForm((prev: any) => ({
@@ -155,8 +152,9 @@ export default function Associacoes() {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!tenant) return;
       try {
-        const config = await systemConfigApi.getBrandingConfig();
+        const config = await systemConfigApi.getBrandingConfig(tenant.id);
         setBranding(config);
         await fetchAll();
       } catch (error) {
@@ -164,16 +162,17 @@ export default function Associacoes() {
       }
     };
     loadData();
-  }, []);
+  }, [tenant]);
 
   const fetchAll = async () => {
+    if (!tenant) return;
     try {
       setLoading(true);
-      const data = await associationsApi.getAll();
+      const data = await associationsApi.getAll(tenant.id);
       const dataWithCounts = await Promise.all(
         (data || []).map(async (association) => {
           try {
-            const count = await associationsApi.getProducerCount(association.id);
+            const count = await associationsApi.getProducerCount(association.id, tenant.id);
             return { ...association, producer_count: count };
           } catch (e) {
             return { ...association, producer_count: 0 };
@@ -233,6 +232,7 @@ export default function Associacoes() {
   };
 
   const handleSubmit = async () => {
+    if (!tenant) return;
     try {
       if (!form.name.trim()) {
         toast.error("Nome é obrigatório");
@@ -255,10 +255,11 @@ export default function Associacoes() {
           phone: form.contact_info.phone || undefined,
           website: form.contact_info.website || undefined,
         },
+        tenant_id: tenant.id
       };
       
       if (editing) {
-        await associationsApi.update(editing.id, dataToSend as any);
+        await associationsApi.update(editing.id, tenant.id, dataToSend as any);
         toast.success("Associação atualizada!");
       } else {
         await associationsApi.create(dataToSend as any);
@@ -273,9 +274,9 @@ export default function Associacoes() {
   };
 
   const confirmDelete = async () => {
-    if (!assocToDelete) return;
+    if (!assocToDelete || !tenant) return;
     try {
-      await associationsApi.delete(assocToDelete);
+      await associationsApi.delete(assocToDelete, tenant.id);
       toast.success("Associação removida!");
       fetchAll();
     } catch (error) {

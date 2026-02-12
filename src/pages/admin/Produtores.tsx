@@ -4,51 +4,34 @@ import {
   MagnifyingGlass, 
   PencilSimple, 
   Trash, 
-  MapPin, 
   Phone, 
   Envelope, 
-  Mountains, 
-  Thermometer, 
-  Copy, 
   Users, 
-  Eye, 
-  ArrowRight,
   DotsThreeOutlineVertical,
   Export,
   Buildings,
-  Image as ImageIcon,
   UserCircle,
-  CaretRight,
   CheckCircle,
   IdentificationCard,
   At,
-  Globe,
   Tag,
-  ChatCircleText,
   Camera,
   WarningCircle,
-  MapTrifold,
-  Lock,
-  LockOpen,
   ArrowLeft,
+  ArrowRight,
   CircleNotch
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { producersApi, associationsApi, systemConfigApi, brandsApi } from "@/services/api";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useForm, FormProvider } from "react-hook-form";
 import { maskPhone, maskCPFCNPJ } from "@/utils/masks";
 import { uploadImageToSupabase } from "@/services/upload";
@@ -68,11 +51,11 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
   AlertDialogTitle as AlertDialogTitleBase,
 } from "@/components/ui/alert-dialog";
 import { useNavigate } from "react-router-dom";
-import { Separator } from "@/components/ui/separator";
+import { useTenant } from "@/hooks/use-tenant";
+import { useTenantLabels } from "@/hooks/use-tenant-labels";
 
 interface Producer {
   id: string;
@@ -94,10 +77,6 @@ interface Producer {
   profile_picture_url: string | null;
   address_internal_only: boolean;
 }
-
-const stateOptions = [
-  "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"
-];
 
 const PRODUCER_STEPS = [
   { id: 1, title: "Responsável" },
@@ -139,11 +118,14 @@ const Produtores = () => {
   const [branding, setBranding] = useState<any>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const navigate = useNavigate();
+  const { tenant } = useTenant();
+  const labels = useTenantLabels();
 
   useEffect(() => {
     const loadData = async () => {
+      if (!tenant) return;
       try {
-        const config = await systemConfigApi.getBrandingConfig();
+        const config = await systemConfigApi.getBrandingConfig(tenant.id);
         setBranding(config);
         await fetchProducers();
       } catch (error) {
@@ -151,19 +133,20 @@ const Produtores = () => {
       }
     };
     loadData();
-  }, []);
+  }, [tenant]);
 
   const fetchProducers = async () => {
+    if (!tenant) return;
     try {
       setLoading(true);
-      const data = await producersApi.getAll();
+      const data = await producersApi.getAll(tenant.id);
       setProducers(data as Producer[]);
       
       // Buscar marcas de todos os produtores
       const brandsMap: Record<string, any[]> = {};
       for (const producer of data) {
         try {
-          const brands = await brandsApi.getByProducer(producer.id);
+          const brands = await brandsApi.getByProducer(producer.id, tenant.id);
           brandsMap[producer.id] = brands || [];
         } catch (error) {
           brandsMap[producer.id] = [];
@@ -171,7 +154,7 @@ const Produtores = () => {
       }
       setProducersBrands(brandsMap);
     } catch (error) {
-      toast.error("Erro ao carregar produtores");
+      toast.error(`Erro ao carregar ${labels.producers.toLowerCase()}`);
     } finally {
       setLoading(false);
     }
@@ -184,13 +167,13 @@ const Produtores = () => {
   };
 
   const confirmDelete = async () => {
-    if (!producerToDelete) return;
+    if (!producerToDelete || !tenant) return;
     try {
-      await producersApi.delete(producerToDelete);
-      toast.success("Produtor removido!");
+      await producersApi.delete(producerToDelete, tenant.id);
+      toast.success(`${labels.producer} removido!`);
       fetchProducers();
     } catch (error) {
-      toast.error("Erro ao remover produtor");
+      toast.error(`Erro ao remover ${labels.producer.toLowerCase()}`);
     } finally {
       setProducerToDelete(null);
     }
@@ -236,7 +219,7 @@ const Produtores = () => {
           <div className="space-y-1">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
               <Users size={32} style={{ color: primaryColor }} weight="fill" />
-              Produtores Parceiros
+              {labels.producers} Parceiros
             </h2>
             <p className="text-slate-500 font-medium text-sm">Gerencie as propriedades e responsáveis pela produção.</p>
           </div>
@@ -249,7 +232,7 @@ const Produtores = () => {
               className="rounded-xl font-bold text-white hover:opacity-90 shadow-lg gap-2"
               style={{ backgroundColor: primaryColor }}
             >
-              <Plus size={20} weight="bold" /> Novo Produtor
+              <Plus size={20} weight="bold" /> Novo {labels.producer}
             </Button>
           </div>
         </div>
@@ -276,7 +259,7 @@ const Produtores = () => {
             <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <Users size={48} className="text-slate-200" />
             </div>
-            <h3 className="text-xl font-black text-slate-900 mb-2">Nenhum produtor encontrado</h3>
+            <h3 className="text-xl font-black text-slate-900 mb-2">Nenhum {labels.producer.toLowerCase()} encontrado</h3>
             <p className="text-slate-400 font-medium">Cadastre seu primeiro parceiro para começar o rastreamento.</p>
           </Card>
         ) : (
@@ -285,7 +268,7 @@ const Produtores = () => {
               <Card 
                 key={prod.id} 
                 className="group border-0 shadow-sm bg-white rounded-2xl hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 overflow-hidden cursor-pointer"
-                onClick={() => navigate(`/admin/produtores/${prod.id}`)}
+                onClick={() => navigate(`/${tenant?.slug}/admin/produtores/${prod.id}`)}
               >
                 <CardContent className="p-0">
                   <div className="flex h-full min-h-[180px]">
@@ -387,10 +370,10 @@ const Produtores = () => {
                     </div>
                     <div>
                       <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight">
-                        {editingProducer ? "Editar Produtor" : "Novo Produtor"}
+                        {editingProducer ? `Editar ${labels.producer}` : `Novo ${labels.producer}`}
                       </SheetTitle>
                       <SheetDescription className="text-slate-500 font-bold text-base">
-                        {editingProducer ? `Perfil de ${editingProducer.name}` : "Cadastre as informações do produtor e sua propriedade."}
+                        {editingProducer ? `Perfil de ${editingProducer.name}` : `Cadastre as informações do ${labels.producer.toLowerCase()} e sua propriedade.`}
                       </SheetDescription>
                     </div>
                   </div>
@@ -420,7 +403,7 @@ const Produtores = () => {
             <AlertDialogHeader>
               <AlertDialogTitleBase className="text-2xl font-black text-slate-900">Confirmar Exclusão?</AlertDialogTitleBase>
               <AlertDialogDescription className="text-slate-500 font-medium">
-                Esta ação removerá permanentemente o produtor e todos os seus vínculos. Os lotes existentes desse produtor poderão ficar órfãos.
+                Esta ação removerá permanentemente o {labels.producer.toLowerCase()} e todos os seus vínculos. Os lotes existentes desse {labels.producer.toLowerCase()} poderão ficar órfãos.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="gap-3 mt-4">
@@ -444,10 +427,8 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
   const [editingBrand, setEditingBrand] = useState<any | null>(null);
   const [brandForm, setBrandForm] = useState({ name: "", logo_url: "" });
   const [producerId, setProducerId] = useState<string | null>(initialData?.id || null);
-  const [photoPreviews, setPhotoPreviews] = useState<any[]>(() => {
-    if (initialData?.photos) return initialData.photos.map((url: string) => ({ url, uploaded: true }));
-    return [];
-  });
+  const { tenant } = useTenant();
+  const labels = useTenantLabels();
 
   const primaryColor = branding?.primaryColor || '#16a34a';
 
@@ -465,17 +446,18 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
   const { register, handleSubmit, setValue, watch, formState: { errors } } = methods;
 
   useEffect(() => {
-    associationsApi.getAll().then(setAllAssociations);
+    if (!tenant) return;
+    associationsApi.getAll(tenant.id).then(setAllAssociations);
     const id = producerId || initialData?.id;
     if (id) {
-      associationsApi.getByProducer(id).then(assocs => {
+      associationsApi.getByProducer(id, tenant.id).then(assocs => {
         const assocIds = assocs.map(a => a.id);
         setSelectedAssociations(assocIds);
         setValue("associations", assocIds);
       });
-      brandsApi.getByProducer(id).then(setBrands);
+      brandsApi.getByProducer(id, tenant.id).then(setBrands);
     }
-  }, [producerId, initialData, setValue]);
+  }, [producerId, initialData, setValue, tenant]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: "profile" | "property") => {
     const files = Array.from(e.target.files || []);
@@ -488,7 +470,6 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
         } else {
           const currentPhotos = watch("photos") || [];
           setValue("photos", [...currentPhotos, url]);
-          setPhotoPreviews(prev => [...prev, { url, uploaded: true }]);
         }
       }
       toast.success("Imagens carregadas!");
@@ -513,21 +494,20 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
   };
 
   const handleSaveBrand = async () => {
+    if (!tenant) return;
     const id = producerId || initialData?.id;
     if (!id) {
-      toast.error("Salve o produtor primeiro");
+      toast.error(`Salve o ${labels.producer.toLowerCase()} primeiro`);
       return;
     }
 
     try {
       if (editingBrand) {
-        // Ao editar, apenas atualizar a logo (nome e slug não podem ser alterados)
-        await brandsApi.update(editingBrand.id, {
+        await brandsApi.update(editingBrand.id, tenant.id, {
           logo_url: brandForm.logo_url || null,
         });
         toast.success("Logo da marca atualizada!");
       } else {
-        // Ao criar nova marca, validar nome
         if (!brandForm.name.trim()) {
           toast.error("Nome da marca é obrigatório");
           return;
@@ -538,11 +518,12 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
           name: brandForm.name,
           slug,
           logo_url: brandForm.logo_url || null,
+          tenant_id: tenant.id
         });
         toast.success("Marca criada!");
       }
       
-      const updatedBrands = await brandsApi.getByProducer(id);
+      const updatedBrands = await brandsApi.getByProducer(id, tenant.id);
       setBrands(updatedBrands);
       setBrandForm({ name: "", logo_url: "" });
       setEditingBrand(null);
@@ -552,13 +533,14 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
   };
 
   const handleDeleteBrand = async (brandId: string) => {
+    if (!tenant) return;
     if (!confirm("Deseja realmente excluir esta marca?")) return;
     
     try {
-      await brandsApi.delete(brandId);
+      await brandsApi.delete(brandId, tenant.id);
       toast.success("Marca excluída!");
       const id = producerId || initialData!.id;
-      const updatedBrands = await brandsApi.getByProducer(id);
+      const updatedBrands = await brandsApi.getByProducer(id, tenant.id);
       setBrands(updatedBrands);
     } catch (error: any) {
       toast.error(error?.message || "Erro ao excluir marca");
@@ -571,65 +553,54 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
   };
 
   const onFormSubmit = async (data: any) => {
-    // Só permitir submit se estiver na etapa 3
+    if (!tenant) return;
     if (currentStep !== 3) {
       return;
     }
     
     setLoading(true);
     try {
-      // Usar selectedAssociations como fonte de verdade
       const associations = selectedAssociations.length > 0 ? selectedAssociations : (data.associations || []);
       const { associations: _, ...rest } = data;
       
-      // Filtrar apenas os campos que devem ser salvos no produtor
-      // Remover campos de propriedade que agora são do lote
-      // A tabela ainda exige city, state e property_name como obrigatórios,
-      // então enviamos valores padrão temporários até aplicar a migration 009
       const producerData: any = {
         name: rest.name,
         document_number: rest.document_number || null,
         email: rest.email || null,
         phone: rest.phone || null,
         profile_picture_url: rest.profile_picture_url || null,
-        // Campos obrigatórios da tabela (valores padrão temporários)
-        // TODO: Aplicar migration 009_remove_property_fields_from_producers.sql para tornar opcionais
-        city: "N/A", // Valor temporário - será removido após migration
-        state: "N/A", // Valor temporário - será removido após migration
-        property_name: "N/A", // Valor temporário - será removido após migration
+        city: "N/A", 
+        state: "N/A", 
+        property_name: "N/A", 
+        tenant_id: tenant.id
       };
       
       const id = producerId || initialData?.id;
       
-      // Se o produtor já foi salvo (tem ID), apenas atualizar se necessário
       if (id) {
-        // Atualizar dados do produtor
-        await producersApi.update(id, producerData);
+        await producersApi.update(id, tenant.id, producerData);
         
-        // Atualizar associações
-        const currentAssocs = await associationsApi.getByProducer(id);
+        const currentAssocs = await associationsApi.getByProducer(id, tenant.id);
         const currentIds = currentAssocs.map(a => a.id);
         for (const idToRemove of currentIds) {
           if (!associations.includes(idToRemove)) {
-            await associationsApi.removeProducerFromAssociation(id, idToRemove);
+            await associationsApi.removeProducerFromAssociation(id, idToRemove, tenant.id);
           }
         }
         for (const idToAdd of associations) {
           if (!currentIds.includes(idToAdd)) {
-            await associationsApi.addProducerToAssociation(id, idToAdd);
+            await associationsApi.addProducerToAssociation(id, idToAdd, tenant.id);
           }
         }
       } else {
-        // Se não tem ID, criar novo produtor (não deveria acontecer, mas por segurança)
         const newProd = await producersApi.create(producerData);
         setProducerId(newProd.id);
         for (const idToAdd of associations) {
-          await associationsApi.addProducerToAssociation(newProd.id, idToAdd);
+          await associationsApi.addProducerToAssociation(newProd.id, idToAdd, tenant.id);
         }
       }
       
-      // As marcas já foram salvas durante a etapa 3 (quando o usuário clicou em "Adicionar Marca")
-      toast.success(initialData ? "Produtor atualizado com sucesso!" : "Produtor cadastrado com sucesso!");
+      toast.success(initialData ? `${labels.producer} atualizado com sucesso!` : `${labels.producer} cadastrado com sucesso!`);
       onSubmit(data);
     } catch (error: any) {
       console.error("Erro ao salvar produtor:", error);
@@ -809,9 +780,9 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
           </FormSection>
 
           <FormSection 
-            title="Marcas do Produtor" 
+            title={`Marcas do ${labels.producer}`} 
             icon={Tag} 
-            description="Gerencie as marcas associadas ao produtor"
+            description={`Gerencie as marcas associadas ao ${labels.producer.toLowerCase()}`}
             active={currentStep === 3}
             primaryColor={primaryColor}
           >
@@ -820,7 +791,7 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
                 <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
                   <WarningCircle size={40} className="text-slate-200" />
                 </div>
-                <p className="text-slate-400 font-bold">Salve o produtor primeiro para adicionar marcas.</p>
+                <p className="text-slate-400 font-bold">Salve o {labels.producer.toLowerCase()} primeiro para adicionar marcas.</p>
               </div>
             ) : (
               <div className="space-y-6">
@@ -835,6 +806,7 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
                           <Input
                             value={brandForm.name}
                             disabled
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                             className="h-12 bg-slate-100 text-slate-600 cursor-not-allowed"
                           />
                           <p className="text-xs text-slate-400 font-bold">O nome não pode ser alterado após a criação</p>
@@ -843,6 +815,7 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
                             <Input
                               value={editingBrand.slug}
                               disabled
+                              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                               className="h-10 bg-slate-100 text-slate-500 text-xs font-mono cursor-not-allowed"
                             />
                           </div>
@@ -851,6 +824,7 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
                         <Input
                           value={brandForm.name}
                           onChange={(e) => setBrandForm((prev) => ({ ...prev, name: e.target.value }))}
+                          onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
                           placeholder="Ex: Café Premium"
                           className="h-12"
                         />
@@ -988,6 +962,7 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
                   if (validateCurrentStep()) {
                     // Se for novo produtor e estiver indo para etapa 3, salvar primeiro
                     if (!initialData?.id && currentStep === 2) {
+                      if (!tenant) return;
                       try {
                         setLoading(true);
                         const formData = watch();
@@ -1003,17 +978,18 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
                           city: "N/A",
                           state: "N/A",
                           property_name: "N/A",
+                          tenant_id: tenant.id
                         };
                         
                         const newProd = await producersApi.create(producerData);
-                        for (const id of associations) await associationsApi.addProducerToAssociation(newProd.id, id);
+                        for (const id of associations) await associationsApi.addProducerToAssociation(newProd.id, id, tenant.id);
                         
                         // Atualizar producerId para permitir adicionar marcas
                         setProducerId(newProd.id);
                         setCurrentStep(3);
-                        toast.success("Produtor salvo! Agora você pode adicionar marcas.");
+                        toast.success(`${labels.producer} salvo! Agora você pode adicionar marcas.`);
                       } catch (error: any) {
-                        toast.error(error?.message || "Erro ao salvar produtor");
+                        toast.error(error?.message || `Erro ao salvar ${labels.producer.toLowerCase()}`);
                       } finally {
                         setLoading(false);
                       }

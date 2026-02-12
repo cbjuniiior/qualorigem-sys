@@ -1,8 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { systemConfigApi } from '@/services/api';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { hexToHsl } from '@/lib/utils';
 
-interface BrandingConfig {
+export interface BrandingConfig {
   preset: string;
   primaryColor: string;
   secondaryColor: string;
@@ -16,8 +15,8 @@ interface BrandingConfig {
 
 interface BrandingContextType {
   branding: BrandingConfig;
-  loading: boolean;
-  refreshBranding: () => Promise<void>;
+  setBrandingConfig: (config: BrandingConfig) => void;
+  resetBranding: () => void;
 }
 
 const DEFAULT_BRANDING: BrandingConfig = {
@@ -58,42 +57,29 @@ const applyBrandingToDOM = (config: BrandingConfig) => {
 
 export const BrandingProvider = ({ children }: { children: ReactNode }) => {
   const [branding, setBranding] = useState<BrandingConfig>(() => {
-    // Tentar carregar do localStorage imediatamente para evitar o flash
-    const cached = localStorage.getItem('geotrace_branding');
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        // Aplicar variáveis CSS imediatamente no construtor do estado
-        applyBrandingToDOM(parsed);
-        return parsed;
-      } catch (e) {
-        return DEFAULT_BRANDING;
-      }
-    }
-    applyBrandingToDOM(DEFAULT_BRANDING);
+    // Tentar carregar do localStorage (opcional, pode ser removido se quisermos sempre o default até carregar o tenant)
+    // Para multi-tenant, talvez seja melhor iniciar com DEFAULT e deixar o TenantResolver atualizar
     return DEFAULT_BRANDING;
   });
-  const [loading, setLoading] = useState(true);
 
-  const refreshBranding = async () => {
-    try {
-      const config = await systemConfigApi.getBrandingConfig();
-      setBranding(config);
-      localStorage.setItem('geotrace_branding', JSON.stringify(config));
-      applyBrandingToDOM(config);
-    } catch (error) {
-      console.error('Erro ao carregar branding:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const setBrandingConfig = useCallback((config: BrandingConfig) => {
+    const newConfig = { ...DEFAULT_BRANDING, ...config };
+    setBranding(newConfig);
+    applyBrandingToDOM(newConfig);
+  }, []);
 
-  useEffect(() => {
-    refreshBranding();
+  const resetBranding = useCallback(() => {
+    setBranding(DEFAULT_BRANDING);
+    applyBrandingToDOM(DEFAULT_BRANDING);
+  }, []);
+
+  // Aplica o branding inicial (default)
+  React.useEffect(() => {
+    applyBrandingToDOM(branding);
   }, []);
 
   return (
-    <BrandingContext.Provider value={{ branding, loading, refreshBranding }}>
+    <BrandingContext.Provider value={{ branding, setBrandingConfig, resetBranding }}>
       {children}
     </BrandingContext.Provider>
   );

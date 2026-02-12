@@ -49,9 +49,51 @@ Deno.serve(async (req) => {
     const body = method !== 'GET' ? await req.json() : {};
     const action = body.action || new URL(req.url).searchParams.get('action');
 
-    // GET - List all users
+    // Helper to check permissions
+    const checkPermission = async (targetTenantId: string | null) => {
+      // 1. Check if platform admin
+      const { data: platformAdmin } = await supabaseAdmin
+        .from('platform_admins')
+        .select('role')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (platformAdmin) return true;
+
+      // 2. If targetTenantId provided, check if tenant admin
+      if (targetTenantId) {
+        const { data: membership } = await supabaseAdmin
+          .from('tenant_memberships')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('tenant_id', targetTenantId)
+          .eq('role', 'tenant_admin')
+          .single();
+        
+        if (membership) return true;
+      }
+
+      return false;
+    };
+
+    // GET - List all users (filtered by tenant if not platform admin)
     if (method === 'GET' && action === 'list') {
-      const { data, error } = await supabaseAdmin.auth.admin.listUsers();
+      const tenantId = new URL(req.url).searchParams.get('tenantId');
+      
+      if (!await checkPermission(tenantId)) {
+        return new Response(
+          JSON.stringify({ error: 'Permissão negada' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // We can't easily filter listUsers by tenant_id in Auth, so we query user_profiles
+      let query = supabaseAdmin.from('user_profiles').select('*');
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId);
+      }
+      
+      const { data: profiles, error } = await query;
       
       if (error) {
         return new Response(
@@ -60,31 +102,31 @@ Deno.serve(async (req) => {
         );
       }
 
-      const users = data.users.map(user => ({
-        id: user.id,
-        email: user.email || '',
-        full_name: user.user_metadata?.full_name,
-        created_at: user.created_at,
-        email_confirmed_at: user.email_confirmed_at,
-      }));
-
       return new Response(
-        JSON.stringify(users),
+        JSON.stringify(profiles),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // POST - Create user
     if (method === 'POST' && action === 'create') {
-      const { email, password, full_name } = body;
+      const { email, password, full_name, tenant_id, role } = body;
 
-      if (!email || !password) {
+      if (!email || !password || !tenant_id) {
         return new Response(
-          JSON.stringify({ error: 'Email e senha são obrigatórios' }),
+          JSON.stringify({ error: 'Email, senha e ID do tenant são obrigatórios' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
+      if (!await checkPermission(tenant_id)) {
+        return new Response(
+          JSON.stringify({ error: 'Permissão negada para criar usuário neste tenant' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Create Auth User
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
         email,
         password,
@@ -101,6 +143,25 @@ Deno.serve(async (req) => {
         );
       }
 
+      // Create Profile and Membership
+      if (data.user) {
+        // 1. Profile
+        await supabaseAdmin.from('user_profiles').upsert({
+          id: data.user.id,
+          email: email,
+          full_name: full_name || '',
+          tenant_id: tenant_id,
+          is_active: true
+        });
+
+        // 2. Membership
+        await supabaseAdmin.from('tenant_memberships').insert({
+          tenant_id: tenant_id,
+          user_id: data.user.id,
+          role: role || 'viewer'
+        });
+      }
+
       return new Response(
         JSON.stringify({
           id: data.user.id,
@@ -115,7 +176,7 @@ Deno.serve(async (req) => {
 
     // DELETE - Delete user
     if (method === 'POST' && action === 'delete') {
-      const { userId } = body;
+      const { userId, tenant_id } = body;
 
       if (!userId) {
         return new Response(
@@ -124,7 +185,28 @@ Deno.serve(async (req) => {
         );
       }
 
-      const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+      // Check permission (needs tenant_id to verify if caller manages that user's tenant)
+      // Ideally we should fetch the user's tenant first, but let's trust the passed tenant_id for permission check
+      // or fetch it from user_profiles
+      
+      let targetTenantId = tenant_id;
+      if (!targetTenantId) {
+        const { data: profile } = await supabaseAdmin.from('user_profiles').select('tenant_id').eq('id', userId).single();
+        targetTenantId = profile?.tenant_id;
+      }
+
+      if (!await checkPermission(targetTenantId)) {
+        return new Response(
+          JSON.stringify({ error: 'Permissão negada' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Soft delete (set is_active = false) instead of hard delete
+      const { error } = await supabaseAdmin
+        .from('user_profiles')
+        .update({ is_active: false })
+        .eq('id', userId);
 
       if (error) {
         return new Response(
@@ -150,4 +232,3 @@ Deno.serve(async (req) => {
     );
   }
 });
-

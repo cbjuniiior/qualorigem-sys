@@ -25,10 +25,12 @@ import { useAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTenant } from "@/hooks/use-tenant";
 
 const Configuracoes = () => {
   const { user } = useAuth();
   const { branding } = useBranding();
+  const { tenant } = useTenant();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("perfil");
@@ -61,11 +63,12 @@ const Configuracoes = () => {
 
       // Atualizar também na tabela profiles
       const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (currentUser) {
+      if (currentUser && tenant) {
         await (supabase as any)
-          .from('profiles')
+          .from('user_profiles')
           .update({ full_name: userProfile.full_name })
-          .eq('id', currentUser.id);
+          .eq('id', currentUser.id)
+          .eq('tenant_id', tenant.id);
       }
 
       toast.success("Perfil atualizado com sucesso!");

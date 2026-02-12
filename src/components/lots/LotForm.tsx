@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { CaretLeft, CaretRight, Check, Package, Medal, Eye, Quotes, X, ArrowRight, CheckCircle } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, Check, Package, Medal, Eye, Quotes, X, ArrowRight, CheckCircle, Certificate } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { BasicInfoStep } from "./steps/BasicInfoStep";
@@ -7,6 +7,7 @@ import { ProductionStep } from "./steps/ProductionStep";
 import { VolumeStep } from "./steps/VolumeStep";
 import { SensoryAnalysisStep } from "./steps/SensoryAnalysisStep";
 import { NotesStep } from "./steps/NotesStep";
+import CertificationsStep from "./steps/CertificationsStep";
 
 interface Producer {
   id: string;
@@ -17,6 +18,7 @@ interface Producer {
 }
 
 interface LotFormProps {
+  tenantId: string;
   formData: any;
   setFormData: (data: any) => void;
   producers: Producer[];
@@ -42,11 +44,13 @@ export const LOT_STEPS = [
   { id: 1, title: "Identificação", description: "Dados básicos", icon: Package },
   { id: 2, title: "Origem", description: "Propriedade e localização", icon: Medal },
   { id: 3, title: "Volume", description: "Métricas de produção", icon: Package },
-  { id: 4, title: "Análise", description: "Perfil sensorial", icon: Eye },
-  { id: 5, title: "História", description: "Relatos e mídia", icon: Quotes }
+  { id: 4, title: "Certificações", description: "Documentos e certificados", icon: Certificate },
+  { id: 5, title: "Análise", description: "Perfil sensorial", icon: Eye },
+  { id: 6, title: "História", description: "Relatos e mídia", icon: Quotes }
 ];
 
 export const LotForm = ({
+  tenantId,
   formData,
   setFormData,
   producers,
@@ -75,6 +79,7 @@ export const LotForm = ({
         <div className="max-w-[1600px] mx-auto w-full">
           {currentStep === 1 && (
             <BasicInfoStep
+              tenantId={tenantId}
               formData={formData}
               setFormData={setFormData}
               isBlendMode={isBlendMode}
@@ -90,6 +95,7 @@ export const LotForm = ({
 
           {currentStep === 2 && (
             <ProductionStep
+              tenantId={tenantId}
               formData={formData}
               setFormData={setFormData}
               isBlendMode={isBlendMode}
@@ -112,14 +118,19 @@ export const LotForm = ({
           )}
 
           {currentStep === 4 && (
+            <CertificationsStep formData={formData} setFormData={setFormData} primaryColor={primaryColor} />
+          )}
+
+          {currentStep === 5 && (
             <SensoryAnalysisStep
+              tenantId={tenantId}
               formData={formData}
               setFormData={setFormData}
               branding={branding}
             />
           )}
 
-          {currentStep === 5 && (
+          {currentStep === 6 && (
             <NotesStep
               formData={formData}
               setFormData={setFormData}

@@ -7,16 +7,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { BlendComposition } from "../BlendComposition";
 import { LocationPicker } from "@/components/ui/location-picker";
 import { useState, useEffect, useCallback } from "react";
-import { brandsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotsApi } from "@/services/api";
+import { brandsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotsApi, internalProducersApi } from "@/services/api";
 import { generateSlug } from "@/utils/slug-generator";
 import { generateLotCode } from "@/utils/lot-code-generator";
 import { uploadImageToSupabase } from "@/services/upload";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { useTenantLabels } from "@/hooks/use-tenant-labels";
 import axios from "axios";
 
 interface Producer {
@@ -28,6 +30,7 @@ interface Producer {
 }
 
 interface ProductionStepProps {
+  tenantId: string;
   formData: any;
   setFormData: (data: any) => void;
   isBlendMode: boolean;
@@ -66,7 +69,7 @@ const FormSection = ({ title, icon: Icon, children, description, primaryColor }:
   </div>
 );
 
-export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, associations, industries, branding, qrValue }: ProductionStepProps) => {
+export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, producers, associations, industries, branding, qrValue }: ProductionStepProps) => {
   const [brands, setBrands] = useState<any[]>([]);
   const [loadingBrands, setLoadingBrands] = useState(false);
   const [filteredAssociations, setFilteredAssociations] = useState<any[]>([]);
@@ -90,6 +93,7 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
   const [loadingProperties, setLoadingProperties] = useState(false);
 
 
+  const labels = useTenantLabels();
   const primaryColor = branding?.primaryColor || '#16a34a';
   const secondaryColor = branding?.secondaryColor || '#22c55e';
   const accentColor = branding?.accentColor || '#10b981';
@@ -141,7 +145,7 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
 
   // Geocodificar automaticamente quando estado ou cidade mudarem
   useEffect(() => {
-    if (formData.city && formData.state) {
+    if (formData.city && formData.state && !formData.latitude && !formData.longitude) {
       geocodeAddress(formData.city, formData.state);
     }
   }, [formData.state, formData.city, geocodeAddress]);
@@ -156,14 +160,14 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
   // Carregar propriedades salvas e dados do produtor
   useEffect(() => {
     const loadProducerData = async () => {
-      if (formData.producer_id) {
+      if (formData.producer_id && tenantId) {
         setLoadingBrands(true);
         setLoadingProperties(true);
         try {
           const [brandsData, producerAssocs, allLots] = await Promise.all([
-            brandsApi.getByProducer(formData.producer_id),
-            associationsApi.getByProducer(formData.producer_id),
-            productLotsApi.getAll()
+            brandsApi.getByProducer(formData.producer_id, tenantId),
+            associationsApi.getByProducer(formData.producer_id, tenantId),
+            productLotsApi.getAll(tenantId)
           ]);
           setBrands(brandsData);
           setFilteredAssociations(producerAssocs);
@@ -213,7 +217,7 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
     };
     
     loadProducerData();
-  }, [formData.producer_id, setFormData]);
+  }, [formData.producer_id, tenantId, setFormData]);
   
   // Carregar dados da propriedade selecionada
   useEffect(() => {
@@ -322,7 +326,7 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
               {/* Vínculos primeiro */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                  <Users size={16} style={{ color: primaryColor }} /> Associação / Cooperativa *
+                  <Users size={16} style={{ color: primaryColor }} /> {labels.association} *
                 </Label>
                 <Select 
                   value={formData.association_id} 
@@ -330,7 +334,7 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
                   disabled={!formData.producer_id}
                 >
                   <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus:ring-primary font-bold shadow-sm" style={{ '--primary': primaryColor } as any}>
-                    <SelectValue placeholder={!formData.producer_id ? "Aguardando produtor..." : "Selecione a entidade"} />
+                    <SelectValue placeholder={!formData.producer_id ? `Aguardando ${labels.producer.toLowerCase()}...` : "Selecione a entidade"} />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl font-bold">
                     {filteredAssociations.map((assoc) => (
@@ -411,7 +415,7 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
               {/* Dados da Propriedade */}
               <div className="space-y-2 md:col-span-2">
                 <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                  <Buildings size={16} style={{ color: primaryColor }} /> Nome da Propriedade / Sítio *
+                  <Buildings size={16} style={{ color: primaryColor }} /> {labels.propertyName} / Sítio *
                 </Label>
                 <Input 
                   value={formData.property_name} 
@@ -726,10 +730,140 @@ export const ProductionStep = ({ formData, setFormData, isBlendMode, producers, 
                 }}
                 primaryColor={primaryColor}
               />
+              {/* Coordenadas manuais + referência */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500">Latitude</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    value={formData.latitude || ""}
+                    onChange={(e) => setFormData((prev: any) => ({ ...prev, latitude: e.target.value }))}
+                    placeholder="-9.97499"
+                    className="h-10 rounded-xl text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500">Longitude</Label>
+                  <Input
+                    type="number"
+                    step="any"
+                    value={formData.longitude || ""}
+                    onChange={(e) => setFormData((prev: any) => ({ ...prev, longitude: e.target.value }))}
+                    placeholder="-67.81000"
+                    className="h-10 rounded-xl text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-slate-500">Referência (opcional)</Label>
+                  <Input
+                    value={formData.location_reference || ""}
+                    onChange={(e) => setFormData((prev: any) => ({ ...prev, location_reference: e.target.value }))}
+                    placeholder="Ex: Km 5, Estrada da Serra"
+                    className="h-10 rounded-xl text-sm"
+                  />
+                </div>
+              </div>
             </div>
           </FormSection>
+
+          {/* Produtores Internos (apenas marca coletiva) */}
+          {labels.isMarcaColetiva && (
+            <InternalProducersSection
+              formData={formData}
+              setFormData={setFormData}
+              tenantId={tenantId}
+              primaryColor={primaryColor}
+            />
+          )}
         </>
       )}
+    </div>
+  );
+};
+
+// Sub-componente: Seleção de produtores internos para marca coletiva
+const InternalProducersSection = ({
+  formData,
+  setFormData,
+  tenantId,
+  primaryColor,
+}: {
+  formData: any;
+  setFormData: (fn: (prev: any) => any) => void;
+  tenantId: string;
+  primaryColor: string;
+}) => {
+  const [internalProducers, setInternalProducers] = useState<any[]>([]);
+  const [loadingIp, setLoadingIp] = useState(true);
+
+  useEffect(() => {
+    if (tenantId) {
+      setLoadingIp(true);
+      internalProducersApi.getAll(tenantId)
+        .then(data => setInternalProducers(data || []))
+        .catch(e => console.error("Erro ao carregar produtores internos:", e))
+        .finally(() => setLoadingIp(false));
+    }
+  }, [tenantId]);
+
+  // Filtrar por cooperativa selecionada
+  const filtered = formData.producer_id
+    ? internalProducers.filter(ip => ip.cooperativa_id === formData.producer_id || !ip.cooperativa_id)
+    : internalProducers;
+
+  const selectedIds: string[] = formData.internal_producer_ids || [];
+
+  const toggleProducer = (id: string) => {
+    setFormData((prev: any) => {
+      const current: string[] = prev.internal_producer_ids || [];
+      return {
+        ...prev,
+        internal_producer_ids: current.includes(id)
+          ? current.filter((pid: string) => pid !== id)
+          : [...current, id],
+      };
+    });
+  };
+
+  if (loadingIp) return null;
+  if (filtered.length === 0) return null;
+
+  return (
+    <div className="mt-6 p-5 bg-blue-50/50 rounded-2xl border border-blue-100">
+      <div className="flex items-center gap-2 mb-3">
+        <Users size={18} style={{ color: primaryColor }} weight="fill" />
+        <Label className="font-black text-slate-700">
+          Produtores Internos Envolvidos
+        </Label>
+        {selectedIds.length > 0 && (
+          <Badge className="bg-blue-100 text-blue-700 text-xs ml-auto">
+            {selectedIds.length} selecionado(s)
+          </Badge>
+        )}
+      </div>
+      <p className="text-xs text-slate-500 mb-3">
+        Selecione os produtores associados que participaram deste lote.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+        {filtered.map(ip => (
+          <label
+            key={ip.id}
+            className={`flex items-center gap-2 p-2.5 rounded-xl cursor-pointer transition-all text-sm ${
+              selectedIds.includes(ip.id)
+                ? "bg-white border border-blue-200 shadow-sm"
+                : "hover:bg-white/60"
+            }`}
+          >
+            <Checkbox
+              checked={selectedIds.includes(ip.id)}
+              onCheckedChange={() => toggleProducer(ip.id)}
+            />
+            <span className="font-medium text-slate-700 truncate">{ip.name}</span>
+            {ip.city && <span className="text-xs text-slate-400 ml-auto">{ip.city}</span>}
+          </label>
+        ))}
+      </div>
     </div>
   );
 };

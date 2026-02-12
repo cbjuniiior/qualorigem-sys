@@ -29,12 +29,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotCharacteristicsApi, productLotSensoryApi, brandsApi } from "@/services/api";
+import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotCharacteristicsApi, productLotSensoryApi, brandsApi, lotIndustriesApi, certificationsApi, internalProducersApi } from "@/services/api";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { QRCodeSVG } from "qrcode.react";
 import { useBranding } from "@/hooks/use-branding";
+import { useTenant } from "@/hooks/use-tenant";
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -154,6 +155,7 @@ const Lotes = () => {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
   
   const { branding: brandingConfig } = useBranding();
+  const { tenant } = useTenant();
   const primaryColor = branding?.primaryColor || brandingConfig?.primaryColor || '#16a34a';
   
   // Helper para converter hex para rgba
@@ -176,6 +178,9 @@ const Lotes = () => {
     producer_id: "",
     brand_id: "",
     industry_id: "",
+    industry_ids: [] as string[],
+    certification_ids: [] as string[],
+    internal_producer_ids: [] as string[],
     association_id: "",
     sensory_type: "nota",
     fragrance_score: 5,
@@ -210,8 +215,9 @@ const Lotes = () => {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!tenant) return;
       try {
-        const config = await systemConfigApi.getBrandingConfig();
+        const config = await systemConfigApi.getBrandingConfig(tenant.id);
         setBranding(config);
         await fetchData();
       } catch (error) {
@@ -219,16 +225,17 @@ const Lotes = () => {
       }
     };
     loadData();
-  }, []);
+  }, [tenant]);
 
   const fetchData = async () => {
+    if (!tenant) return;
     try {
       setLoading(true);
       const [lotsData, producersData, associationsData, industriesData] = await Promise.all([
-        productLotsApi.getAll(),
-        producersApi.getAll(),
-        associationsApi.getAll(),
-        industriesApi.getAll(),
+        productLotsApi.getAll(tenant.id),
+        producersApi.getAll(tenant.id),
+        associationsApi.getAll(tenant.id),
+        industriesApi.getAll(tenant.id),
       ]);
       setLots(lotsData);
       setProducers(producersData);
@@ -253,6 +260,9 @@ const Lotes = () => {
       producer_id: "",
       brand_id: "",
       industry_id: "",
+      industry_ids: [],
+      certification_ids: [],
+      internal_producer_ids: [],
       association_id: "",
       sensory_type: "nota",
       fragrance_score: 5,
@@ -289,18 +299,57 @@ const Lotes = () => {
   const handleOpenSheet = async () => {
     resetForm();
     setIsSheetOpen(true);
+    if (!tenant?.id) return;
     try {
       const { generateLotCode } = await import("@/utils/lot-code-generator");
-      const newCode = await generateLotCode();
+      const newCode = await generateLotCode(tenant.id);
       if (newCode) setFormData(prev => ({ ...prev, code: newCode }));
     } catch (e) {}
   };
 
-  const handleEdit = (lot: ProductLot) => {
+  const handleEdit = async (lot: ProductLot) => {
     setEditingLot(lot);
     const rawComponents = (lot as any).components || (lot as any).lot_components || [];
     const rawCharacteristics = (lot as any).characteristics || [];
     const rawSensory = (lot as any).sensory_analysis || [];
+
+    // Load industries linked to this lot
+    let lotIndustryIds: string[] = [];
+    try {
+      if (tenant?.id) {
+        const lotIndustries = await lotIndustriesApi.getByLot(lot.id, tenant.id);
+        lotIndustryIds = lotIndustries.map((ind: any) => ind.id);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar indústrias do lote:", e);
+    }
+    // Fallback: if no industries from junction table, use legacy industry_id
+    if (lotIndustryIds.length === 0 && (lot as any).industry_id) {
+      lotIndustryIds = [(lot as any).industry_id];
+    }
+
+    // Load certifications linked to this lot
+    let lotCertificationIds: string[] = [];
+    try {
+      if (tenant?.id) {
+        const lotCerts = await certificationsApi.getPublicByLot(lot.id);
+        lotCertificationIds = (lotCerts || []).map((c: any) => c.id);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar certificações do lote:", e);
+    }
+
+    // Load internal producers linked to this lot
+    let lotInternalProducerIds: string[] = [];
+    try {
+      if (tenant?.id) {
+        const lotIps = await internalProducersApi.getByLot(lot.id, tenant.id);
+        lotInternalProducerIds = (lotIps || []).map((ip: any) => ip.id);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar produtores internos do lote:", e);
+    }
+
     setFormData({
       code: lot.code,
       name: lot.name,
@@ -312,6 +361,9 @@ const Lotes = () => {
       producer_id: lot.producer_id || "",
       brand_id: (lot as any).brand_id || "",
       industry_id: (lot as any).industry_id || "",
+      industry_ids: lotIndustryIds,
+      certification_ids: lotCertificationIds,
+      internal_producer_ids: lotInternalProducerIds,
       association_id: (lot as any).association_id || "",
       sensory_type: (lot as any).sensory_type || "nota",
       fragrance_score: Number(lot.fragrance_score) || 5,
@@ -373,6 +425,7 @@ const Lotes = () => {
   };
 
   const handleSubmit = async () => {
+    if (!tenant) return;
     try {
       // Validações obrigatórias
       if (!formData.name || !formData.category) {
@@ -402,10 +455,16 @@ const Lotes = () => {
         harvest_year: formData.harvest_year || null,
         unit: formData.unit || null,
         variety: formData.variety || null,
+        tenant_id: tenant.id
       };
 
-      // Remover apenas campos que não existem na tabela product_lots
-      const { components, characteristics, sensory_analysis, ...cleanLotData } = lotData;
+      // Remover campos que não existem na tabela product_lots
+      const { 
+        components, characteristics, sensory_analysis, industry_ids,
+        certification_ids, internal_producer_ids,
+        selectedPropertyId, user_has_set_coordinates, location_reference,
+        ...cleanLotData 
+      } = lotData;
       
       // Garantir que campos obrigatórios estão presentes
       if (!cleanLotData.code) {
@@ -439,31 +498,52 @@ const Lotes = () => {
       }
 
       if (editingLot) {
-        await productLotsApi.update(editingLot.id, cleanLotData as any);
+        await productLotsApi.update(editingLot.id, tenant.id, cleanLotData as any);
         if (editingLot.id) {
           // Atualizar componentes
-          await productLotsApi.deleteComponentsByLot(editingLot.id);
+          await productLotsApi.deleteComponentsByLot(editingLot.id, tenant.id);
           if (isBlendMode && components.length > 0) {
-            await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: editingLot.id })));
+            await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: editingLot.id, tenant_id: tenant.id })));
           }
 
           // Atualizar características
-          await productLotCharacteristicsApi.deleteByLot(editingLot.id);
+          await productLotCharacteristicsApi.deleteByLot(editingLot.id, tenant.id);
           if (characteristics && characteristics.length > 0) {
-            await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: editingLot.id })));
+            await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: editingLot.id, tenant_id: tenant.id })));
           }
 
           // Atualizar análise sensorial
-          await productLotSensoryApi.deleteByLot(editingLot.id);
+          await productLotSensoryApi.deleteByLot(editingLot.id, tenant.id);
           if (sensory_analysis && sensory_analysis.length > 0) {
-            await Promise.all(sensory_analysis.map(s => productLotSensoryApi.create({ ...s, lot_id: editingLot.id })));
+            await Promise.all(sensory_analysis.map(s => productLotSensoryApi.create({ ...s, lot_id: editingLot.id, tenant_id: tenant.id })));
           }
+
+          // Sincronizar indústrias vinculadas
+          if (industry_ids && industry_ids.length > 0) {
+            await lotIndustriesApi.syncLotIndustries(editingLot.id, industry_ids, tenant.id);
+          } else {
+            await lotIndustriesApi.syncLotIndustries(editingLot.id, [], tenant.id);
+          }
+
+          // Sincronizar certificações vinculadas
+          await certificationsApi.syncLotCertifications(
+            editingLot.id, 
+            certification_ids || [], 
+            tenant.id
+          );
+
+          // Sincronizar produtores internos vinculados
+          await internalProducersApi.syncLotProducers(
+            editingLot.id,
+            internal_producer_ids || [],
+            tenant.id
+          );
         }
         toast.success("Lote atualizado com sucesso!");
       } else {
         // NEW LOT
         let finalCode = formData.code;
-        const config = await systemConfigApi.getLotIdConfig();
+        const config = await systemConfigApi.getLotIdConfig(tenant.id);
         
         // Se estiver em modo automático ou produtor/marca, e o código atual parecer ser o sugerido (não alterado manualmente)
         // ou se o usuário simplesmente quer usar o próximo disponível
@@ -474,7 +554,7 @@ const Lotes = () => {
             const producer = producers.find(p => p.id === formData.producer_id);
             if (producer) {
               if (formData.brand_id && formData.brand_id !== "none") {
-                const brand = (await brandsApi.getByProducer(formData.producer_id)).find(b => b.id === formData.brand_id);
+                const brand = (await brandsApi.getByProducer(formData.producer_id, tenant.id)).find(b => b.id === formData.brand_id);
                 if (brand) {
                   const { generateSlug } = await import("@/utils/slug-generator");
                   prefix = generateSlug(brand.name).toUpperCase();
@@ -486,21 +566,33 @@ const Lotes = () => {
             }
           }
           // Gera o código final e incrementa no banco
-          finalCode = await generateLotCode(prefix || undefined, true);
+          finalCode = await generateLotCode(tenant.id, prefix || undefined, true);
         }
 
         const newLot = await productLotsApi.create({ ...cleanLotData, code: finalCode } as any);
         // Criar componentes
         if (isBlendMode && components.length > 0) {
-          await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: newLot.id })));
+          await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: newLot.id, tenant_id: tenant.id })));
         }
         // Criar características
         if (characteristics && characteristics.length > 0) {
-          await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: newLot.id })));
+          await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: newLot.id, tenant_id: tenant.id })));
         }
         // Criar análise sensorial
         if (sensory_analysis && sensory_analysis.length > 0) {
-          await Promise.all(sensory_analysis.map(s => productLotSensoryApi.create({ ...s, lot_id: newLot.id })));
+          await Promise.all(sensory_analysis.map(s => productLotSensoryApi.create({ ...s, lot_id: newLot.id, tenant_id: tenant.id })));
+        }
+        // Sincronizar indústrias vinculadas
+        if (industry_ids && industry_ids.length > 0) {
+          await lotIndustriesApi.syncLotIndustries(newLot.id, industry_ids, tenant.id);
+        }
+        // Sincronizar certificações vinculadas
+        if (certification_ids && certification_ids.length > 0) {
+          await certificationsApi.syncLotCertifications(newLot.id, certification_ids, tenant.id);
+        }
+        // Sincronizar produtores internos vinculados
+        if (internal_producer_ids && internal_producer_ids.length > 0) {
+          await internalProducersApi.syncLotProducers(newLot.id, internal_producer_ids, tenant.id);
         }
         toast.success("Lote registrado com sucesso!");
       }
@@ -515,10 +607,10 @@ const Lotes = () => {
   };
 
   const confirmDelete = async () => {
-    if (!lotToDelete) return;
+    if (!lotToDelete || !tenant) return;
     try {
-      await productLotsApi.deleteComponentsByLot(lotToDelete);
-      await productLotsApi.delete(lotToDelete);
+      await productLotsApi.deleteComponentsByLot(lotToDelete, tenant.id);
+      await productLotsApi.delete(lotToDelete, tenant.id);
       toast.success("Lote removido!");
       fetchData();
     } catch (error) {
@@ -530,12 +622,13 @@ const Lotes = () => {
 
   // Handlers para offcanvas de detalhes do lote
   const handleLotClick = async (lot: ProductLot) => {
+    if (!tenant) return;
     setSelectedLot(lot);
     setIsLotSheetOpen(true);
     setLoadingLotDetails(true);
     
     try {
-      const details = await productLotsApi.getById(lot.id);
+      const details = await productLotsApi.getById(lot.id, tenant.id);
       setLotDetails(details);
       
       // Gerar URL do QR Code
@@ -544,7 +637,7 @@ const Lotes = () => {
         const url = await generateQRCodeUrl(details.code, details.category);
         setQrCodeUrl(url);
       } catch (error) {
-        setQrCodeUrl(`${window.location.origin}/lote/${details.code}`);
+        setQrCodeUrl(`${window.location.origin}/${tenant.slug}/lote/${details.code}`);
       }
     } catch (error) {
       toast.error("Erro ao carregar detalhes do lote");
@@ -684,7 +777,7 @@ const Lotes = () => {
   };
 
   const handleCopyQRUrl = () => {
-    const url = qrCodeUrl || `${window.location.origin}/lote/${lotDetails?.code || ''}`;
+    const url = qrCodeUrl || `${window.location.origin}/${tenant?.slug}/lote/${lotDetails?.code || ''}`;
     navigator.clipboard.writeText(url);
     toast.success("Link copiado para a área de transferência!");
   };
@@ -885,7 +978,7 @@ const Lotes = () => {
                           asChild
                           className="h-11 w-11 rounded-xl text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                         >
-                          <a href={`/lote/${lot.code}`} target="_blank" rel="noreferrer">
+                          <a href={`/${tenant?.slug}/lote/${lot.code}`} target="_blank" rel="noreferrer">
                             <ArrowRight size={20} weight="bold" />
                           </a>
                         </Button>
@@ -952,6 +1045,7 @@ const Lotes = () => {
               </SheetHeader>
               <div className="flex-1 relative flex flex-col min-h-0">
                 <LotForm
+                  tenantId={tenant?.id ?? ''}
                   formData={formData}
                   setFormData={setFormData}
                   producers={producers}
@@ -1077,7 +1171,7 @@ const Lotes = () => {
                             }}
                             asChild
                           >
-                            <a href={`/lote/${lotDetails.code}`} target="_blank" rel="noopener noreferrer">
+                            <a href={`/${tenant?.slug}/lote/${lotDetails.code}`} target="_blank" rel="noopener noreferrer">
                               <ArrowSquareOut size={20} weight="bold" />
                               Visualizar Página
                             </a>
@@ -1104,7 +1198,7 @@ const Lotes = () => {
                               <div id="qr-code-container" className="p-2">
                                 <QRCodeSVG 
                                   id="qr-code-svg"
-                                  value={qrCodeUrl || `${window.location.origin}/lote/${lotDetails.code}`}
+                                  value={qrCodeUrl || `${window.location.origin}/${tenant?.slug}/lote/${lotDetails.code}`}
                                   size={180}
                                   level="H"
                                   includeMargin={false}
@@ -1142,7 +1236,7 @@ const Lotes = () => {
                                   variant="secondary"
                                   className="rounded-2xl h-12 font-black text-white hover:opacity-90 border-0 gap-2 text-xs"
                                   style={{ backgroundColor: hexToRgba(primaryColor, 0.3) }}
-                                  onClick={() => window.open(`/lote/${lotDetails.code}`, '_blank')}
+                                  onClick={() => window.open(`/${tenant?.slug}/lote/${lotDetails.code}`, '_blank')}
                                 >
                                   <Eye size={18} weight="bold" />
                                   Testar

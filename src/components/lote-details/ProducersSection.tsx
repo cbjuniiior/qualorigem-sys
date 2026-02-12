@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, User, MapPin, Mountains, Thermometer, Images, MapTrifold, CaretLeft, CaretRight } from "@phosphor-icons/react";
+import { useTenantLabels } from "@/hooks/use-tenant-labels";
 import { useState, useEffect, useCallback } from "react";
 import { SlideshowLightbox } from 'lightbox.js-react';
 import useEmblaCarousel from 'embla-carousel-react';
@@ -145,6 +146,7 @@ const ProducerDetailsContent = ({ data, producer, primaryColor, secondaryColor, 
   accentColor: string,
   percentage?: number 
 }) => {
+  const labels = useTenantLabels();
   const [mapCoords, setMapCoords] = useState<{ lat: number, lng: number } | null>(null);
   const [loadingMap, setLoadingMap] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -254,10 +256,10 @@ const ProducerDetailsContent = ({ data, producer, primaryColor, secondaryColor, 
 
           <div className="flex-1 text-left pt-1 sm:pt-2">
             <div className="inline-flex items-center gap-2 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-slate-50 text-slate-400 text-[8px] sm:text-[10px] font-black uppercase tracking-widest mb-2 sm:mb-3">
-              Produtor Responsável
+              {labels.producerDescription}
             </div>
             <h3 className="text-2xl sm:text-4xl font-black text-slate-900 leading-tight mb-3 sm:mb-6 tracking-tight">
-              {producer?.name || 'Produtor não informado'}
+              {producer?.name || `${labels.producer} não informado`}
             </h3>
             
             <div className="flex flex-wrap justify-start gap-2 sm:gap-3">
@@ -282,7 +284,7 @@ const ProducerDetailsContent = ({ data, producer, primaryColor, secondaryColor, 
               <div className="p-2.5 rounded-xl bg-slate-50" style={{ color: primaryColor }}>
                 <MapTrifold size={24} weight="duotone" />
               </div>
-              <h4 className="text-lg font-black text-slate-900 tracking-tight">Sobre a Propriedade</h4>
+              <h4 className="text-lg font-black text-slate-900 tracking-tight">Sobre a {labels.property}</h4>
             </div>
             
             {propertyDescription ? (
@@ -363,7 +365,7 @@ const ProducerDetailsContent = ({ data, producer, primaryColor, secondaryColor, 
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 text-gray-900 font-semibold">
               <Images className="w-5 h-5 text-gray-500" weight="duotone" />
-              <h4>Galeria da Propriedade</h4>
+              <h4>Galeria da {labels.property}</h4>
             </div>
             
             <div className="flex gap-2">

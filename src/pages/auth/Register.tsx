@@ -51,7 +51,7 @@ const Register = () => {
 
     try {
       await signUp(email, password);
-      navigate("/auth/login");
+      navigate("/default/auth/login");
     } catch (error) {
       // Erro já tratado no hook
     }
@@ -227,7 +227,7 @@ const Register = () => {
               <p className="text-sm text-gray-600">
                 Já tem uma conta?{" "}
                 <Link
-                  to="/auth/login"
+                  to="/default/auth/login"
                   className="text-green-600 hover:text-green-700 font-medium"
                 >
                   Fazer login

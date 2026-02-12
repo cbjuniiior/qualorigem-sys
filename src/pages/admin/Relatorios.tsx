@@ -7,12 +7,9 @@ import {
   MapPin, 
   Calendar, 
   DownloadSimple, 
-  Building, 
   FunnelSimple, 
-  Tag,
-  ArrowRight,
+  Tag, 
   CaretRight,
-  DotsThreeCircle,
   FilePdf,
   FileCsv,
   Check
@@ -44,8 +41,7 @@ import {
   PieChart,
   Pie,
   AreaChart,
-  Area,
-  Line
+  Area
 } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -54,6 +50,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useTenant } from "@/hooks/use-tenant";
 
 interface ReportData {
   totalProducers: number;
@@ -81,6 +78,7 @@ const Relatorios = () => {
   });
   const [loading, setLoading] = useState(true);
   const { branding } = useBranding();
+  const { tenant } = useTenant();
 
   const [filters, setFilters] = useState({
     associationId: "all",
@@ -100,17 +98,18 @@ const Relatorios = () => {
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [tenant]);
 
   const fetchAllData = async () => {
+    if (!tenant) return;
     try {
       setLoading(true);
       const [producersData, lotsData, associationsData, brandsData, producerAssocs] = await Promise.all([
-        producersApi.getAll(),
-        productLotsApi.getAll(),
-        associationsApi.getAll(),
-        brandsApi.getAll(),
-        supabase.from("producers_associations").select("producer_id, association_id"),
+        producersApi.getAll(tenant.id),
+        productLotsApi.getAll(tenant.id),
+        associationsApi.getAll(tenant.id),
+        brandsApi.getAll(tenant.id),
+        supabase.from("producers_associations").select("producer_id, association_id").eq("tenant_id", tenant.id),
       ]);
 
       setProducers(producersData);

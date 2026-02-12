@@ -37,8 +37,9 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { categoriesApi, characteristicsApi, systemConfigApi, sensoryAttributesApi } from "@/services/api";
+import { categoriesApi, characteristicsApi, systemConfigApi, sensoryAttributesApi, tenantsApi } from "@/services/api";
 import { useBranding } from "@/hooks/use-branding";
+import { useTenant } from "@/hooks/use-tenant";
 import { uploadLogoToSupabase } from "@/services/upload";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -70,9 +71,10 @@ const COLOR_PRESETS = {
 };
 
 const GestaoPlataforma = () => {
+  const { tenant } = useTenant();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("categorias");
-  const { branding: currentBranding, refreshBranding } = useBranding();
+  const { branding: currentBranding, setBrandingConfig } = useBranding();
   const [branding, setBranding] = useState<any>(currentBranding);
 
   // Sincronizar estado local com o contexto global quando este carregar
@@ -126,19 +128,21 @@ const GestaoPlataforma = () => {
   const videoBackgroundInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (tenant?.id) loadData();
+  }, [tenant?.id]);
 
   const loadData = async () => {
+    if (!tenant?.id) return;
     try {
       setLoading(true);
-      const [cats, chars, sensory, lotId, qrCode, video] = await Promise.all([
-        categoriesApi.getAll(),
-        characteristicsApi.getAll(),
-        sensoryAttributesApi.getAll(),
-        systemConfigApi.getLotIdConfig().catch(() => null),
-        systemConfigApi.getQRCodeConfig().catch(() => null),
-        systemConfigApi.getVideoConfig().catch(() => null)
+      const [cats, chars, sensory, lotId, qrCode, video, brandingSaved] = await Promise.all([
+        categoriesApi.getAll(tenant.id),
+        characteristicsApi.getAll(tenant.id),
+        sensoryAttributesApi.getAll(tenant.id),
+        systemConfigApi.getLotIdConfig(tenant.id).catch(() => null),
+        systemConfigApi.getQRCodeConfig(tenant.id).catch(() => null),
+        systemConfigApi.getVideoConfig(tenant.id).catch(() => null),
+        systemConfigApi.getBrandingConfig(tenant.id).catch(() => null)
       ]);
       setCategories(cats);
       setCharacteristics(chars);
@@ -146,6 +150,8 @@ const GestaoPlataforma = () => {
       if (lotId) setLotIdConfig(lotId);
       if (qrCode) setQrCodeConfig(qrCode);
       if (video) setVideoConfig(video);
+      // Personalização: priorizar dados salvos em system_configurations
+      if (brandingSaved) setBranding(brandingSaved);
     } catch (error) {
       toast.error("Erro ao carregar dados");
     } finally {
@@ -162,13 +168,14 @@ const GestaoPlataforma = () => {
       return;
     }
 
+    if (!tenant?.id) return;
     try {
       setSaving(true);
       if (editingCategory) {
-        await categoriesApi.update(editingCategory.id, categoryForm);
+        await categoriesApi.update(editingCategory.id, tenant.id, categoryForm);
         toast.success("Categoria atualizada com sucesso!");
       } else {
-        await categoriesApi.create(categoryForm);
+        await categoriesApi.create({ ...categoryForm, tenant_id: tenant.id });
         toast.success("Categoria criada com sucesso!");
       }
       setIsCategoryModalOpen(false);
@@ -183,9 +190,9 @@ const GestaoPlataforma = () => {
   };
 
   const handleDeleteCategory = async () => {
-    if (!isDeletingCategory) return;
+    if (!isDeletingCategory || !tenant?.id) return;
     try {
-      await categoriesApi.delete(isDeletingCategory);
+      await categoriesApi.delete(isDeletingCategory, tenant.id);
       toast.success("Categoria removida com sucesso!");
       setIsDeletingCategory(null);
       loadData();
@@ -201,13 +208,14 @@ const GestaoPlataforma = () => {
       return;
     }
 
+    if (!tenant?.id) return;
     try {
       setSaving(true);
       if (editingCharacteristic) {
-        await characteristicsApi.update(editingCharacteristic.id, characteristicForm);
+        await characteristicsApi.update(editingCharacteristic.id, tenant.id, characteristicForm);
         toast.success("Característica atualizada com sucesso!");
       } else {
-        await characteristicsApi.create(characteristicForm);
+        await characteristicsApi.create({ ...characteristicForm, tenant_id: tenant.id });
         toast.success("Característica criada com sucesso!");
       }
       setIsCharacteristicModalOpen(false);
@@ -222,9 +230,9 @@ const GestaoPlataforma = () => {
   };
 
   const handleDeleteCharacteristic = async () => {
-    if (!isDeletingCharacteristic) return;
+    if (!isDeletingCharacteristic || !tenant?.id) return;
     try {
-      await characteristicsApi.delete(isDeletingCharacteristic);
+      await characteristicsApi.delete(isDeletingCharacteristic, tenant.id);
       toast.success("Característica removida com sucesso!");
       setIsDeletingCharacteristic(null);
       loadData();
@@ -240,13 +248,14 @@ const GestaoPlataforma = () => {
       return;
     }
 
+    if (!tenant?.id) return;
     try {
       setSaving(true);
       if (editingSensory) {
-        await sensoryAttributesApi.update(editingSensory.id, sensoryForm);
+        await sensoryAttributesApi.update(editingSensory.id, tenant.id, sensoryForm);
         toast.success("Atributo sensorial atualizado!");
       } else {
-        await sensoryAttributesApi.create(sensoryForm);
+        await sensoryAttributesApi.create({ ...sensoryForm, tenant_id: tenant.id });
         toast.success("Atributo sensorial criado!");
       }
       setIsSensoryModalOpen(false);
@@ -267,9 +276,9 @@ const GestaoPlataforma = () => {
   };
 
   const handleDeleteSensory = async () => {
-    if (!isDeletingSensory) return;
+    if (!isDeletingSensory || !tenant?.id) return;
     try {
-      await sensoryAttributesApi.delete(isDeletingSensory);
+      await sensoryAttributesApi.delete(isDeletingSensory, tenant.id);
       toast.success("Atributo sensorial removido!");
       setIsDeletingSensory(null);
       loadData();
@@ -280,30 +289,41 @@ const GestaoPlataforma = () => {
 
   // Handlers para Personalização
   const handleSaveBranding = async () => {
+    if (!tenant?.id) return;
     try {
       setSaving(true);
       await systemConfigApi.upsert({
+        tenant_id: tenant.id,
         config_key: 'branding_settings',
         config_value: branding as any,
         description: 'Configurações de personalização e branding'
       });
+      // Sincronizar com tenants.branding para carregamento global no TenantResolver
+      try {
+        await tenantsApi.updateBranding(tenant.id, branding);
+      } catch (err) {
+        console.warn("Tenant.branding não atualizado (execute FIX_TENANT_ADMIN_UPDATE_BRANDING.sql):", err);
+      }
       
-      await refreshBranding();
+      setBrandingConfig(branding as any);
       toast.success("Configurações de personalização atualizadas!");
-    } catch (error) {
-      toast.error("Erro ao salvar personalização");
+    } catch (error: any) {
+      console.error("Erro ao salvar personalização:", error);
+      const msg = error?.message || error?.error_description || "Verifique o console para detalhes.";
+      toast.error(`Erro ao salvar personalização: ${msg}`);
     } finally {
       setSaving(false);
     }
   };
 
   const handleSaveSystem = async () => {
+    if (!tenant?.id) return;
     try {
       setSaving(true);
       await Promise.all([
-        systemConfigApi.upsert({ config_key: 'lot_id_mode', config_value: lotIdConfig, description: 'ID de lotes' }),
-        systemConfigApi.upsert({ config_key: 'qrcode_mode', config_value: qrCodeConfig, description: 'QR Code' }),
-        systemConfigApi.upsert({ config_key: 'video_settings', config_value: videoConfig, description: 'Vídeo' })
+        systemConfigApi.upsert({ tenant_id: tenant.id, config_key: 'lot_id_mode', config_value: lotIdConfig, description: 'ID de lotes' }),
+        systemConfigApi.upsert({ tenant_id: tenant.id, config_key: 'qrcode_mode', config_value: qrCodeConfig, description: 'QR Code' }),
+        systemConfigApi.upsert({ tenant_id: tenant.id, config_key: 'video_settings', config_value: videoConfig, description: 'Vídeo' })
       ]);
       toast.success("Configurações do sistema atualizadas!");
     } catch (e) {
@@ -324,7 +344,7 @@ const GestaoPlataforma = () => {
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !tenant?.id) return;
     try {
       setUploadingLogo(true);
       const logoUrl = await uploadLogoToSupabase(file);
@@ -333,15 +353,22 @@ const GestaoPlataforma = () => {
       
       // Salvar imediatamente para garantir persistência
       await systemConfigApi.upsert({
+        tenant_id: tenant.id,
         config_key: 'branding_settings',
         config_value: updatedBranding as any,
         description: 'Configurações de personalização e branding'
       });
-      await refreshBranding();
+      try {
+        await tenantsApi.updateBranding(tenant.id, updatedBranding);
+      } catch (e) {
+        console.warn("Tenant.branding não atualizado:", e);
+      }
+      setBrandingConfig(updatedBranding as any);
       
       toast.success("Logo atualizado e salvo!");
-    } catch (error) {
-      toast.error("Erro ao fazer upload do logo");
+    } catch (error: any) {
+      console.error("Erro upload logo:", error);
+      toast.error(error?.message || "Erro ao fazer upload do logo");
     } finally {
       setUploadingLogo(false);
       if (logoInputRef.current) logoInputRef.current.value = "";
@@ -350,7 +377,7 @@ const GestaoPlataforma = () => {
 
   const handleHeaderImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !tenant?.id) return;
     try {
       setUploadingHeaderImage(true);
       const headerImageUrl = await uploadLogoToSupabase(file);
@@ -359,15 +386,22 @@ const GestaoPlataforma = () => {
       
       // Salvar imediatamente para garantir persistência
       await systemConfigApi.upsert({
+        tenant_id: tenant.id,
         config_key: 'branding_settings',
         config_value: updatedBranding as any,
         description: 'Configurações de personalização e branding'
       });
-      await refreshBranding();
+      try {
+        await tenantsApi.updateBranding(tenant.id, updatedBranding);
+      } catch (e) {
+        console.warn("Tenant.branding não atualizado:", e);
+      }
+      setBrandingConfig(updatedBranding as any);
       
       toast.success("Imagem de header atualizada e salva!");
-    } catch (error) {
-      toast.error("Erro ao fazer upload da imagem de header");
+    } catch (error: any) {
+      console.error("Erro upload header:", error);
+      toast.error(error?.message || "Erro ao fazer upload da imagem de header");
     } finally {
       setUploadingHeaderImage(false);
       if (headerImageInputRef.current) headerImageInputRef.current.value = "";
@@ -376,7 +410,7 @@ const GestaoPlataforma = () => {
 
   const handleVideoBackgroundUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !tenant?.id) return;
     try {
       setUploadingVideoBackground(true);
       const videoBackgroundUrl = await uploadLogoToSupabase(file);
@@ -385,15 +419,22 @@ const GestaoPlataforma = () => {
       
       // Salvar imediatamente para garantir persistência
       await systemConfigApi.upsert({
+        tenant_id: tenant.id,
         config_key: 'branding_settings',
         config_value: updatedBranding as any,
         description: 'Configurações de personalização e branding'
       });
-      await refreshBranding();
+      try {
+        await tenantsApi.updateBranding(tenant.id, updatedBranding);
+      } catch (e) {
+        console.warn("Tenant.branding não atualizado:", e);
+      }
+      setBrandingConfig(updatedBranding as any);
       
       toast.success("Imagem de fundo do vídeo atualizada e salva!");
-    } catch (error) {
-      toast.error("Erro ao fazer upload da imagem de fundo do vídeo");
+    } catch (error: any) {
+      console.error("Erro upload vídeo:", error);
+      toast.error(error?.message || "Erro ao fazer upload da imagem de fundo do vídeo");
     } finally {
       setUploadingVideoBackground(false);
       if (videoBackgroundInputRef.current) videoBackgroundInputRef.current.value = "";
@@ -412,7 +453,7 @@ const GestaoPlataforma = () => {
     s.name.toLowerCase().includes(searchSensory.toLowerCase())
   );
 
-  if (loading) {
+  if (loading || !tenant?.id) {
     return (
       <AdminLayout>
         <div className="space-y-8">

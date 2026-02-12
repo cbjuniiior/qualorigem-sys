@@ -44,12 +44,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ProducerLayout } from "@/components/layout/ProducerLayout";
 import { useAuth } from "@/hooks/use-auth";
+import { useTenant } from "@/hooks/use-tenant";
 import { producersApi, authApi, systemConfigApi } from "@/services/api";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const ProducerConfiguracoes = () => {
   const { user } = useAuth();
+  const { tenant } = useTenant();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("perfil");
@@ -73,11 +75,12 @@ export const ProducerConfiguracoes = () => {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!tenant?.id) return;
       try {
         setLoading(true);
         const [brand, pData] = await Promise.all([
-          systemConfigApi.getBrandingConfig(),
-          user?.id ? producersApi.getById(user.id) : null
+          systemConfigApi.getBrandingConfig(tenant.id),
+          user?.id ? producersApi.getById(user.id, tenant.id) : null
         ]);
         
         setBranding(brand);
@@ -102,19 +105,18 @@ export const ProducerConfiguracoes = () => {
       }
     };
     loadData();
-  }, [user]);
+  }, [user, tenant?.id]);
 
   const handleSave = async () => {
+    if (!tenant?.id || !user?.id) return;
     try {
       setSaving(true);
-      if (user?.id) {
-        await producersApi.update(user.id, {
+      await producersApi.update(user.id, tenant.id, {
           ...formData,
           altitude: formData.altitude ? parseFloat(formData.altitude) : null,
           average_temperature: formData.average_temperature ? parseFloat(formData.average_temperature) : null,
         });
-        toast.success("Configurações atualizadas!");
-      }
+      toast.success("Configurações atualizadas!");
     } catch (e) {
       toast.error("Erro ao salvar");
     } finally {

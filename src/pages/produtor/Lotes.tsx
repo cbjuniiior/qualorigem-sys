@@ -7,14 +7,14 @@ import {
   FunnelSimple, 
   PencilSimple, 
   Trash, 
-  Eye,
-  QrCode,
-  Calendar,
-  MapPin,
-  Tag,
-  ArrowRight,
-  DotsThreeOutlineVertical,
-  Export,
+  Eye, 
+  QrCode, 
+  Calendar, 
+  MapPin, 
+  Tag, 
+  ArrowRight, 
+  DotsThreeOutlineVertical, 
+  Export, 
   Scales
 } from "@phosphor-icons/react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -31,7 +31,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ProducerLayout } from "@/components/layout/ProducerLayout";
 import { useAuth } from "@/hooks/use-auth";
-import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi } from "@/services/api";
+import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotCharacteristicsApi, productLotSensoryApi, brandsApi } from "@/services/api";
 import { toast } from "sonner";
 import { LotForm, LOT_STEPS } from "@/components/lots/LotForm";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,9 +52,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useTenant } from "@/hooks/use-tenant";
 
 export const ProducerLotes = () => {
   const { user } = useAuth();
+  const { tenant } = useTenant();
   const [lotes, setLotes] = useState<any[]>([]);
   const [producers, setProducers] = useState<any[]>([]);
   const [associations, setAssociations] = useState<any[]>([]);
@@ -68,6 +70,7 @@ export const ProducerLotes = () => {
   const [branding, setBranding] = useState<any>(null);
 
   const primaryColor = branding?.primaryColor || '#16a34a';
+  const tenantSlug = tenant?.slug || 'default';
 
   const [formData, setFormData] = useState({
     code: "",
@@ -92,6 +95,7 @@ export const ProducerLotes = () => {
     lot_observations: "",
     youtube_video_url: "",
     video_delay_seconds: 10,
+    video_description: "",
     latitude: "",
     longitude: "",
     property_name: "",
@@ -106,6 +110,7 @@ export const ProducerLotes = () => {
     photos: [] as string[],
     components: [] as any[],
     characteristics: [] as { characteristic_id: string; value: string }[],
+    sensory_analysis: [] as { sensory_attribute_id: string; value: number }[],
   });
 
   const [isBlendMode, setIsBlendMode] = useState(false);
@@ -113,13 +118,14 @@ export const ProducerLotes = () => {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!tenant || !user) return;
       try {
         setLoading(true);
         const [brandingConfig, producersData, associationsData, industriesData] = await Promise.all([
-          systemConfigApi.getBrandingConfig(),
-          producersApi.getAll(),
-          associationsApi.getAll(),
-          industriesApi.getAll(),
+          systemConfigApi.getBrandingConfig(tenant.id),
+          producersApi.getAll(tenant.id),
+          associationsApi.getAll(tenant.id),
+          industriesApi.getAll(tenant.id),
         ]);
         setBranding(brandingConfig);
         setProducers(producersData);
@@ -133,11 +139,12 @@ export const ProducerLotes = () => {
       }
     };
     loadData();
-  }, [user]);
+  }, [user, tenant]);
 
   const fetchLotes = async () => {
+    if (!tenant || !user) return;
     try {
-      const data = await productLotsApi.getByProducer(user?.id);
+      const data = await productLotsApi.getByProducer(user.id, tenant.id);
       setLotes(data || []);
     } catch (error) {
       toast.error("Erro ao carregar lotes");
@@ -145,11 +152,12 @@ export const ProducerLotes = () => {
   };
 
   const resetForm = async () => {
+    if (!tenant) return;
     try {
       const { generateLotCode } = await import("@/utils/lot-code-generator");
       const producer = producers.find(p => p.id === user?.id);
       const prefix = producer ? producer.name.substring(0, 3).toUpperCase() : "PROD";
-      const newCode = await generateLotCode(prefix);
+      const newCode = await generateLotCode(tenant.id, prefix);
       
       setFormData({
         code: newCode,
@@ -189,6 +197,7 @@ export const ProducerLotes = () => {
         photos: [],
         components: [] as any[],
         characteristics: [] as { characteristic_id: string; value: string }[],
+        sensory_analysis: [] as { sensory_attribute_id: string; value: number }[],
       });
       setIsBlendMode(false);
       setCurrentStep(1);
@@ -204,6 +213,7 @@ export const ProducerLotes = () => {
   const handleEdit = (lot: any) => {
     setEditingLot(lot);
     const rawCharacteristics = (lot as any).characteristics || [];
+    const rawSensory = (lot as any).sensory_analysis || [];
     setFormData({
       ...lot,
       quantity: lot.quantity?.toString() || "",
@@ -224,6 +234,10 @@ export const ProducerLotes = () => {
       characteristics: rawCharacteristics.map((c: any) => ({
         characteristic_id: c.characteristic_id,
         value: c.value
+      })),
+      sensory_analysis: rawSensory.map((s: any) => ({
+        sensory_attribute_id: s.sensory_attribute_id,
+        value: Number(s.value)
       })),
       components: (lot.lot_components || []).map((c: any) => ({
         id: c.id,
@@ -254,6 +268,7 @@ export const ProducerLotes = () => {
   };
 
   const handleSubmit = async () => {
+    if (!tenant) return;
     try {
       if (!formData.name || !formData.category) {
         toast.error("Preencha os campos obrigatórios!");
@@ -269,30 +284,41 @@ export const ProducerLotes = () => {
         altitude: formData.altitude ? parseInt(formData.altitude) : null,
         average_temperature: formData.average_temperature ? parseFloat(formData.average_temperature) : null,
         producer_id: user?.id,
+        tenant_id: tenant.id
       };
 
-      const { components, characteristics, ...cleanLotData } = lotData;
+      const { 
+        components, characteristics, sensory_analysis, 
+        selectedPropertyId, user_has_set_coordinates, location_reference,
+        ...cleanLotData 
+      } = lotData;
 
       if (editingLot) {
-        await productLotsApi.update(editingLot.id, cleanLotData as any);
+        await productLotsApi.update(editingLot.id, tenant.id, cleanLotData as any);
         if (editingLot.id) {
           // Atualizar componentes
-          await productLotsApi.deleteComponentsByLot(editingLot.id);
+          await productLotsApi.deleteComponentsByLot(editingLot.id, tenant.id);
           if (isBlendMode && components.length > 0) {
-            await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: editingLot.id })));
+            await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: editingLot.id, tenant_id: tenant.id })));
           }
 
           // Atualizar características
-          await productLotCharacteristicsApi.deleteByLot(editingLot.id);
+          await productLotCharacteristicsApi.deleteByLot(editingLot.id, tenant.id);
           if (characteristics && characteristics.length > 0) {
-            await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: editingLot.id })));
+            await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: editingLot.id, tenant_id: tenant.id })));
+          }
+
+          // Atualizar análise sensorial
+          await productLotSensoryApi.deleteByLot(editingLot.id, tenant.id);
+          if (sensory_analysis && sensory_analysis.length > 0) {
+            await Promise.all(sensory_analysis.map(s => productLotSensoryApi.create({ ...s, lot_id: editingLot.id, tenant_id: tenant.id })));
           }
         }
         toast.success("Lote atualizado!");
       } else {
         // NEW LOT
         let finalCode = formData.code;
-        const config = await systemConfigApi.getLotIdConfig();
+        const config = await systemConfigApi.getLotIdConfig(tenant.id);
         
         if (config.mode !== 'manual' && formData.code) {
           const { generateLotCode } = await import("@/utils/lot-code-generator");
@@ -301,7 +327,7 @@ export const ProducerLotes = () => {
             const producer = producers.find(p => p.id === user?.id);
             if (producer) {
               if (formData.brand_id && formData.brand_id !== "none") {
-                const brand = (await brandsApi.getByProducer(user?.id)).find(b => b.id === formData.brand_id);
+                const brand = (await brandsApi.getByProducer(user?.id, tenant.id)).find(b => b.id === formData.brand_id);
                 if (brand) {
                   const { generateSlug } = await import("@/utils/slug-generator");
                   prefix = generateSlug(brand.name).toUpperCase();
@@ -312,17 +338,21 @@ export const ProducerLotes = () => {
               }
             }
           }
-          finalCode = await generateLotCode(prefix || undefined, true);
+          finalCode = await generateLotCode(tenant.id, prefix || undefined, true);
         }
 
         const newLot = await productLotsApi.create({ ...cleanLotData, code: finalCode } as any);
         // Criar componentes
         if (isBlendMode && components.length > 0) {
-          await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: newLot.id })));
+          await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: newLot.id, tenant_id: tenant.id })));
         }
         // Criar características
         if (characteristics && characteristics.length > 0) {
-          await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: newLot.id })));
+          await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: newLot.id, tenant_id: tenant.id })));
+        }
+        // Criar análise sensorial
+        if (sensory_analysis && sensory_analysis.length > 0) {
+          await Promise.all(sensory_analysis.map(s => productLotSensoryApi.create({ ...s, lot_id: newLot.id, tenant_id: tenant.id })));
         }
         toast.success("Lote registrado!");
       }
@@ -335,9 +365,9 @@ export const ProducerLotes = () => {
   };
 
   const confirmDelete = async () => {
-    if (!lotToDelete) return;
+    if (!lotToDelete || !tenant) return;
     try {
-      await productLotsApi.delete(lotToDelete);
+      await productLotsApi.delete(lotToDelete, tenant.id);
       toast.success("Lote removido!");
       fetchLotes();
     } catch (error) {
@@ -478,10 +508,10 @@ export const ProducerLotes = () => {
 
                       <div className="flex items-center gap-2 border-l border-slate-50 pl-6">
                         <Button variant="ghost" size="icon" asChild className="h-10 w-10 rounded-xl text-blue-600 hover:bg-blue-50">
-                          <a href={`/lote/${lote.code}`} target="_blank" rel="noreferrer"><Eye size={20} weight="bold" /></a>
+                          <a href={`/${tenantSlug}/lote/${lote.code}`} target="_blank" rel="noreferrer"><Eye size={20} weight="bold" /></a>
                         </Button>
                         <Button variant="ghost" size="icon" asChild className="h-10 w-10 rounded-xl text-slate-600 hover:bg-slate-50">
-                          <Link to={`/produtor/qrcodes/${lote.id}`}><QrCode size={20} weight="bold" /></Link>
+                          <Link to={`/${tenantSlug}/produtor/qrcodes/${lote.id}`}><QrCode size={20} weight="bold" /></Link>
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -530,6 +560,7 @@ export const ProducerLotes = () => {
               </SheetHeader>
               <div className="flex-1 relative flex flex-col min-h-0">
                 <LotForm
+                  tenantId={tenant?.id ?? ''}
                   formData={formData}
                   setFormData={setFormData}
                   producers={producers}

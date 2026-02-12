@@ -13,14 +13,12 @@ import {
   UserCircle,
   MagnifyingGlass,
   CheckCircle,
-  XCircle,
   Key,
   IdentificationCard,
-  At,
-  ShieldSlash
+  At
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -39,7 +37,7 @@ import { usersApi, systemConfigApi } from "@/services/api";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +46,7 @@ import {
   DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import { useTenant } from "@/hooks/use-tenant";
 
 interface UserData {
   id: string;
@@ -67,6 +66,7 @@ const Usuarios = () => {
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [branding, setBranding] = useState<any>(null);
+  const { tenant } = useTenant();
   
   const [formData, setFormData] = useState({
     email: "",
@@ -77,19 +77,21 @@ const Usuarios = () => {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!tenant) return;
       try {
-        const config = await systemConfigApi.getBrandingConfig();
+        const config = await systemConfigApi.getBrandingConfig(tenant.id);
         setBranding(config);
         await loadUsers();
       } catch (e) {}
     };
     loadData();
-  }, []);
+  }, [tenant]);
 
   const loadUsers = async () => {
+    if (!tenant) return;
     try {
       setLoading(true);
-      const data = await usersApi.getAll();
+      const data = await usersApi.getAll(tenant.id);
       setUsers(data);
     } catch (error: any) {
       toast.error("Erro ao carregar usuários");
@@ -105,6 +107,7 @@ const Usuarios = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!tenant) return;
     if (!formData.email.trim() || !formData.password.trim()) {
       toast.error("Preencha email e senha");
       return;
@@ -119,7 +122,7 @@ const Usuarios = () => {
         email: formData.email.trim(),
         password: formData.password,
         full_name: formData.full_name.trim() || undefined,
-      });
+      }, tenant.id);
       toast.success("Usuário criado com sucesso!");
       setIsSheetOpen(false);
       loadUsers();
@@ -131,9 +134,9 @@ const Usuarios = () => {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!userToDelete) return;
+    if (!userToDelete || !tenant) return;
     try {
-      await usersApi.delete(userToDelete.id);
+      await usersApi.delete(userToDelete.id, tenant.id);
       toast.success("Usuário removido!");
       setIsDeleteDialogOpen(false);
       loadUsers();

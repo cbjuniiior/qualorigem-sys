@@ -115,4 +115,32 @@ export async function uploadLogoToSupabase(file: File): Promise<string> {
   const { data } = supabase.storage.from('branding').getPublicUrl(filePath);
   if (!data?.publicUrl) throw new Error('Erro ao obter URL pública da imagem');
   return data.publicUrl;
-} 
+}
+
+// Faz upload de um PDF para o bucket 'certificados' e retorna a URL pública
+export async function uploadCertificateToSupabase(file: File): Promise<string> {
+  if (file.type !== 'application/pdf') {
+    throw new Error('Apenas arquivos PDF são aceitos para certificações');
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error('O arquivo PDF deve ter no máximo 10MB');
+  }
+
+  const fileName = `cert-${Date.now()}-${Math.random().toString(36).substring(2, 8)}.pdf`;
+
+  const { error } = await supabase.storage.from('certificados').upload(fileName, file, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: 'application/pdf'
+  });
+
+  if (error) {
+    console.error('Erro no upload certificado:', error);
+    throw error;
+  }
+
+  const { data } = supabase.storage.from('certificados').getPublicUrl(fileName);
+  if (!data?.publicUrl) throw new Error('Erro ao obter URL pública do certificado');
+  return data.publicUrl;
+}

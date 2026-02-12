@@ -1,6 +1,9 @@
+import { useState, useEffect } from "react";
 import { SensorialRadarChart } from "@/components/SensorialRadarChart";
 import { ChartPieSlice, CheckCircle } from "@phosphor-icons/react";
 import { Slider } from "@/components/ui/slider";
+import { useTenant } from "@/hooks/use-tenant";
+import { fieldSettingsApi } from "@/services/api";
 
 interface SensoryAnalysisProps {
   loteData: {
@@ -31,8 +34,15 @@ interface SensoryAnalysisProps {
 }
 
 export const SensoryAnalysis = ({ loteData, branding }: SensoryAnalysisProps) => {
+  const { tenant } = useTenant();
+  const [showRadar, setShowRadar] = useState(true);
   const primaryColor = branding?.primaryColor || '#16a34a';
-  
+
+  useEffect(() => {
+    if (!tenant?.id) return;
+    fieldSettingsApi.isEnabled(tenant.id, 'radar_chart').then(setShowRadar);
+  }, [tenant?.id]);
+
   // Agrupar atributos
   const dynamicSensory = loteData.sensory_analysis || [];
   const quantitativeRadar = dynamicSensory.filter(s => s.sensory_attributes.type === 'quantitative' && s.sensory_attributes.show_radar);
@@ -77,7 +87,7 @@ export const SensoryAnalysis = ({ loteData, branding }: SensoryAnalysisProps) =>
           <div className="flex flex-col items-center">
             
             {/* Gráfico Radar Centralizado */}
-            {hasQuantitative && (
+            {showRadar && hasQuantitative && (
               <div className="w-full max-w-[400px] aspect-square relative mb-6">
                 <SensorialRadarChart 
                   data={useFallback ? fallbackSensorialData : radarData} 

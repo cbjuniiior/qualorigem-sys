@@ -7,13 +7,117 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
+      tenants: {
+        Row: {
+          id: string
+          slug: string
+          name: string
+          status: string
+          type: string
+          branding: Json | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          slug: string
+          name: string
+          status?: string
+          type?: string
+          branding?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          slug?: string
+          name?: string
+          status?: string
+          type?: string
+          branding?: Json | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      tenant_modules: {
+        Row: {
+          tenant_id: string
+          module_key: string
+          enabled: boolean | null
+          config: Json | null
+        }
+        Insert: {
+          tenant_id: string
+          module_key: string
+          enabled?: boolean | null
+          config?: Json | null
+        }
+        Update: {
+          tenant_id?: string
+          module_key?: string
+          enabled?: boolean | null
+          config?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_modules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      tenant_memberships: {
+        Row: {
+          tenant_id: string
+          user_id: string
+          role: string
+          created_at: string | null
+        }
+        Insert: {
+          tenant_id: string
+          user_id: string
+          role?: string
+          created_at?: string | null
+        }
+        Update: {
+          tenant_id?: string
+          user_id?: string
+          role?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_memberships_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      platform_admins: {
+        Row: {
+          user_id: string
+          role: string | null
+          created_at: string | null
+        }
+        Insert: {
+          user_id: string
+          role?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          user_id?: string
+          role?: string | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
       associations: {
         Row: {
           city: string | null
@@ -26,6 +130,7 @@ export type Database = {
           state: string | null
           type: string | null
           updated_at: string | null
+          tenant_id: string
         }
         Insert: {
           city?: string | null
@@ -38,6 +143,7 @@ export type Database = {
           state?: string | null
           type?: string | null
           updated_at?: string | null
+          tenant_id: string
         }
         Update: {
           city?: string | null
@@ -50,8 +156,17 @@ export type Database = {
           state?: string | null
           type?: string | null
           updated_at?: string | null
+          tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "associations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       brands: {
         Row: {
@@ -62,6 +177,7 @@ export type Database = {
           producer_id: string
           slug: string
           updated_at: string | null
+          tenant_id: string
         }
         Insert: {
           created_at?: string | null
@@ -71,6 +187,7 @@ export type Database = {
           producer_id: string
           slug: string
           updated_at?: string | null
+          tenant_id: string
         }
         Update: {
           created_at?: string | null
@@ -80,6 +197,7 @@ export type Database = {
           producer_id?: string
           slug?: string
           updated_at?: string | null
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -89,6 +207,13 @@ export type Database = {
             referencedRelation: "producers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "brands_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
         ]
       }
       categories: {
@@ -98,6 +223,7 @@ export type Database = {
           id: string
           name: string
           updated_at: string | null
+          tenant_id: string
         }
         Insert: {
           created_at?: string | null
@@ -105,6 +231,7 @@ export type Database = {
           id?: string
           name: string
           updated_at?: string | null
+          tenant_id: string
         }
         Update: {
           created_at?: string | null
@@ -112,8 +239,17 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string | null
+          tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       characteristics: {
         Row: {
@@ -122,6 +258,7 @@ export type Database = {
           id: string
           name: string
           updated_at: string | null
+          tenant_id: string
         }
         Insert: {
           created_at?: string | null
@@ -129,6 +266,7 @@ export type Database = {
           id?: string
           name: string
           updated_at?: string | null
+          tenant_id: string
         }
         Update: {
           created_at?: string | null
@@ -136,8 +274,17 @@ export type Database = {
           id?: string
           name?: string
           updated_at?: string | null
+          tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "characteristics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       industries: {
         Row: {
@@ -154,6 +301,7 @@ export type Database = {
           state: string | null
           updated_at: string | null
           zip_code: string | null
+          tenant_id: string
         }
         Insert: {
           address?: string | null
@@ -169,6 +317,7 @@ export type Database = {
           state?: string | null
           updated_at?: string | null
           zip_code?: string | null
+          tenant_id: string
         }
         Update: {
           address?: string | null
@@ -184,8 +333,17 @@ export type Database = {
           state?: string | null
           updated_at?: string | null
           zip_code?: string | null
+          tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "industries_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       lot_components: {
         Row: {
@@ -212,6 +370,7 @@ export type Database = {
           property_name: string | null
           state: string | null
           updated_at: string | null
+          tenant_id: string
         }
         Insert: {
           address?: string | null
@@ -237,6 +396,7 @@ export type Database = {
           property_name?: string | null
           state?: string | null
           updated_at?: string | null
+          tenant_id: string
         }
         Update: {
           address?: string | null
@@ -262,6 +422,7 @@ export type Database = {
           property_name?: string | null
           state?: string | null
           updated_at?: string | null
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -285,6 +446,13 @@ export type Database = {
             referencedRelation: "producers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "lot_components_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
         ]
       }
       producers: {
@@ -312,6 +480,7 @@ export type Database = {
           state: string
           updated_at: string | null
           use_coordinates: boolean | null
+          tenant_id: string
         }
         Insert: {
           address?: string | null
@@ -337,6 +506,7 @@ export type Database = {
           state: string
           updated_at?: string | null
           use_coordinates?: boolean | null
+          tenant_id: string
         }
         Update: {
           address?: string | null
@@ -362,8 +532,17 @@ export type Database = {
           state?: string
           updated_at?: string | null
           use_coordinates?: boolean | null
+          tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "producers_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       producers_associations: {
         Row: {
@@ -371,18 +550,21 @@ export type Database = {
           producer_id: string
           role: string | null
           since: string | null
+          tenant_id: string
         }
         Insert: {
           association_id: string
           producer_id: string
           role?: string | null
           since?: string | null
+          tenant_id: string
         }
         Update: {
           association_id?: string
           producer_id?: string
           role?: string | null
           since?: string | null
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -399,6 +581,13 @@ export type Database = {
             referencedRelation: "producers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "producers_associations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
         ]
       }
       product_lot_characteristics: {
@@ -408,6 +597,7 @@ export type Database = {
           id: string
           lot_id: string | null
           value: string | null
+          tenant_id: string
         }
         Insert: {
           characteristic_id?: string | null
@@ -415,6 +605,7 @@ export type Database = {
           id?: string
           lot_id?: string | null
           value?: string | null
+          tenant_id: string
         }
         Update: {
           characteristic_id?: string | null
@@ -422,6 +613,7 @@ export type Database = {
           id?: string
           lot_id?: string | null
           value?: string | null
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -438,6 +630,13 @@ export type Database = {
             referencedRelation: "product_lots"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "product_lot_characteristics_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
         ]
       }
       product_lots: {
@@ -482,6 +681,7 @@ export type Database = {
           video_description: string | null
           views: number
           youtube_video_url: string | null
+          tenant_id: string
         }
         Insert: {
           acidity_score?: number | null
@@ -524,6 +724,7 @@ export type Database = {
           video_description?: string | null
           views?: number
           youtube_video_url?: string | null
+          tenant_id: string
         }
         Update: {
           acidity_score?: number | null
@@ -566,6 +767,7 @@ export type Database = {
           video_description?: string | null
           views?: number
           youtube_video_url?: string | null
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -596,6 +798,13 @@ export type Database = {
             referencedRelation: "producers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "product_lots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
         ]
       }
       seal_controls: {
@@ -612,6 +821,7 @@ export type Database = {
           total_packages: number
           total_seals_generated: number
           updated_at: string | null
+          tenant_id: string
         }
         Insert: {
           created_at?: string | null
@@ -626,6 +836,7 @@ export type Database = {
           total_packages: number
           total_seals_generated: number
           updated_at?: string | null
+          tenant_id: string
         }
         Update: {
           created_at?: string | null
@@ -640,6 +851,7 @@ export type Database = {
           total_packages?: number
           total_seals_generated?: number
           updated_at?: string | null
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -656,6 +868,13 @@ export type Database = {
             referencedRelation: "producers"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "seal_controls_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
         ]
       }
       system_configurations: {
@@ -666,6 +885,7 @@ export type Database = {
           description: string | null
           id: string
           updated_at: string | null
+          tenant_id: string
         }
         Insert: {
           config_key: string
@@ -674,6 +894,7 @@ export type Database = {
           description?: string | null
           id?: string
           updated_at?: string | null
+          tenant_id: string
         }
         Update: {
           config_key?: string
@@ -682,8 +903,17 @@ export type Database = {
           description?: string | null
           id?: string
           updated_at?: string | null
+          tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "system_configurations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       product_lot_sensory: {
         Row: {
@@ -692,6 +922,7 @@ export type Database = {
           sensory_attribute_id: string | null
           value: number
           created_at: string | null
+          tenant_id: string
         }
         Insert: {
           id?: string
@@ -699,6 +930,7 @@ export type Database = {
           sensory_attribute_id?: string | null
           value: number
           created_at?: string | null
+          tenant_id: string
         }
         Update: {
           id?: string
@@ -706,6 +938,7 @@ export type Database = {
           sensory_attribute_id?: string | null
           value?: number
           created_at?: string | null
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -721,6 +954,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sensory_attributes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_lot_sensory_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
           }
         ]
       }
@@ -734,6 +974,7 @@ export type Database = {
           show_average: boolean | null
           created_at: string | null
           updated_at: string | null
+          tenant_id: string
         }
         Insert: {
           id?: string
@@ -744,6 +985,7 @@ export type Database = {
           show_average?: boolean | null
           created_at?: string | null
           updated_at?: string | null
+          tenant_id: string
         }
         Update: {
           id?: string
@@ -754,8 +996,17 @@ export type Database = {
           show_average?: boolean | null
           created_at?: string | null
           updated_at?: string | null
+          tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sensory_attributes_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       tasks: {
         Row: {
@@ -769,6 +1020,7 @@ export type Database = {
           completed_at: string | null
           created_at: string | null
           updated_at: string | null
+          tenant_id: string
         }
         Insert: {
           id?: string
@@ -781,6 +1033,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string | null
           updated_at?: string | null
+          tenant_id: string
         }
         Update: {
           id?: string
@@ -793,8 +1046,17 @@ export type Database = {
           completed_at?: string | null
           created_at?: string | null
           updated_at?: string | null
+          tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tasks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
       }
       user_profiles: {
         Row: {
@@ -805,6 +1067,7 @@ export type Database = {
           is_active: boolean | null
           created_at: string | null
           updated_at: string | null
+          tenant_id: string
         }
         Insert: {
           id: string
@@ -814,6 +1077,7 @@ export type Database = {
           is_active?: boolean | null
           created_at?: string | null
           updated_at?: string | null
+          tenant_id: string
         }
         Update: {
           id?: string
@@ -823,9 +1087,265 @@ export type Database = {
           is_active?: boolean | null
           created_at?: string | null
           updated_at?: string | null
+          tenant_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
       }
+    }
+    // === NOVAS TABELAS V3 - MARCA COLETIVA ===
+    certifications: {
+      Row: {
+        id: string
+        tenant_id: string
+        name: string
+        issuing_body: string | null
+        valid_until: string | null
+        document_url: string | null
+        is_public: boolean
+        created_at: string | null
+        updated_at: string | null
+      }
+      Insert: {
+        id?: string
+        tenant_id: string
+        name: string
+        issuing_body?: string | null
+        valid_until?: string | null
+        document_url?: string | null
+        is_public?: boolean
+        created_at?: string | null
+        updated_at?: string | null
+      }
+      Update: {
+        id?: string
+        tenant_id?: string
+        name?: string
+        issuing_body?: string | null
+        valid_until?: string | null
+        document_url?: string | null
+        is_public?: boolean
+        created_at?: string | null
+        updated_at?: string | null
+      }
+      Relationships: [
+        {
+          foreignKeyName: "certifications_tenant_id_fkey"
+          columns: ["tenant_id"]
+          isOneToOne: false
+          referencedRelation: "tenants"
+          referencedColumns: ["id"]
+        }
+      ]
+    }
+    certification_entities: {
+      Row: {
+        id: string
+        certification_id: string
+        entity_type: string
+        entity_id: string
+        tenant_id: string
+        created_at: string | null
+      }
+      Insert: {
+        id?: string
+        certification_id: string
+        entity_type: string
+        entity_id: string
+        tenant_id: string
+        created_at?: string | null
+      }
+      Update: {
+        id?: string
+        certification_id?: string
+        entity_type?: string
+        entity_id?: string
+        tenant_id?: string
+        created_at?: string | null
+      }
+      Relationships: [
+        {
+          foreignKeyName: "certification_entities_certification_id_fkey"
+          columns: ["certification_id"]
+          isOneToOne: false
+          referencedRelation: "certifications"
+          referencedColumns: ["id"]
+        },
+        {
+          foreignKeyName: "certification_entities_tenant_id_fkey"
+          columns: ["tenant_id"]
+          isOneToOne: false
+          referencedRelation: "tenants"
+          referencedColumns: ["id"]
+        }
+      ]
+    }
+    internal_producers: {
+      Row: {
+        id: string
+        tenant_id: string
+        cooperativa_id: string | null
+        name: string
+        document: string | null
+        city: string | null
+        state: string | null
+        created_at: string | null
+        updated_at: string | null
+      }
+      Insert: {
+        id?: string
+        tenant_id: string
+        cooperativa_id?: string | null
+        name: string
+        document?: string | null
+        city?: string | null
+        state?: string | null
+        created_at?: string | null
+        updated_at?: string | null
+      }
+      Update: {
+        id?: string
+        tenant_id?: string
+        cooperativa_id?: string | null
+        name?: string
+        document?: string | null
+        city?: string | null
+        state?: string | null
+        created_at?: string | null
+        updated_at?: string | null
+      }
+      Relationships: [
+        {
+          foreignKeyName: "internal_producers_tenant_id_fkey"
+          columns: ["tenant_id"]
+          isOneToOne: false
+          referencedRelation: "tenants"
+          referencedColumns: ["id"]
+        },
+        {
+          foreignKeyName: "internal_producers_cooperativa_id_fkey"
+          columns: ["cooperativa_id"]
+          isOneToOne: false
+          referencedRelation: "producers"
+          referencedColumns: ["id"]
+        }
+      ]
+    }
+    product_lot_internal_producers: {
+      Row: {
+        lot_id: string
+        internal_producer_id: string
+        tenant_id: string
+      }
+      Insert: {
+        lot_id: string
+        internal_producer_id: string
+        tenant_id: string
+      }
+      Update: {
+        lot_id?: string
+        internal_producer_id?: string
+        tenant_id?: string
+      }
+      Relationships: [
+        {
+          foreignKeyName: "plip_lot_id_fkey"
+          columns: ["lot_id"]
+          isOneToOne: false
+          referencedRelation: "product_lots"
+          referencedColumns: ["id"]
+        },
+        {
+          foreignKeyName: "plip_internal_producer_id_fkey"
+          columns: ["internal_producer_id"]
+          isOneToOne: false
+          referencedRelation: "internal_producers"
+          referencedColumns: ["id"]
+        },
+        {
+          foreignKeyName: "plip_tenant_id_fkey"
+          columns: ["tenant_id"]
+          isOneToOne: false
+          referencedRelation: "tenants"
+          referencedColumns: ["id"]
+        }
+      ]
+    }
+    product_lot_industries: {
+      Row: {
+        lot_id: string
+        industry_id: string
+        tenant_id: string
+      }
+      Insert: {
+        lot_id: string
+        industry_id: string
+        tenant_id: string
+      }
+      Update: {
+        lot_id?: string
+        industry_id?: string
+        tenant_id?: string
+      }
+      Relationships: [
+        {
+          foreignKeyName: "pli_lot_id_fkey"
+          columns: ["lot_id"]
+          isOneToOne: false
+          referencedRelation: "product_lots"
+          referencedColumns: ["id"]
+        },
+        {
+          foreignKeyName: "pli_industry_id_fkey"
+          columns: ["industry_id"]
+          isOneToOne: false
+          referencedRelation: "industries"
+          referencedColumns: ["id"]
+        },
+        {
+          foreignKeyName: "pli_tenant_id_fkey"
+          columns: ["tenant_id"]
+          isOneToOne: false
+          referencedRelation: "tenants"
+          referencedColumns: ["id"]
+        }
+      ]
+    }
+    tenant_field_settings: {
+      Row: {
+        tenant_id: string
+        field_key: string
+        enabled: boolean
+        required: boolean
+      }
+      Insert: {
+        tenant_id: string
+        field_key: string
+        enabled?: boolean
+        required?: boolean
+      }
+      Update: {
+        tenant_id?: string
+        field_key?: string
+        enabled?: boolean
+        required?: boolean
+      }
+      Relationships: [
+        {
+          foreignKeyName: "tfs_tenant_id_fkey"
+          columns: ["tenant_id"]
+          isOneToOne: false
+          referencedRelation: "tenants"
+          referencedColumns: ["id"]
+        }
+      ]
     }
     Views: {
       [_ in never]: never
@@ -833,6 +1353,8 @@ export type Database = {
     Functions: {
       generate_unique_lot_code: { Args: never; Returns: string }
       increment_lot_views: { Args: { lot_code: string }; Returns: undefined }
+      is_platform_admin: { Args: never; Returns: boolean }
+      has_tenant_role: { Args: { p_tenant_id: string; p_roles: string[] }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
@@ -843,125 +1365,82 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
-
 export type Tables<
-  DefaultSchemaTableNameOrOptions extends
-  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-  | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-  : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  PublicTableNameOrOptions extends
+    | keyof (Database["public"]["Tables"] & Database["public"]["Views"])
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+        Database[PublicTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
+      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-  ? R
-  : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+    ? R
+    : never
+  : PublicTableNameOrOptions extends keyof (Database["public"]["Tables"] &
+      Database["public"]["Views"])
+  ? (Database["public"]["Tables"] &
+      Database["public"]["Views"])[PublicTableNameOrOptions] extends {
       Row: infer R
     }
-  ? R
-  : never
+    ? R
+    : never
   : never
 
 export type TablesInsert<
-  DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
+  PublicTableNameOrOptions extends
+    | keyof Database["public"]["Tables"]
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+  ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
   : never
 
 export type TablesUpdate<
-  DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
-> = DefaultSchemaTableNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Update: infer U
-  }
-  ? U
-  : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Update: infer U
-  }
-  ? U
-  : never
+  PublicTableNameOrOptions extends
+    | keyof Database["public"]["Tables"]
+    | { schema: keyof Database },
+  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = PublicTableNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : PublicTableNameOrOptions extends keyof Database["public"]["Tables"]
+  ? Database["public"]["Tables"][PublicTableNameOrOptions] extends {
+      Update: infer U
+    }
+    ? U
+    : never
   : never
 
 export type Enums<
-  DefaultSchemaEnumNameOrOptions extends
-  | keyof DefaultSchema["Enums"]
-  | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-  : never = never,
-> = DefaultSchemaEnumNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  PublicEnumNameOrOptions extends
+    | keyof Database["public"]["Enums"]
+    | { schema: keyof Database },
+  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
+    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = PublicEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : PublicEnumNameOrOptions extends keyof Database["public"]["Enums"]
+  ? Database["public"]["Enums"][PublicEnumNameOrOptions]
   : never
-
-export type CompositeTypes<
-  PublicCompositeTypeNameOrOptions extends
-  | keyof DefaultSchema["CompositeTypes"]
-  | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof DatabaseWithoutInternals
-  }
-  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-  : never = never,
-> = PublicCompositeTypeNameOrOptions extends {
-  schema: keyof DatabaseWithoutInternals
-}
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
-
-export const Constants = {
-  public: {
-    Enums: {},
-  },
-} as const

@@ -18,21 +18,17 @@ import {
   Tag, 
   MapPin, 
   Phone, 
-  Envelope, 
-  Buildings,
-  MagnifyingGlass,
-  Upload,
+  Buildings, 
+  MagnifyingGlass, 
   DotsThreeOutlineVertical,
   Export,
-  Image as ImageIcon,
   IdentificationCard,
   At,
   ChatCircleText,
   Camera,
   CheckCircle,
-  Globe,
-  ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  ArrowRight
 } from "@phosphor-icons/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -55,6 +51,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { useTenant } from "@/hooks/use-tenant";
 
 interface IndustryFormData {
   id?: string;
@@ -126,6 +123,7 @@ export default function Industria() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [industryToDelete, setIndustryToDelete] = useState<string | null>(null);
   const [branding, setBranding] = useState<any>(null);
+  const { tenant } = useTenant();
 
   const { searchCEP } = useCEP((data) => {
     setForm((prev: any) => ({
@@ -138,8 +136,9 @@ export default function Industria() {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!tenant) return;
       try {
-        const config = await systemConfigApi.getBrandingConfig();
+        const config = await systemConfigApi.getBrandingConfig(tenant.id);
         setBranding(config);
         await fetchIndustries();
       } catch (error) {
@@ -147,12 +146,13 @@ export default function Industria() {
       }
     };
     loadData();
-  }, []);
+  }, [tenant]);
 
   const fetchIndustries = async () => {
+    if (!tenant) return;
     try {
       setLoading(true);
-      const data = await industriesApi.getAll();
+      const data = await industriesApi.getAll(tenant.id);
       setIndustries(data || []);
     } catch (e) {
       toast.error("Erro ao carregar indústrias");
@@ -202,16 +202,20 @@ export default function Industria() {
   };
 
   const handleSave = async () => {
+    if (!tenant) return;
     try {
       if (!form.name.trim()) {
         toast.error("Nome é obrigatório");
         return;
       }
+      
+      const dataToSend = { ...form, tenant_id: tenant.id };
+      
       if (editingIndustry) {
-        await industriesApi.update(editingIndustry.id, form);
+        await industriesApi.update(editingIndustry.id, tenant.id, dataToSend as any);
         toast.success("Indústria atualizada!");
       } else {
-        await industriesApi.create(form);
+        await industriesApi.create(dataToSend as any);
         toast.success("Indústria cadastrada!");
       }
       setIsSheetOpen(false);
@@ -222,9 +226,9 @@ export default function Industria() {
   };
 
   const confirmDelete = async () => {
-    if (!industryToDelete) return;
+    if (!industryToDelete || !tenant) return;
     try {
-      await industriesApi.delete(industryToDelete);
+      await industriesApi.delete(industryToDelete, tenant.id);
       toast.success("Indústria removida!");
       fetchIndustries();
     } catch (error) {

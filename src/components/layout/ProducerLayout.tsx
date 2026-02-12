@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Layout,
@@ -10,7 +10,6 @@ import {
   List,
   X,
   Leaf,
-  User,
   Bell,
   MagnifyingGlass,
   CaretDown,
@@ -19,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
+import { useTenant } from "@/hooks/use-tenant";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -34,32 +34,34 @@ interface ProducerLayoutProps {
   children: React.ReactNode;
 }
 
-const navigation = [
-  { name: "Dashboard", href: "/produtor", icon: Layout },
-  { name: "Meus Lotes", href: "/produtor/lotes", icon: Package },
-  { name: "QR Codes", href: "/produtor/qrcodes", icon: QrCode },
-  { name: "Métricas", href: "/produtor/metricas", icon: ChartBar },
-  { name: "Configurações", href: "/produtor/configuracoes", icon: Gear },
-];
-
 export const ProducerLayout = ({ children }: ProducerLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { branding } = useBranding();
+  const { tenant } = useTenant();
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
 
+  // Prefixo da URL baseada no tenant
+  const tenantSlug = tenant?.slug || 'default';
+  const baseUrl = `/${tenantSlug}/produtor`;
+
+  const navigation = [
+    { name: "Dashboard", href: `${baseUrl}`, icon: Layout },
+    { name: "Meus Lotes", href: `${baseUrl}/lotes`, icon: Package },
+    { name: "QR Codes", href: `${baseUrl}/qrcodes`, icon: QrCode },
+    { name: "Métricas", href: `${baseUrl}/metricas`, icon: ChartBar },
+    { name: "Configurações", href: `${baseUrl}/configuracoes`, icon: Gear },
+  ];
+
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate("/auth/login");
+      navigate(`/${tenantSlug}/auth/login`);
     } catch (error) {
       toast.error("Erro ao fazer logout");
     }
   };
-
-  const primaryColor = branding.primaryColor;
-  const secondaryColor = branding.secondaryColor;
 
   const userInitials = (user?.user_metadata?.full_name || user?.email || "P")
     .split(" ")
@@ -74,7 +76,7 @@ export const ProducerLayout = ({ children }: ProducerLayoutProps) => {
       <aside className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
         <div className="flex grow flex-col gap-y-6 overflow-y-auto bg-white px-6 pb-4 border-r border-slate-200/60 shadow-sm">
           <div className="flex h-24 shrink-0 items-center justify-center py-6">
-            <Link to="/produtor" className="flex items-center gap-3 transition-all hover:opacity-80">
+            <Link to={baseUrl} className="flex items-center gap-3 transition-all hover:opacity-80">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 bg-gradient-to-br from-primary to-emerald-500">
                 <Leaf className="h-6 w-6 text-white" weight="fill" />
               </div>
@@ -88,7 +90,7 @@ export const ProducerLayout = ({ children }: ProducerLayoutProps) => {
             <div className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-4 px-2">Portal do Produtor</div>
             <ul role="list" className="flex flex-1 flex-col gap-y-1">
               {navigation.map((item) => {
-                const isActive = location.pathname === item.href;
+                const isActive = location.pathname === item.href || (item.href !== baseUrl && location.pathname.startsWith(item.href));
                 return (
                   <li key={item.name}>
                     <Link
@@ -163,10 +165,10 @@ export const ProducerLayout = ({ children }: ProducerLayoutProps) => {
                 <DropdownMenuContent align="end" className="w-56 mt-2 rounded-2xl shadow-xl border-slate-100 p-1">
                   <DropdownMenuLabel className="px-3 py-2 text-xs font-black text-slate-400 uppercase tracking-widest">Minha Fazenda</DropdownMenuLabel>
                   <DropdownMenuSeparator className="bg-slate-50" />
-                  <DropdownMenuItem onClick={() => navigate("/produtor/configuracoes")} className="rounded-xl py-2.5 font-bold cursor-pointer focus:bg-slate-50">
+                  <DropdownMenuItem onClick={() => navigate(`${baseUrl}/configuracoes`)} className="rounded-xl py-2.5 font-bold cursor-pointer focus:bg-slate-50">
                     <UserCircle size={18} className="mr-2" weight="bold" /> Perfil & Dados
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/produtor/configuracoes")} className="rounded-xl py-2.5 font-bold cursor-pointer focus:bg-slate-50">
+                  <DropdownMenuItem onClick={() => navigate(`${baseUrl}/configuracoes`)} className="rounded-xl py-2.5 font-bold cursor-pointer focus:bg-slate-50">
                     <Gear size={18} className="mr-2" weight="bold" /> Configurações
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-slate-50" />

@@ -4,16 +4,19 @@ import { MagnifyingGlass, ArrowRight, Leaf, ShieldCheck, Binoculars, Tree, Finge
 import { Button } from "@/components/ui/button";
 import { productLotsApi } from "@/services/api";
 import { useBranding } from "@/hooks/use-branding";
+import { useTenant } from "@/hooks/use-tenant";
 
 const Index = () => {
   const [searchCode, setSearchCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const { branding } = useBranding();
+  const { tenant } = useTenant();
   const navigate = useNavigate();
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!tenant) return;
     const code = searchCode.trim().toUpperCase();
     
     if (!code) return;
@@ -23,9 +26,9 @@ const Index = () => {
 
     try {
       // Verificar se o lote existe antes de navegar
-      const lot = await productLotsApi.getByCode(code);
+      const lot = await productLotsApi.getByCode(code, tenant.id);
       if (lot) {
-        navigate(`/lote/${code}`);
+        navigate(`/${tenant.slug}/lote/${code}`);
       } else {
         setNotFound(true);
       }
@@ -228,7 +231,7 @@ const Index = () => {
               variant="link" 
               size="sm"
               className="text-white/30 hover:text-white/60 h-auto p-0 text-[10px] font-bold uppercase tracking-widest transition-colors"
-              onClick={() => navigate("/admin")}
+              onClick={() => navigate(`/${tenant?.slug || 'default'}/auth/login`)}
             >
               Acesso Restrito
             </Button>

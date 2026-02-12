@@ -12,20 +12,22 @@ import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface SensoryAnalysisStepProps {
+  tenantId: string;
   formData: any;
   setFormData: (data: any) => void;
   branding?: any;
 }
 
-export const SensoryAnalysisStep = ({ formData, setFormData, branding }: SensoryAnalysisStepProps) => {
+export const SensoryAnalysisStep = ({ tenantId, formData, setFormData, branding }: SensoryAnalysisStepProps) => {
   const primaryColor = branding?.primaryColor || '#16a34a';
   const [attributes, setAttributes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadAttributes = async () => {
+      if (!tenantId) return;
       try {
-        const data = await sensoryAttributesApi.getAll();
+        const data = await sensoryAttributesApi.getAll(tenantId);
         setAttributes(data);
       } catch (error) {
         toast.error("Erro ao carregar atributos sensoriais");
@@ -34,7 +36,7 @@ export const SensoryAnalysisStep = ({ formData, setFormData, branding }: Sensory
       }
     };
     loadAttributes();
-  }, []);
+  }, [tenantId]);
 
   const addAttribute = (attributeId: string) => {
     const attr = attributes.find(a => a.id === attributeId);

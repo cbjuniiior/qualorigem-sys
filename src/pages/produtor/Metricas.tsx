@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ProducerLayout } from "@/components/layout/ProducerLayout";
 import { useAuth } from "@/hooks/use-auth";
+import { useTenant } from "@/hooks/use-tenant";
 import { productLotsApi, systemConfigApi } from "@/services/api";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -40,6 +41,7 @@ import { Button } from "@/components/ui/button";
 
 export const ProducerMetricas = () => {
   const { user } = useAuth();
+  const { tenant } = useTenant();
   const [lotes, setLotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [branding, setBranding] = useState<any>(null);
@@ -54,11 +56,12 @@ export const ProducerMetricas = () => {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!tenant?.id || !user?.id) return;
       try {
         setLoading(true);
         const [brand, data] = await Promise.all([
-          systemConfigApi.getBrandingConfig(),
-          productLotsApi.getByProducer(user?.id)
+          systemConfigApi.getBrandingConfig(tenant.id),
+          productLotsApi.getByProducer(user.id, tenant.id)
         ]);
         
         setBranding(brand);
@@ -98,7 +101,7 @@ export const ProducerMetricas = () => {
       }
     };
     loadData();
-  }, [user]);
+  }, [user, tenant?.id]);
 
   const primaryColor = branding?.primaryColor || '#16a34a';
 

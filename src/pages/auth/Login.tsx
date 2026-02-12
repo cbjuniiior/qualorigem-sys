@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import { Eye, EyeSlash, Leaf, ArrowLeft, Lock, Envelope } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
+import { useTenant } from "@/hooks/use-tenant";
 import { toast } from "sonner";
 
 const Login = () => {
@@ -15,15 +16,33 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isResetMode, setIsResetMode] = useState(false);
   const { branding } = useBranding();
+  const { tenant } = useTenant();
   const { signIn, resetPassword, loading, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { tenantSlug } = useParams();
+
+  // Pegar o caminho de origem (se veio de um redirect, ex: /platform)
+  const from = (location.state as any)?.from?.pathname;
 
   // Redirecionar se já estiver logado
   useEffect(() => {
     if (!loading && user) {
-      navigate("/admin");
+      // Se veio de um redirect (ex: /platform), voltar para lá
+      if (from) {
+        navigate(from, { replace: true });
+        return;
+      }
+      // Senão, vai pro admin do tenant
+      if (tenant) {
+        navigate(`/${tenant.slug}/admin`, { replace: true });
+      } else if (tenantSlug) {
+        navigate(`/${tenantSlug}/admin`, { replace: true });
+      } else {
+        navigate("/default/admin", { replace: true });
+      }
     }
-  }, [loading, user, navigate]);
+  }, [loading, user, navigate, tenant, tenantSlug, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +66,7 @@ const Login = () => {
 
     try {
       await signIn(email, password);
-      navigate("/admin");
+      // Navegação acontece no useEffect
     } catch (error) {
       // Erro já tratado no hook
     }
@@ -55,6 +74,7 @@ const Login = () => {
 
   const primaryColor = branding.primaryColor || '#16a34a';
   const secondaryColor = branding.secondaryColor || '#22c55e';
+  const currentSlug = tenant?.slug || tenantSlug || 'default';
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 relative overflow-hidden">
@@ -68,7 +88,7 @@ const Login = () => {
         <div className="text-center space-y-6">
           <div className="flex flex-col items-center gap-6">
             <Link 
-              to="/" 
+              to={`/${currentSlug}`} 
               className="inline-flex items-center text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] gap-2 hover:text-slate-600 transition-colors mb-2"
             >
               <ArrowLeft size={14} weight="bold" />

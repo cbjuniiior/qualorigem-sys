@@ -10,9 +10,9 @@ interface LotIdConfig {
 /**
  * Gera um código único para o lote baseado na configuração do sistema
  */
-export async function generateLotCode(customPrefix?: string, increment: boolean = false): Promise<string> {
+export async function generateLotCode(tenantId: string, customPrefix?: string, increment: boolean = false): Promise<string> {
   try {
-    const config = await systemConfigApi.getLotIdConfig();
+    const config = await systemConfigApi.getLotIdConfig(tenantId);
     
     // Se o modo for manual, retorna o prefixo personalizado ou vazio
     if (config.mode === 'manual') {
@@ -28,6 +28,7 @@ export async function generateLotCode(customPrefix?: string, increment: boolean 
       if (increment && config.auto_increment) {
         // Atualiza o número atual no banco para o próximo uso
         await systemConfigApi.upsert({
+          tenant_id: tenantId,
           config_key: 'lot_id_mode',
           config_value: {
             ...config,

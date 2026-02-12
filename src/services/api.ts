@@ -18,6 +18,14 @@ export type Characteristic = Tables<"characteristics">;
 export type ProductLotCharacteristic = Tables<"product_lot_characteristics">;
 export type SensoryAttribute = Tables<"sensory_attributes">;
 export type ProductLotSensory = Tables<"product_lot_sensory">;
+export type Tenant = Tables<"tenants">;
+export type TenantModule = Tables<"tenant_modules">;
+export type TenantMembership = Tables<"tenant_memberships">;
+
+export type Certification = Tables<"certifications">;
+export type CertificationEntity = Tables<"certification_entities">;
+export type InternalProducer = Tables<"internal_producers">;
+export type TenantFieldSetting = Tables<"tenant_field_settings">;
 
 export type ProducerInsert = TablesInsert<"producers">;
 export type ProductLotInsert = TablesInsert<"product_lots">;
@@ -32,6 +40,9 @@ export type CharacteristicInsert = TablesInsert<"characteristics">;
 export type ProductLotCharacteristicInsert = TablesInsert<"product_lot_characteristics">;
 export type SensoryAttributeInsert = TablesInsert<"sensory_attributes">;
 export type ProductLotSensoryInsert = TablesInsert<"product_lot_sensory">;
+export type CertificationInsert = TablesInsert<"certifications">;
+export type CertificationEntityInsert = TablesInsert<"certification_entities">;
+export type InternalProducerInsert = TablesInsert<"internal_producers">;
 
 export type ProducerUpdate = TablesUpdate<"producers">;
 export type ProductLotUpdate = TablesUpdate<"product_lots">;
@@ -47,33 +58,394 @@ export type ProductLotCharacteristicUpdate = TablesUpdate<"product_lot_character
 export type SensoryAttributeUpdate = TablesUpdate<"sensory_attributes">;
 export type ProductLotSensoryUpdate = TablesUpdate<"product_lot_sensory">;
 
+// --- NOVOS SERVIÇOS MULTI-TENANT ---
+
+// Serviço para Tenants (Público/Resolvers)
+export const tenantsApi = {
+  // Buscar tenant por slug (Público)
+  async getBySlug(slug: string) {
+    const { data, error } = await supabase
+      .from("tenants")
+      .select("*")
+      .eq("slug", slug)
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  // Buscar módulos ativos do tenant (Público)
+  async getModules(tenantId: string) {
+    const { data, error } = await supabase
+      .from("tenant_modules")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("enabled", true);
+
+    if (error) throw error;
+    return data;
+  },
+
+  // Atualizar branding do tenant (usado pelo admin do tenant)
+  async updateBranding(tenantId: string, branding: any) {
+    const { data, error } = await supabase
+      .from("tenants")
+      .update({ branding } as any)
+      .eq("id", tenantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+};
+
+// Serviço para Plataforma (Superadmin)
+export const platformApi = {
+  // Listar todos os tenants
+  async getAllTenants() {
+    const { data, error } = await supabase
+      .from("tenants")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+
+  // Criar novo tenant
+  async createTenant(tenant: TablesInsert<"tenants">) {
+    const { data, error } = await supabase
+      .from("tenants")
+      .insert(tenant)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  // Criar tenant + primeiro admin (atômico via RPC)
+  async createTenantWithAdmin(
+    tenantData: { name: string; slug: string; type: string; status?: string },
+    adminEmail: string,
+    adminPassword: string,
+    adminName: string
+  ) {
+    // 1. Criar o tenant
+    const { data: tenant, error: tenantError } = await supabase
+      .from("tenants")
+      .insert(tenantData)
+      .select()
+      .single();
+    if (tenantError) throw tenantError;
+
+    // 2. Criar o usuário e vinculá-lo ao tenant
+    try {
+      const { data: userId, error: userError } = await supabase
+        .rpc("create_user_for_tenant", {
+          p_email: adminEmail,
+          p_password: adminPassword,
+          p_full_name: adminName,
+          p_tenant_id: tenant.id,
+          p_role: "tenant_admin",
+        });
+      if (userError) throw userError;
+      return { tenant, userId };
+    } catch (err) {
+      // Se falhar ao criar usuário, tentar excluir o tenant criado
+      await supabase.from("tenants").delete().eq("id", tenant.id);
+      throw err;
+    }
+  },
+
+  // Atualizar tenant
+  async updateTenant(id: string, updates: TablesUpdate<"tenants">) {
+    const { data, error } = await supabase
+      .from("tenants")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  // Excluir tenant
+  async deleteTenant(id: string) {
+    const { error } = await supabase
+      .from("tenants")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  },
+
+  // Suspender tenant
+  async suspendTenant(id: string) {
+    return this.updateTenant(id, { status: "suspended" } as any);
+  },
+
+  // Ativar tenant
+  async activateTenant(id: string) {
+    return this.updateTenant(id, { status: "active" } as any);
+  },
+
+  // Estatísticas globais (via RPC)
+  async getGlobalStats() {
+    const { data, error } = await supabase.rpc("get_platform_stats");
+    if (error) throw error;
+    return data?.[0] || { total_tenants: 0, active_tenants: 0, total_users: 0, total_lots: 0 };
+  },
+
+  // Estatísticas de um tenant (via RPC)
+  async getTenantStats(tenantId: string) {
+    const { data, error } = await supabase.rpc("get_tenant_stats", { p_tenant_id: tenantId });
+    if (error) throw error;
+    return data?.[0] || { producers_count: 0, lots_count: 0, members_count: 0, certifications_count: 0 };
+  },
+
+  async getTenantActivity(tenantId: string) {
+    const { data, error } = await supabase.rpc("get_tenant_activity", { p_tenant_id: tenantId });
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getTenantBranding(tenantId: string) {
+    const { data, error } = await supabase
+      .from("tenants")
+      .select("branding")
+      .eq("id", tenantId)
+      .single();
+    if (error) throw error;
+    return data?.branding || null;
+  },
+};
+
+// Módulos por Tenant
+export const AVAILABLE_MODULES = [
+  { key: "traceability", name: "Rastreabilidade", description: "Gestão de lotes, QR codes e rastreio completo", icon: "Package" },
+  { key: "certifications", name: "Certificações", description: "Gestão de certificados e documentos oficiais", icon: "Certificate" },
+  { key: "internal_producers", name: "Produtores Internos", description: "Cadastro de produtores associados/cooperados", icon: "Users" },
+  { key: "sensory_analysis", name: "Análise Sensorial", description: "Avaliação sensorial e perfil de sabor", icon: "Eye" },
+  { key: "seal_control", name: "Controle de Selos", description: "Gestão de selos de rastreabilidade", icon: "Fingerprint" },
+  { key: "reports", name: "Relatórios", description: "Relatórios e dashboards avançados", icon: "ChartBar" },
+  { key: "crm", name: "CRM", description: "Gestão de relacionamento com clientes", icon: "UserCircle" },
+];
+
+export const tenantModulesApi = {
+  async getAll(tenantId: string) {
+    const { data, error } = await supabase
+      .from("tenant_modules")
+      .select("*")
+      .eq("tenant_id", tenantId);
+    if (error) throw error;
+    return data;
+  },
+  async upsert(tenantId: string, moduleKey: string, enabled: boolean, config: any = {}) {
+    const { data, error } = await supabase
+      .from("tenant_modules")
+      .upsert({ tenant_id: tenantId, module_key: moduleKey, enabled, config } as any, { onConflict: "tenant_id,module_key" })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async delete(tenantId: string, moduleKey: string) {
+    const { error } = await supabase
+      .from("tenant_modules")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("module_key", moduleKey);
+    if (error) throw error;
+  },
+};
+
+// Memberships por Tenant
+export const tenantMembershipsApi = {
+  async getAll(tenantId: string) {
+    // Via RPC para obter dados do auth.users
+    const { data, error } = await supabase.rpc("get_tenant_members", { p_tenant_id: tenantId });
+    if (error) throw error;
+    return data;
+  },
+  async getByUser(userId: string) {
+    const { data, error } = await supabase
+      .from("tenant_memberships")
+      .select("*, tenants(*)")
+      .eq("user_id", userId);
+    if (error) throw error;
+    return data;
+  },
+  async create(tenantId: string, userId: string, role: string) {
+    const { data, error } = await supabase
+      .from("tenant_memberships")
+      .insert({ tenant_id: tenantId, user_id: userId, role } as any)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async updateRole(tenantId: string, userId: string, role: string) {
+    const { data, error } = await supabase
+      .from("tenant_memberships")
+      .update({ role } as any)
+      .eq("tenant_id", tenantId)
+      .eq("user_id", userId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async delete(tenantId: string, userId: string) {
+    const { error } = await supabase
+      .from("tenant_memberships")
+      .delete()
+      .eq("tenant_id", tenantId)
+      .eq("user_id", userId);
+    if (error) throw error;
+  },
+};
+
+// Platform Admins
+export const platformAdminsApi = {
+  async getAll() {
+    const { data, error } = await supabase.rpc("get_platform_admins");
+    if (error) throw error;
+    return data;
+  },
+  async add(userId: string) {
+    const { data, error } = await supabase
+      .from("platform_admins")
+      .insert({ user_id: userId, role: "superadmin" } as any)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async remove(userId: string) {
+    const { error } = await supabase
+      .from("platform_admins")
+      .delete()
+      .eq("user_id", userId);
+    if (error) throw error;
+  },
+  async createAdmin(email: string, password: string, fullName: string) {
+    const { data, error } = await supabase.rpc("create_platform_admin", {
+      p_email: email,
+      p_password: password,
+      p_full_name: fullName,
+    });
+    if (error) throw error;
+    return data;
+  },
+};
+
+// Usuários globais (cross-tenant)
+export const platformUsersApi = {
+  async getAll() {
+    const { data, error } = await supabase.rpc("get_all_users_for_platform");
+    if (error) throw error;
+    return data;
+  },
+  async createForTenant(email: string, password: string, fullName: string, tenantId: string, role: string = "tenant_admin") {
+    const { data, error } = await supabase.rpc("create_user_for_tenant", {
+      p_email: email,
+      p_password: password,
+      p_full_name: fullName,
+      p_tenant_id: tenantId,
+      p_role: role,
+    });
+    if (error) throw error;
+    return data;
+  },
+};
+
+// Assinaturas de tenant
+export const tenantSubscriptionsApi = {
+  async getByTenant(tenantId: string) {
+    const { data, error } = await supabase
+      .from("tenant_subscriptions")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  async upsert(sub: { tenant_id: string; plan: string; started_at?: string; expires_at?: string | null; status?: string; notes?: string }) {
+    const { data, error } = await supabase
+      .from("tenant_subscriptions")
+      .upsert(sub as any, { onConflict: "tenant_id" })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async delete(id: string) {
+    const { error } = await supabase
+      .from("tenant_subscriptions")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  },
+};
+
+// Templates de tipos de sistema
+export const systemTypeTemplatesApi = {
+  async getAll() {
+    const { data, error } = await supabase
+      .from("system_type_templates")
+      .select("*")
+      .order("type_key");
+    if (error) throw error;
+    return data;
+  },
+  async getByType(typeKey: string) {
+    const { data, error } = await supabase
+      .from("system_type_templates")
+      .select("*")
+      .eq("type_key", typeKey)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  async upsert(template: { type_key: string; name: string; description?: string; default_modules?: any; default_fields?: any; color?: string; icon?: string }) {
+    const { data, error } = await supabase
+      .from("system_type_templates")
+      .upsert(template as any, { onConflict: "type_key" })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+};
+
+// --- SERVIÇOS REFATORADOS (TENANT-AWARE) ---
+
 // Serviços para Produtores
 export const producersApi = {
-  // Buscar todos os produtores
-  async getAll() {
+  async getAll(tenantId: string) {
     const { data, error } = await supabase
       .from("producers")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("name");
 
     if (error) throw error;
     return data;
   },
 
-  // Buscar produtor por ID
-  async getById(id: string) {
+  async getById(id: string, tenantId: string) {
     const { data, error } = await supabase
       .from("producers")
       .select("*")
       .eq("id", id)
+      .eq("tenant_id", tenantId)
       .single();
 
     if (error) throw error;
     return data;
   },
 
-  // Criar novo produtor
   async create(producer: ProducerInsert) {
+    // tenant_id deve vir no objeto producer
     const { data, error } = await supabase
       .from("producers")
       .insert(producer)
@@ -84,12 +456,12 @@ export const producersApi = {
     return data;
   },
 
-  // Atualizar produtor
-  async update(id: string, updates: ProducerUpdate) {
+  async update(id: string, tenantId: string, updates: ProducerUpdate) {
     const { data, error } = await supabase
       .from("producers")
       .update(updates)
       .eq("id", id)
+      .eq("tenant_id", tenantId)
       .select()
       .single();
 
@@ -97,12 +469,12 @@ export const producersApi = {
     return data;
   },
 
-  // Deletar produtor
-  async delete(id: string) {
+  async delete(id: string, tenantId: string) {
     const { error } = await supabase
       .from("producers")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
 
     if (error) throw error;
   }
@@ -110,8 +482,7 @@ export const producersApi = {
 
 // Serviços para Lotes de Produtos
 export const productLotsApi = {
-  // Buscar todos os lotes
-  async getAll() {
+  async getAll(tenantId: string) {
     const { data, error } = await supabase
       .from("product_lots")
       .select(`
@@ -146,11 +517,13 @@ export const productLotsApi = {
           sensory_attributes (*)
         )
       `)
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    // Buscar componentes separadamente para cada lote
+    // Buscar componentes separadamente (mantendo lógica antiga, mas filtrando por tenant se possível, 
+    // embora lot_id já filtre implicitamente)
     const lotsWithComponents = await Promise.all(
       data.map(async (lot) => {
         const { data: components } = await supabase
@@ -193,7 +566,8 @@ export const productLotsApi = {
               type
             )
           `)
-          .eq("lot_id", lot.id);
+          .eq("lot_id", lot.id)
+          .eq("tenant_id", tenantId); // Garantia extra
 
         return {
           ...lot,
@@ -207,8 +581,8 @@ export const productLotsApi = {
     return lotsWithComponents;
   },
 
-  // Buscar lote por código
-  async getByCode(code: string) {
+  // Buscar lote por código (Público/QR Code - precisa do tenantId para garantir unicidade)
+  async getByCode(code: string, tenantId: string) {
     const { data, error } = await supabase
       .from("product_lots")
       .select(`
@@ -244,11 +618,11 @@ export const productLotsApi = {
         )
       `)
       .eq("code", code)
+      .eq("tenant_id", tenantId)
       .single();
 
     if (error) throw error;
 
-    // Buscar componentes do blend incluindo produtor e associação, se existirem
     const { data: components } = await supabase
       .from("lot_components")
       .select(`
@@ -257,6 +631,7 @@ export const productLotsApi = {
         associations:associations(*)
       `)
       .eq("lot_id", data.id)
+      .eq("tenant_id", tenantId)
       .order("created_at");
 
     return {
@@ -267,8 +642,7 @@ export const productLotsApi = {
     };
   },
 
-  // Buscar lote por ID
-  async getById(id: string) {
+  async getById(id: string, tenantId: string) {
     const { data, error } = await supabase
       .from("product_lots")
       .select(`
@@ -304,11 +678,11 @@ export const productLotsApi = {
         )
       `)
       .eq("id", id)
+      .eq("tenant_id", tenantId)
       .single();
 
     if (error) throw error;
 
-    // Buscar componentes do blend incluindo produtor e associação, se existirem
     const { data: components } = await supabase
       .from("lot_components")
       .select(`
@@ -316,7 +690,8 @@ export const productLotsApi = {
         producers:producers(*),
         associations:associations(*)
       `)
-      .eq("lot_id", id);
+      .eq("lot_id", id)
+      .eq("tenant_id", tenantId);
 
     return {
       ...data,
@@ -326,8 +701,7 @@ export const productLotsApi = {
     };
   },
 
-  // Buscar lotes por produtor
-  async getByProducer(producerId: string) {
+  async getByProducer(producerId: string, tenantId: string) {
     const { data, error } = await supabase
       .from("product_lots")
       .select(`
@@ -349,13 +723,13 @@ export const productLotsApi = {
         lot_components (*)
       `)
       .eq("producer_id", producerId)
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
     return data;
   },
 
-  // Criar novo lote
   async create(lot: ProductLotInsert) {
     const { data, error } = await supabase
       .from("product_lots")
@@ -383,12 +757,12 @@ export const productLotsApi = {
     return data;
   },
 
-  // Atualizar lote
-  async update(id: string, updates: ProductLotUpdate) {
+  async update(id: string, tenantId: string, updates: ProductLotUpdate) {
     const { data, error } = await supabase
       .from("product_lots")
       .update(updates)
       .eq("id", id)
+      .eq("tenant_id", tenantId)
       .select(`
         *,
         producers (
@@ -412,18 +786,17 @@ export const productLotsApi = {
     return data;
   },
 
-  // Deletar lote
-  async delete(id: string) {
+  async delete(id: string, tenantId: string) {
     const { error } = await supabase
       .from("product_lots")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
 
     if (error) throw error;
   },
 
-  // Criar componente de blend
-  async createComponent(component: any) {
+  async createComponent(component: LotComponentInsert) {
     const { data, error } = await supabase
       .from("lot_components")
       .insert(component)
@@ -434,18 +807,17 @@ export const productLotsApi = {
     return data;
   },
 
-  // Deletar componentes por lote
-  async deleteComponentsByLot(lotId: string) {
+  async deleteComponentsByLot(lotId: string, tenantId: string) {
     const { error } = await supabase
       .from("lot_components")
       .delete()
-      .eq("lot_id", lotId);
+      .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId);
 
     if (error) throw error;
   },
 
-  // Buscar lotes por categoria
-  async getByCategory(category: string) {
+  async getByCategory(category: string, tenantId: string) {
     const { data, error } = await supabase
       .from("product_lots")
       .select(`
@@ -466,50 +838,47 @@ export const productLotsApi = {
         )
       `)
       .eq("category", category)
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
     return data;
   },
 
-  // Incrementar views do lote
   async incrementViews(code: string) {
+    // increment_lot_views é uma RPC que não recebe tenant_id por padrão
+    // Idealmente deveria, mas como é só contador de views, pode ficar assim ou ser atualizada
     const { error } = await supabase.rpc('increment_lot_views', { lot_code: code });
     if (error) throw error;
   }
 };
 
 // Serviços para Gerenciamento de Usuários (Admin)
-// Usa tabela user_profiles + Supabase Auth (compatível com self-hosted)
 export const usersApi = {
-  // Listar todos os usuários
-  async getAll() {
+  async getAll(tenantId: string) {
     const { data, error } = await supabase
       .from("user_profiles")
       .select("*")
       .eq("is_active", true)
+      .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    // Mapear para o formato esperado pelo componente
     return (data || []).map((user: any) => ({
       id: user.id,
       email: user.email,
       full_name: user.full_name,
       created_at: user.created_at,
-      email_confirmed_at: user.created_at, // user_profiles não tem esse campo, usar created_at
+      email_confirmed_at: user.created_at,
     }));
   },
 
-  // Criar novo usuário
-  async create(userData: { email: string; password: string; full_name?: string }) {
+  async create(userData: { email: string; password: string; full_name?: string }, tenantId: string) {
     try {
-      // Salvar a sessão atual do admin ANTES de criar o novo usuário
       const { data: currentSession } = await supabase.auth.getSession();
       const adminSession = currentSession?.session;
 
-      // Usar signUp padrão do Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email: userData.email,
         password: userData.password,
@@ -521,29 +890,30 @@ export const usersApi = {
       });
 
       if (error) {
-        // Se o erro for relacionado a email, dar uma mensagem mais clara
         if (error.message.includes('email') || error.message.includes('confirmation') || error.message.includes('smtp')) {
-          throw new Error(
-            'Não foi possível criar o usuário. ' +
-            'Verifique se a confirmação de email está desabilitada no Supabase Auth ' +
-            '(Auth > Providers > Email > Confirm email = OFF)'
-          );
+          throw new Error('Erro de email/SMTP. Verifique configurações do Supabase.');
         }
         throw error;
       }
 
-      // O trigger on_auth_user_created vai criar o perfil automaticamente
-      // Mas também podemos garantir aqui
+      // Atualizar user_profiles com tenant_id
       if (data.user) {
         await supabase.from("user_profiles").upsert({
           id: data.user.id,
           email: userData.email,
           full_name: userData.full_name || '',
           is_active: true,
+          tenant_id: tenantId // VINCULA AO TENANT
         }, { onConflict: 'id' });
+
+        // Criar membership
+        await supabase.from("tenant_memberships").insert({
+          tenant_id: tenantId,
+          user_id: data.user.id,
+          role: 'viewer' // Default role
+        });
       }
 
-      // IMPORTANTE: Restaurar a sessão do admin se o signUp trocou para o novo usuário
       if (adminSession) {
         await supabase.auth.setSession({
           access_token: adminSession.access_token,
@@ -558,182 +928,133 @@ export const usersApi = {
         created_at: new Date().toISOString(),
       };
     } catch (err: any) {
-      // Erro 500 normalmente indica problema com envio de email
       if (err.status === 500 || err.message?.includes('500')) {
-        throw new Error(
-          'Erro no servidor de autenticação. ' +
-          'No Supabase Dashboard, vá em Auth > Providers > Email e desabilite "Confirm email".'
-        );
+        throw new Error('Erro no servidor de autenticação.');
       }
       throw err;
     }
   },
 
-  // Desativar usuário (soft delete)
-  async delete(userId: string) {
-    // Em vez de deletar, marcamos como inativo
+  async delete(userId: string, tenantId: string) {
     const { error } = await supabase
       .from("user_profiles")
       .update({ is_active: false })
-      .eq("id", userId);
+      .eq("id", userId)
+      .eq("tenant_id", tenantId);
 
     if (error) throw error;
-
     return { success: true };
   },
 };
 
-// Serviços de Autenticação
+// Serviços de Autenticação (Global, mas pode ser adaptado se necessário)
 export const authApi = {
-  // Login com email e senha
   async signIn(email: string, password: string) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     return data;
   },
-
-  // Cadastro com email e senha
   async signUp(email: string, password: string) {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
     return data;
   },
-
-  // Logout
   async signOut() {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   },
-
-  // Obter usuário atual
   async getCurrentUser() {
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error) throw error;
     return user;
   },
-
-  // Escutar mudanças de autenticação
   onAuthStateChange(callback: (event: string, session: any) => void) {
     return supabase.auth.onAuthStateChange(callback);
   },
-
-  // Atualizar perfil do usuário (apenas nome)
   async updateProfile(data: { full_name?: string }) {
     const updateData: { data?: { full_name?: string } } = {};
-
-    // Atualizar nome nos metadados do usuário
     if (data.full_name !== undefined) {
       updateData.data = { full_name: data.full_name };
     }
-
     const { data: userData, error } = await supabase.auth.updateUser(updateData);
-
     if (error) throw error;
 
-    // Também atualizar na tabela user_profiles para sincronizar
     if (userData.user && data.full_name !== undefined) {
       await supabase
         .from("user_profiles")
         .update({ full_name: data.full_name })
         .eq("id", userData.user.id);
     }
-
     return userData;
   },
-
-  // Atualizar senha do usuário
   async updatePassword(newPassword: string) {
-    const { data, error } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
-
+    const { data, error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw error;
     return data;
   },
-
-  // Recuperar senha (enviar email)
   async resetPassword(email: string) {
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/reset-password`,
+      redirectTo: `${window.location.origin}/default/auth/reset-password`,
     });
-
     if (error) throw error;
     return data;
   }
 };
 
-// Serviços para Componentes de Lote (Blend)
+// Serviços para Componentes de Lote
 export const lotComponentsApi = {
-  // Buscar componentes por lote
-  async getByLot(lotId: string) {
+  async getByLot(lotId: string, tenantId: string) {
     const { data, error } = await supabase
       .from("lot_components")
       .select("*")
       .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId)
       .order("created_at");
 
     if (error) throw error;
     return data;
   },
-
-  // Criar componente
   async create(component: LotComponentInsert) {
     const { data, error } = await supabase
       .from("lot_components")
       .insert(component)
       .select()
       .single();
-
     if (error) throw error;
     return data;
   },
-
-  // Atualizar componente
-  async update(id: string, updates: LotComponentUpdate) {
+  async update(id: string, tenantId: string, updates: LotComponentUpdate) {
     const { data, error } = await supabase
       .from("lot_components")
       .update(updates)
       .eq("id", id)
+      .eq("tenant_id", tenantId)
       .select()
       .single();
-
     if (error) throw error;
     return data;
   },
-
-  // Deletar componente
-  async delete(id: string) {
+  async delete(id: string, tenantId: string) {
     const { error } = await supabase
       .from("lot_components")
       .delete()
-      .eq("id", id);
-
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
   },
-
-  // Deletar todos os componentes de um lote
-  async deleteByLot(lotId: string) {
+  async deleteByLot(lotId: string, tenantId: string) {
     const { error } = await supabase
       .from("lot_components")
       .delete()
-      .eq("lot_id", lotId);
-
+      .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
   }
 };
 
 // Serviços para Controle de Selos
 export const sealControlsApi = {
-  // Buscar controles por lote
-  async getByLot(lotId: string) {
+  async getByLot(lotId: string, tenantId: string) {
     const { data, error } = await supabase
       .from("seal_controls")
       .select(`
@@ -745,14 +1066,12 @@ export const sealControlsApi = {
         )
       `)
       .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId)
       .order("generation_date", { ascending: false });
-
     if (error) throw error;
     return data;
   },
-
-  // Buscar controles por produtor
-  async getByProducer(producerId: string) {
+  async getByProducer(producerId: string, tenantId: string) {
     const { data, error } = await supabase
       .from("seal_controls")
       .select(`
@@ -765,13 +1084,11 @@ export const sealControlsApi = {
         )
       `)
       .eq("producer_id", producerId)
+      .eq("tenant_id", tenantId)
       .order("generation_date", { ascending: false });
-
     if (error) throw error;
     return data;
   },
-
-  // Criar controle de selo
   async create(sealControl: SealControlInsert) {
     const { data, error } = await supabase
       .from("seal_controls")
@@ -791,17 +1108,15 @@ export const sealControlsApi = {
         )
       `)
       .single();
-
     if (error) throw error;
     return data;
   },
-
-  // Atualizar controle de selo
-  async update(id: string, updates: SealControlUpdate) {
+  async update(id: string, tenantId: string, updates: SealControlUpdate) {
     const { data, error } = await supabase
       .from("seal_controls")
       .update(updates)
       .eq("id", id)
+      .eq("tenant_id", tenantId)
       .select(`
         *,
         producers (
@@ -817,33 +1132,25 @@ export const sealControlsApi = {
         )
       `)
       .single();
-
     if (error) throw error;
     return data;
   },
-
-  // Deletar controle de selo
-  async delete(id: string) {
+  async delete(id: string, tenantId: string) {
     const { error } = await supabase
       .from("seal_controls")
       .delete()
-      .eq("id", id);
-
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
   },
-
-  // Calcular selos necessários baseado no fracionamento
   calculateSeals(totalQuantity: number, packageSize: number, packageUnit: string) {
-    // Converter para a mesma unidade base (gramas)
     let totalInGrams = totalQuantity;
     let packageInGrams = packageSize;
-
     if (packageUnit === 'kg') {
       packageInGrams = packageSize * 1000;
     } else if (packageUnit === 'g') {
       packageInGrams = packageSize;
     }
-
     const totalPackages = Math.floor(totalInGrams / packageInGrams);
     return totalPackages;
   }
@@ -851,78 +1158,62 @@ export const sealControlsApi = {
 
 // Serviços para Configurações do Sistema
 export const systemConfigApi = {
-  // Buscar configuração por chave
-  async getByKey(key: string) {
+  async getByKey(key: string, tenantId: string) {
     const { data, error } = await supabase
       .from("system_configurations")
       .select("*")
       .eq("config_key", key)
-      .single();
-
-    // Se não encontrar, retorna null ao invés de lançar erro
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null; // Registro não encontrado
-      }
-      throw error;
-    }
-    return data;
-  },
-
-  // Buscar todas as configurações
-  async getAll() {
-    const { data, error } = await supabase
-      .from("system_configurations")
-      .select("*")
-      .order("config_key");
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
 
     if (error) throw error;
     return data;
   },
-
-  // Criar ou atualizar configuração
+  async getAll(tenantId: string) {
+    const { data, error } = await supabase
+      .from("system_configurations")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("config_key");
+    if (error) throw error;
+    return data;
+  },
   async upsert(config: SystemConfigurationInsert) {
+    // config deve ter tenant_id
     const { data, error } = await supabase
       .from("system_configurations")
       .upsert(config, {
-        onConflict: 'config_key',
+        onConflict: 'tenant_id,config_key',
         ignoreDuplicates: false
       })
       .select()
       .single();
-
     if (error) throw error;
     return data;
   },
-
-  // Deletar configuração
-  async delete(key: string) {
+  async delete(key: string, tenantId: string) {
     const { error } = await supabase
       .from("system_configurations")
       .delete()
-      .eq("config_key", key);
-
+      .eq("config_key", key)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
   },
-
-  // Configurações específicas
-  async getLotIdConfig() {
-    const config = await this.getByKey('lot_id_mode');
+  // Helpers de config (recebem tenantId)
+  async getLotIdConfig(tenantId: string) {
+    const config = await this.getByKey('lot_id_mode', tenantId);
     return config?.config_value || { mode: 'auto', prefix: 'GT', auto_increment: true };
   },
-
-  async getQRCodeConfig() {
-    const config = await this.getByKey('qrcode_mode');
+  async getQRCodeConfig(tenantId: string) {
+    const config = await this.getByKey('qrcode_mode', tenantId);
     return config?.config_value || { mode: 'individual', generic_categories: [] };
   },
-
-  async getVideoConfig() {
-    const config = await this.getByKey('video_settings');
+  async getVideoConfig(tenantId: string) {
+    const config = await this.getByKey('video_settings', tenantId);
     return config?.config_value || { enabled: true, auto_play: true, show_after_seconds: 3 };
   },
-
-  async getBrandingConfig() {
-    const config = await this.getByKey('branding_settings');
+  async getBrandingConfig(tenantId: string) {
+    const config = await this.getByKey('branding_settings', tenantId);
     return config?.config_value || {
       preset: 'default',
       primaryColor: '#16a34a',
@@ -937,31 +1228,30 @@ export const systemConfigApi = {
   }
 };
 
-// Serviços para Associações/Cooperativas
+// Serviços para Associações
 export const associationsApi = {
-  async getAll() {
+  async getAll(tenantId: string) {
     const { data, error } = await supabase
       .from("associations")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("name");
     if (error) throw error;
     return data;
   },
-  // Retorna a contagem de produtores vinculados a uma associação
-  async getProducerCount(associationId: string) {
+  async getProducerCount(associationId: string, tenantId: string) {
     const { count, error } = await supabase
       .from("producers_associations")
       .select("producer_id", { count: "exact", head: true })
-      .eq("association_id", associationId);
+      .eq("association_id", associationId)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
     return count || 0;
   },
-  // Lista produtores vinculados a uma associação
-  async getProducers(associationId: string) {
+  async getProducers(associationId: string, tenantId: string) {
     const { data, error } = await supabase
       .from("producers_associations")
-      .select(
-        `
+      .select(`
         producers:producers (
           id,
           name,
@@ -969,12 +1259,11 @@ export const associationsApi = {
           city,
           state
         )
-      `
-      )
+      `)
       .eq("association_id", associationId)
+      .eq("tenant_id", tenantId)
       .order("since", { ascending: false });
     if (error) throw error;
-    // data é uma lista de linhas com campo aninhado producers
     return (data || []).map((row: any) => row.producers).filter(Boolean);
   },
   async create(association: AssociationInsert) {
@@ -986,18 +1275,18 @@ export const associationsApi = {
     if (error) throw error;
     return data;
   },
-  async update(id: string, updates: AssociationUpdate) {
+  async update(id: string, tenantId: string, updates: AssociationUpdate) {
     const { data, error } = await supabase
       .from("associations")
       .update(updates)
       .eq("id", id)
+      .eq("tenant_id", tenantId)
       .select()
       .single();
     if (error) throw error;
     return data;
   },
-  // Lista associações de um produtor
-  async getByProducer(producerId: string) {
+  async getByProducer(producerId: string, tenantId: string) {
     const { data, error } = await supabase
       .from("producers_associations")
       .select(`
@@ -1012,192 +1301,173 @@ export const associationsApi = {
           logo_url
         )
       `)
-      .eq("producer_id", producerId);
+      .eq("producer_id", producerId)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
     return data?.map((item: any) => item.associations) || [];
   },
-  // Adiciona produtor a uma associação
-  async addProducerToAssociation(producerId: string, associationId: string) {
+  async addProducerToAssociation(producerId: string, associationId: string, tenantId: string) {
     const { data, error } = await supabase
       .from("producers_associations")
-      .insert({ producer_id: producerId, association_id: associationId })
+      .insert({ 
+        producer_id: producerId, 
+        association_id: associationId,
+        tenant_id: tenantId 
+      })
       .select()
       .single();
     if (error) throw error;
     return data;
   },
-  // Remove produtor de uma associação
-  async removeProducerFromAssociation(producerId: string, associationId: string) {
+  async removeProducerFromAssociation(producerId: string, associationId: string, tenantId: string) {
     const { error } = await supabase
       .from("producers_associations")
       .delete()
       .eq("producer_id", producerId)
-      .eq("association_id", associationId);
+      .eq("association_id", associationId)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
   },
-  // Deletar associação
-  async delete(id: string) {
-    // 1. Remover vínculos com produtores (tabela pivot)
+  async delete(id: string, tenantId: string) {
     const { error: relationError } = await supabase
       .from("producers_associations")
       .delete()
-      .eq("association_id", id);
-
+      .eq("association_id", id)
+      .eq("tenant_id", tenantId);
     if (relationError) throw relationError;
 
-    // 2. Limpar referência em lotes (set null)
     const { error: lotError } = await supabase
       .from("product_lots")
       .update({ association_id: null })
-      .eq("association_id", id);
-
+      .eq("association_id", id)
+      .eq("tenant_id", tenantId);
     if (lotError) throw lotError;
 
-    // 3. Limpar referência em componentes de blend (set null)
     const { error: componentError } = await supabase
       .from("lot_components")
       .update({ association_id: null })
-      .eq("association_id", id);
-
+      .eq("association_id", id)
+      .eq("tenant_id", tenantId);
     if (componentError) throw componentError;
 
-    // 4. Finalmente remover a associação em si
     const { error } = await supabase
       .from("associations")
       .delete()
-      .eq("id", id);
-
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
   },
 };
 
 // Serviços para Marcas
 export const brandsApi = {
-  // Buscar todas as marcas (admin/relatórios)
-  async getAll() {
+  async getAll(tenantId: string) {
     const { data, error } = await supabase
       .from("brands")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("name");
     if (error) throw error;
     return data;
   },
-
-  // Buscar todas as marcas de um produtor
-  async getByProducer(producerId: string) {
+  async getByProducer(producerId: string, tenantId: string) {
     const { data, error } = await supabase
       .from("brands")
       .select("*")
       .eq("producer_id", producerId)
+      .eq("tenant_id", tenantId)
       .order("name");
-
     if (error) throw error;
     return data;
   },
-
-  // Criar nova marca
   async create(brand: BrandInsert) {
     const { data, error } = await supabase
       .from("brands")
       .insert(brand)
       .select()
       .single();
-
     if (error) throw error;
     return data;
   },
-
-  // Atualizar marca
-  async update(id: string, updates: BrandUpdate) {
+  async update(id: string, tenantId: string, updates: BrandUpdate) {
     const { data, error } = await supabase
       .from("brands")
       .update(updates)
       .eq("id", id)
+      .eq("tenant_id", tenantId)
       .select()
       .single();
-
     if (error) throw error;
     return data;
   },
-
-  // Deletar marca
-  async delete(id: string) {
+  async delete(id: string, tenantId: string) {
     const { error } = await supabase
       .from("brands")
       .delete()
-      .eq("id", id);
-
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
   }
 };
 
 // Serviços para Indústrias
 export const industriesApi = {
-  // Buscar todas as indústrias
-  async getAll() {
+  async getAll(tenantId: string) {
     const { data, error } = await supabase
       .from("industries")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("name");
-
     if (error) throw error;
     return data;
   },
-
-  // Buscar indústria por ID
-  async getById(id: string) {
+  async getById(id: string, tenantId: string) {
     const { data, error } = await supabase
       .from("industries")
       .select("*")
       .eq("id", id)
+      .eq("tenant_id", tenantId)
       .single();
-
     if (error) throw error;
     return data;
   },
-
-  // Criar nova indústria
   async create(industry: IndustryInsert) {
     const { data, error } = await supabase
       .from("industries")
       .insert(industry)
       .select()
       .single();
-
     if (error) throw error;
     return data;
   },
-
-  // Atualizar indústria
-  async update(id: string, updates: IndustryUpdate) {
+  async update(id: string, tenantId: string, updates: IndustryUpdate) {
     const { data, error } = await supabase
       .from("industries")
       .update(updates)
       .eq("id", id)
+      .eq("tenant_id", tenantId)
       .select()
       .single();
-
     if (error) throw error;
     return data;
   },
-
-  // Deletar indústria
-  async delete(id: string) {
+  async delete(id: string, tenantId: string) {
     const { error } = await supabase
       .from("industries")
       .delete()
-      .eq("id", id);
-
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
   }
 };
 
 // Serviços para Categorias
 export const categoriesApi = {
-  async getAll() {
+  async getAll(tenantId: string) {
     const { data, error } = await supabase
       .from("categories")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("name");
     if (error) throw error;
     return data;
@@ -1211,31 +1481,34 @@ export const categoriesApi = {
     if (error) throw error;
     return data;
   },
-  async update(id: string, updates: CategoryUpdate) {
+  async update(id: string, tenantId: string, updates: CategoryUpdate) {
     const { data, error } = await supabase
       .from("categories")
       .update(updates)
       .eq("id", id)
+      .eq("tenant_id", tenantId)
       .select()
       .single();
     if (error) throw error;
     return data;
   },
-  async delete(id: string) {
+  async delete(id: string, tenantId: string) {
     const { error } = await supabase
       .from("categories")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
   }
 };
 
 // Serviços para Características
 export const characteristicsApi = {
-  async getAll() {
+  async getAll(tenantId: string) {
     const { data, error } = await supabase
       .from("characteristics")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("name");
     if (error) throw error;
     return data;
@@ -1249,35 +1522,38 @@ export const characteristicsApi = {
     if (error) throw error;
     return data;
   },
-  async update(id: string, updates: CharacteristicUpdate) {
+  async update(id: string, tenantId: string, updates: CharacteristicUpdate) {
     const { data, error } = await supabase
       .from("characteristics")
       .update(updates)
       .eq("id", id)
+      .eq("tenant_id", tenantId)
       .select()
       .single();
     if (error) throw error;
     return data;
   },
-  async delete(id: string) {
+  async delete(id: string, tenantId: string) {
     const { error } = await supabase
       .from("characteristics")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
   }
 };
 
 // Serviços para Características de Lote
 export const productLotCharacteristicsApi = {
-  async getByLot(lotId: string) {
+  async getByLot(lotId: string, tenantId: string) {
     const { data, error } = await supabase
       .from("product_lot_characteristics")
       .select(`
         *,
         characteristics (*)
       `)
-      .eq("lot_id", lotId);
+      .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
     return data;
   },
@@ -1290,38 +1566,42 @@ export const productLotCharacteristicsApi = {
     if (error) throw error;
     return data;
   },
-  async update(id: string, updates: ProductLotCharacteristicUpdate) {
+  async update(id: string, tenantId: string, updates: ProductLotCharacteristicUpdate) {
     const { data, error } = await supabase
       .from("product_lot_characteristics")
       .update(updates)
       .eq("id", id)
+      .eq("tenant_id", tenantId)
       .select()
       .single();
     if (error) throw error;
     return data;
   },
-  async delete(id: string) {
+  async delete(id: string, tenantId: string) {
     const { error } = await supabase
       .from("product_lot_characteristics")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
   },
-  async deleteByLot(lotId: string) {
+  async deleteByLot(lotId: string, tenantId: string) {
     const { error } = await supabase
       .from("product_lot_characteristics")
       .delete()
-      .eq("lot_id", lotId);
+      .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
   }
 };
 
 // Serviços para Atributos Sensoriais
 export const sensoryAttributesApi = {
-  async getAll() {
+  async getAll(tenantId: string) {
     const { data, error } = await supabase
       .from("sensory_attributes")
       .select("*")
+      .eq("tenant_id", tenantId)
       .order("name");
     if (error) throw error;
     return data;
@@ -1335,35 +1615,38 @@ export const sensoryAttributesApi = {
     if (error) throw error;
     return data;
   },
-  async update(id: string, updates: SensoryAttributeUpdate) {
+  async update(id: string, tenantId: string, updates: SensoryAttributeUpdate) {
     const { data, error } = await supabase
       .from("sensory_attributes")
       .update(updates)
       .eq("id", id)
+      .eq("tenant_id", tenantId)
       .select()
       .single();
     if (error) throw error;
     return data;
   },
-  async delete(id: string) {
+  async delete(id: string, tenantId: string) {
     const { error } = await supabase
       .from("sensory_attributes")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
   }
 };
 
 // Serviços para Análise Sensorial do Lote
 export const productLotSensoryApi = {
-  async getByLot(lotId: string) {
+  async getByLot(lotId: string, tenantId: string) {
     const { data, error } = await supabase
       .from("product_lot_sensory")
       .select(`
         *,
         sensory_attributes (*)
       `)
-      .eq("lot_id", lotId);
+      .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId);
     if (error) throw error;
     return data;
   },
@@ -1376,11 +1659,303 @@ export const productLotSensoryApi = {
     if (error) throw error;
     return data;
   },
-  async deleteByLot(lotId: string) {
+  async deleteByLot(lotId: string, tenantId: string) {
     const { error } = await supabase
       .from("product_lot_sensory")
       .delete()
+      .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId);
+    if (error) throw error;
+  }
+};
+
+// --- SERVIÇOS V3 - MARCA COLETIVA ---
+
+// Serviços para Certificações
+export const certificationsApi = {
+  async getAll(tenantId: string) {
+    const { data, error } = await supabase
+      .from("certifications")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .order("name");
+    if (error) throw error;
+    return data;
+  },
+  async getById(id: string, tenantId: string) {
+    const { data, error } = await supabase
+      .from("certifications")
+      .select("*")
+      .eq("id", id)
+      .eq("tenant_id", tenantId)
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async create(cert: CertificationInsert) {
+    const { data, error } = await supabase
+      .from("certifications")
+      .insert(cert)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async update(id: string, updates: Partial<CertificationInsert>) {
+    const { data, error } = await supabase
+      .from("certifications")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async delete(id: string) {
+    const { error } = await supabase
+      .from("certifications")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  },
+  // Buscar certificações públicas de um lote
+  async getPublicByLot(lotId: string) {
+    const { data, error } = await supabase
+      .from("certification_entities")
+      .select(`
+        certification_id,
+        certifications (*)
+      `)
+      .eq("entity_type", "lot")
+      .eq("entity_id", lotId);
+    if (error) throw error;
+    return (data || [])
+      .map((d: any) => d.certifications)
+      .filter((c: any) => c && c.is_public);
+  },
+  // Buscar entidades vinculadas a uma certificação
+  async getEntities(certificationId: string, tenantId: string) {
+    const { data, error } = await supabase
+      .from("certification_entities")
+      .select("*")
+      .eq("certification_id", certificationId)
+      .eq("tenant_id", tenantId);
+    if (error) throw error;
+    return data;
+  },
+  // Vincular certificação a entidade
+  async linkEntity(entity: CertificationEntityInsert) {
+    const { data, error } = await supabase
+      .from("certification_entities")
+      .insert(entity)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // Desvincular certificação de entidade
+  async unlinkEntity(certificationId: string, entityType: string, entityId: string) {
+    const { error } = await supabase
+      .from("certification_entities")
+      .delete()
+      .eq("certification_id", certificationId)
+      .eq("entity_type", entityType)
+      .eq("entity_id", entityId);
+    if (error) throw error;
+  },
+  // Sincronizar certificações de um lote (replace all)
+  async syncLotCertifications(lotId: string, certificationIds: string[], tenantId: string) {
+    // Remover vinculações existentes
+    await supabase
+      .from("certification_entities")
+      .delete()
+      .eq("entity_type", "lot")
+      .eq("entity_id", lotId)
+      .eq("tenant_id", tenantId);
+    // Inserir novas
+    if (certificationIds.length > 0) {
+      const inserts = certificationIds.map(cid => ({
+        certification_id: cid,
+        entity_type: "lot" as const,
+        entity_id: lotId,
+        tenant_id: tenantId,
+      }));
+      const { error } = await supabase
+        .from("certification_entities")
+        .insert(inserts);
+      if (error) throw error;
+    }
+  }
+};
+
+// Serviços para Produtores Internos
+export const internalProducersApi = {
+  async getAll(tenantId: string) {
+    const { data, error } = await supabase
+      .from("internal_producers")
+      .select("*, producers:cooperativa_id(id, name)")
+      .eq("tenant_id", tenantId)
+      .order("name");
+    if (error) throw error;
+    return data;
+  },
+  async getByCooperativa(cooperativaId: string, tenantId: string) {
+    const { data, error } = await supabase
+      .from("internal_producers")
+      .select("*")
+      .eq("cooperativa_id", cooperativaId)
+      .eq("tenant_id", tenantId)
+      .order("name");
+    if (error) throw error;
+    return data;
+  },
+  async create(producer: InternalProducerInsert) {
+    const { data, error } = await supabase
+      .from("internal_producers")
+      .insert(producer)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async bulkCreate(producers: InternalProducerInsert[]) {
+    const { data, error } = await supabase
+      .from("internal_producers")
+      .insert(producers)
+      .select();
+    if (error) throw error;
+    return data;
+  },
+  async update(id: string, updates: Partial<InternalProducerInsert>) {
+    const { data, error } = await supabase
+      .from("internal_producers")
+      .update(updates)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  async delete(id: string) {
+    const { error } = await supabase
+      .from("internal_producers")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+  },
+  // Contagem de produtores internos por lote (para exibição pública)
+  async countByLot(lotId: string) {
+    const { count, error } = await supabase
+      .from("product_lot_internal_producers")
+      .select("internal_producer_id", { count: "exact", head: true })
       .eq("lot_id", lotId);
     if (error) throw error;
+    return count || 0;
+  },
+  // Buscar produtores internos vinculados a um lote
+  async getByLot(lotId: string, tenantId: string) {
+    const { data, error } = await supabase
+      .from("product_lot_internal_producers")
+      .select(`
+        internal_producer_id,
+        internal_producers (*)
+      `)
+      .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId);
+    if (error) throw error;
+    return (data || []).map((d: any) => d.internal_producers).filter(Boolean);
+  },
+  // Sincronizar produtores internos de um lote
+  async syncLotProducers(lotId: string, internalProducerIds: string[], tenantId: string) {
+    await supabase
+      .from("product_lot_internal_producers")
+      .delete()
+      .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId);
+    if (internalProducerIds.length > 0) {
+      const inserts = internalProducerIds.map(pid => ({
+        lot_id: lotId,
+        internal_producer_id: pid,
+        tenant_id: tenantId,
+      }));
+      const { error } = await supabase
+        .from("product_lot_internal_producers")
+        .insert(inserts);
+      if (error) throw error;
+    }
+  }
+};
+
+// Serviços para Múltiplas Indústrias por Lote
+export const lotIndustriesApi = {
+  async getByLot(lotId: string, tenantId: string) {
+    const { data, error } = await supabase
+      .from("product_lot_industries")
+      .select(`
+        industry_id,
+        industries (*)
+      `)
+      .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId);
+    if (error) throw error;
+    return (data || []).map((d: any) => d.industries).filter(Boolean);
+  },
+  async syncLotIndustries(lotId: string, industryIds: string[], tenantId: string) {
+    await supabase
+      .from("product_lot_industries")
+      .delete()
+      .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId);
+    if (industryIds.length > 0) {
+      const inserts = industryIds.map(iid => ({
+        lot_id: lotId,
+        industry_id: iid,
+        tenant_id: tenantId,
+      }));
+      const { error } = await supabase
+        .from("product_lot_industries")
+        .insert(inserts);
+      if (error) throw error;
+    }
+  }
+};
+
+// Serviços para Configuração de Campos por Tenant
+export const fieldSettingsApi = {
+  async getAll(tenantId: string) {
+    const { data, error } = await supabase
+      .from("tenant_field_settings")
+      .select("*")
+      .eq("tenant_id", tenantId);
+    if (error) throw error;
+    return data;
+  },
+  async getByKey(tenantId: string, fieldKey: string) {
+    const { data, error } = await supabase
+      .from("tenant_field_settings")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("field_key", fieldKey)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  async upsert(setting: { tenant_id: string; field_key: string; enabled: boolean; required?: boolean }) {
+    const { data, error } = await supabase
+      .from("tenant_field_settings")
+      .upsert(setting, { onConflict: "tenant_id,field_key" })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+  // Helper: verificar se campo está habilitado (default: true se não configurado)
+  async isEnabled(tenantId: string, fieldKey: string): Promise<boolean> {
+    const setting = await this.getByKey(tenantId, fieldKey);
+    return setting?.enabled ?? true;
+  },
+  async isRequired(tenantId: string, fieldKey: string): Promise<boolean> {
+    const setting = await this.getByKey(tenantId, fieldKey);
+    return setting?.required ?? false;
   }
 };

@@ -1,11 +1,13 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, ShareNetwork, Copy, CaretDown, Tag, SpeakerHigh, Fingerprint } from "@phosphor-icons/react";
+import { ArrowLeft, ShareNetwork, Copy, CaretDown, Tag, SpeakerHigh, Fingerprint, FileText, Users } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { productLotsApi, producersApi, associationsApi } from "@/services/api";
+import { productLotsApi, producersApi, associationsApi, certificationsApi, internalProducersApi } from "@/services/api";
 import { useBranding } from "@/hooks/use-branding";
-import type { ProductLot, LotComponent } from "@/services/api";
+import type { LotComponent } from "@/services/api";
+import { useTenant } from "@/hooks/use-tenant";
+import { useTenantLabels } from "@/hooks/use-tenant-labels";
 
 // Componentes refatorados
 import { HeroSection } from "@/components/lote-details/HeroSection";
@@ -68,12 +70,16 @@ const LoteDetails = () => {
   const { codigo } = useParams();
   const navigate = useNavigate();
   const { branding } = useBranding();
+  const { tenant } = useTenant();
+  const labels = useTenantLabels();
   console.log('Branding na Página Pública:', branding);
   const [loteData, setLoteData] = useState<LoteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [producer, setProducer] = useState<any | null>(null);
   const [industry, setIndustry] = useState<any | null>(null);
   const [associations, setAssociations] = useState<any[]>([]);
+  const [lotCertifications, setLotCertifications] = useState<any[]>([]);
+  const [internalProducerCount, setInternalProducerCount] = useState(0);
   const [mapCoords, setMapCoords] = useState<{ lat: string; lon: string } | null>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -179,9 +185,10 @@ const LoteDetails = () => {
   // Carregar branding e configurações de vídeo
   useEffect(() => {
     const loadConfigs = async () => {
+      if (!tenant) return;
       try {
         const { systemConfigApi } = await import("@/services/api");
-        const videoConfigData = await systemConfigApi.getVideoConfig();
+        const videoConfigData = await systemConfigApi.getVideoConfig(tenant.id);
         setVideoConfig(videoConfigData);
         console.log('Video Config Carregada:', videoConfigData);
       } catch (error) {
@@ -194,14 +201,14 @@ const LoteDetails = () => {
       }
     };
     loadConfigs();
-  }, []);
+  }, [tenant]);
 
   useEffect(() => {
     const fetchLoteData = async () => {
-      if (!codigo) return;
+      if (!codigo || !tenant) return;
       
       try {
-        const data = await productLotsApi.getByCode(codigo);
+        const data = await productLotsApi.getByCode(codigo, tenant.id);
         setLoteData(data);
         productLotsApi.incrementViews(codigo).catch(() => {});
         
@@ -211,13 +218,13 @@ const LoteDetails = () => {
           const producerData = Array.isArray(data.producers) ? data.producers[0] : data.producers;
           if (producerData) {
             setProducer(producerData);
-            associationsApi.getByProducer(producerData.id).then(setAssociations).catch(() => {});
+            associationsApi.getByProducer(producerData.id, tenant.id).then(setAssociations).catch(() => {});
           }
         } else if (data.producer_id) {
           // Fallback: buscar dados do produtor se não vieram no join
           const [producerData, associationsData] = await Promise.all([
-            producersApi.getById(data.producer_id),
-            associationsApi.getByProducer(data.producer_id)
+            producersApi.getById(data.producer_id, tenant.id),
+            associationsApi.getByProducer(data.producer_id, tenant.id)
           ]);
           setProducer(producerData);
           setAssociations(associationsData);
@@ -227,11 +234,27 @@ const LoteDetails = () => {
         if (data.industry_id) {
           try {
             const { industriesApi } = await import("@/services/api");
-            const industryData = await industriesApi.getById(data.industry_id);
+            const industryData = await industriesApi.getById(data.industry_id, tenant.id);
             setIndustry(industryData);
           } catch (e) {
             console.error("Erro ao buscar indústria:", e);
           }
+        }
+
+        // Buscar certificações públicas do lote
+        try {
+          const certs = await certificationsApi.getPublicByLot(data.id);
+          setLotCertifications(certs || []);
+        } catch (e) {
+          console.error("Erro ao buscar certificações:", e);
+        }
+
+        // Contagem de produtores internos
+        try {
+          const count = await internalProducersApi.countByLot(data.id);
+          setInternalProducerCount(count);
+        } catch (e) {
+          console.error("Erro ao contar produtores internos:", e);
         }
         
         setLoading(false);
@@ -242,7 +265,7 @@ const LoteDetails = () => {
     };
 
     fetchLoteData();
-  }, [codigo]);
+  }, [codigo, tenant]);
 
   // Resetar countdown quando o vídeo é carregado
   useEffect(() => {
@@ -689,7 +712,7 @@ const LoteDetails = () => {
   
   // Garantir que temos o produtor correto (prioridade para o estado carregado ou do lote)
   const currentProducer = producer || loteData?.producers;
-  const producerName = currentProducer?.name || "Produtor não informado";
+  const producerName = currentProducer?.name || `${labels.producer} não informado(a)`;
 
   if (loading) {
     return (
@@ -1025,10 +1048,60 @@ const LoteDetails = () => {
               />
             )}
 
-            {/* 3. Análise Sensorial */}
+            {/* 3. Certificações Públicas */}
+            {lotCertifications.length > 0 && (
+              <div className="pt-12 sm:pt-16">
+                <div className="text-center mb-8">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-widest mb-3">
+                    Certificações
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Certificações do Lote</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+                  {lotCertifications.map((cert: any) => (
+                    <div key={cert.id} className="bg-white rounded-2xl border border-slate-100 p-5 flex items-start gap-3 shadow-sm">
+                      <div className="p-2 bg-emerald-50 rounded-xl shrink-0">
+                        <FileText size={20} className="text-emerald-600" weight="fill" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-slate-900 text-sm">{cert.name}</h4>
+                        {cert.issuing_body && <p className="text-xs text-slate-500">{cert.issuing_body}</p>}
+                        {cert.valid_until && (
+                          <p className="text-xs text-slate-400 mt-1">
+                            Válido até {new Date(cert.valid_until).toLocaleDateString("pt-BR")}
+                          </p>
+                        )}
+                        {cert.document_url && (
+                          <a
+                            href={cert.document_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-indigo-600 hover:underline mt-1 inline-block"
+                          >
+                            Ver documento PDF
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Produtores internos (marca coletiva) */}
+            {internalProducerCount > 0 && (
+              <div className="flex items-center justify-center gap-3 py-6 px-8 bg-blue-50 rounded-2xl max-w-md mx-auto mt-8">
+                <Users size={24} className="text-blue-600" weight="fill" />
+                <p className="text-sm font-bold text-blue-800">
+                  Este lote envolve <span className="text-lg">{internalProducerCount}</span> produtores associados
+                </p>
+              </div>
+            )}
+
+            {/* 4. Análise Sensorial */}
             <SensoryAnalysis loteData={loteData} branding={branding || undefined} />
 
-            {/* 4. Observações do Especialista */}
+            {/* 5. Observações do Especialista */}
             <LotObservations lotObservations={loteData.lot_observations} />
 
             {/* Nova Seção: Procedência e Certificação - Redesign Premium */}
@@ -1083,7 +1156,7 @@ const LoteDetails = () => {
                             {assoc.logo_url ? (
                               <img src={assoc.logo_url} alt={assoc.name} className="w-full h-full object-contain filter grayscale group-hover:grayscale-0 transition-all duration-500" />
                             ) : (
-                              <Building size={32} weight="duotone" className="text-slate-300" />
+                              <Buildings size={32} weight="duotone" className="text-slate-300" />
                             )}
                           </div>
                           <div className="text-left">
@@ -1105,7 +1178,7 @@ const LoteDetails = () => {
                             {industry.logo_url ? (
                               <img src={industry.logo_url} alt={industry.name} className="w-full h-full object-contain filter grayscale group-hover:grayscale-0 transition-all duration-500" />
                             ) : (
-                              <Building size={32} weight="duotone" className="text-slate-300" />
+                              <Buildings size={32} weight="duotone" className="text-slate-300" />
                             )}
                           </div>
                           <div className="text-left">

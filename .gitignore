@@ -17,6 +17,12 @@ dist-ssr
 .env.local
 .env.production
 
+# Cursor MCP config (pode conter credenciais sensíveis)
+.cursor/mcp.json
+
+# MCP servers (repositórios externos)
+.mcp-servers/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

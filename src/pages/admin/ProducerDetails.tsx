@@ -10,33 +10,26 @@ import {
   Envelope, 
   ArrowLeft, 
   PencilSimple, 
-  Copy, 
-  QrCode, 
-  ArrowSquareOut, 
   Buildings, 
-  Globe, 
   Package, 
   Users, 
   Plus, 
   X, 
-  Trash, 
-  Tag,
-  Eye,
-  ArrowRight,
-  DotsThreeCircle,
-  Calendar,
-  SealCheck,
-  UserCircle,
-  CircleNotch,
-  CheckCircle,
-  DownloadSimple,
-  ShareNetwork,
-  MapPin,
-  Scales,
-  Leaf,
-  Star,
-  Info,
-  Quotes
+  Tag, 
+  Eye, 
+  ArrowRight, 
+  Calendar, 
+  UserCircle, 
+  CircleNotch, 
+  DownloadSimple, 
+  ShareNetwork, 
+  MapPin, 
+  Leaf, 
+  Star, 
+  Info, 
+  Quotes,
+  ArrowSquareOut,
+  CheckCircle
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { ProducerForm } from "./Produtores";
@@ -61,6 +54,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import { useTenant } from "@/hooks/use-tenant";
+import { useTenantLabels } from "@/hooks/use-tenant-labels";
 
 const PRODUCER_STEPS = [
   { id: 1, title: "Responsável" },
@@ -130,6 +125,8 @@ const LocationMapViewer = ({ latitude, longitude, primaryColor }: { latitude: nu
 export default function ProducerDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { tenant } = useTenant();
+  const labels = useTenantLabels();
   const [producer, setProducer] = useState<any>(null);
   const [lots, setLots] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
@@ -160,17 +157,17 @@ export default function ProducerDetails() {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!tenant || !id) return;
       try {
-        const config = await systemConfigApi.getBrandingConfig();
+        const config = await systemConfigApi.getBrandingConfig(tenant.id);
         setBranding(config);
-        if (!id) return;
         setLoading(true);
         const [p, a, allA, b, l] = await Promise.all([
-          producersApi.getById(id),
-          associationsApi.getByProducer(id),
-          associationsApi.getAll(),
-          brandsApi.getByProducer(id),
-          productLotsApi.getByProducer(id)
+          producersApi.getById(id, tenant.id),
+          associationsApi.getByProducer(id, tenant.id),
+          associationsApi.getAll(tenant.id),
+          brandsApi.getByProducer(id, tenant.id),
+          productLotsApi.getByProducer(id, tenant.id)
         ]);
         setProducer(p);
         setAssociations(a);
@@ -184,15 +181,15 @@ export default function ProducerDetails() {
       }
     };
     loadData();
-  }, [id]);
+  }, [id, tenant]);
 
 
   const handleAssociationToggle = async (assocId: string, checked: boolean) => {
-    if (!id) return;
+    if (!id || !tenant) return;
     try {
-      if (checked) await associationsApi.addProducerToAssociation(id, assocId);
-      else await associationsApi.removeProducerFromAssociation(id, assocId);
-      const updated = await associationsApi.getByProducer(id);
+      if (checked) await associationsApi.addProducerToAssociation(id, assocId, tenant.id);
+      else await associationsApi.removeProducerFromAssociation(id, assocId, tenant.id);
+      const updated = await associationsApi.getByProducer(id, tenant.id);
       setAssociations(updated);
       toast.success("Associações atualizadas!");
     } catch (e) {
@@ -201,12 +198,13 @@ export default function ProducerDetails() {
   };
 
   const handleLotClick = async (lot: any) => {
+    if (!tenant) return;
     setSelectedLot(lot);
     setIsLotSheetOpen(true);
     setLoadingLotDetails(true);
     
     try {
-      const details = await productLotsApi.getById(lot.id);
+      const details = await productLotsApi.getById(lot.id, tenant.id);
       setLotDetails(details);
       
       // Gerar URL do QR Code
@@ -215,7 +213,7 @@ export default function ProducerDetails() {
         const url = await generateQRCodeUrl(details.code, details.category);
         setQrCodeUrl(url);
       } catch (error) {
-        setQrCodeUrl(`${window.location.origin}/lote/${details.code}`);
+        setQrCodeUrl(`${window.location.origin}/${tenant.slug}/lote/${details.code}`);
       }
     } catch (error) {
       toast.error("Erro ao carregar detalhes do lote");
@@ -369,7 +367,7 @@ export default function ProducerDetails() {
   };
 
   const handleCopyQRUrl = () => {
-    const url = qrCodeUrl || `${window.location.origin}/lote/${lotDetails?.code || ''}`;
+    const url = qrCodeUrl || `${window.location.origin}/${tenant?.slug}/lote/${lotDetails?.code || ''}`;
     navigator.clipboard.writeText(url);
     toast.success("Link copiado para a área de transferência!");
   };
@@ -411,7 +409,7 @@ export default function ProducerDetails() {
             <div className="space-y-1">
               <div className="flex items-center gap-3">
                 <h2 className="text-3xl font-black text-slate-900 tracking-tight">{producer.name}</h2>
-                <Badge className="bg-primary/10 text-primary border-0 font-black text-[10px] uppercase rounded-md px-2">Produtor Ativo</Badge>
+                <Badge className="bg-primary/10 text-primary border-0 font-black text-[10px] uppercase rounded-md px-2">{labels.producer} Ativo</Badge>
               </div>
               <div className="flex items-center gap-4 pt-1">
                 {producer.email && (
@@ -435,7 +433,7 @@ export default function ProducerDetails() {
               <PencilSimple size={18} weight="bold" /> Editar Perfil
             </Button>
             <Button onClick={() => setIsAssocSheetOpen(true)} className="rounded-xl font-bold text-white hover:opacity-90 shadow-lg shadow-primary/20 gap-2" style={{ backgroundColor: primaryColor }}>
-              <Users size={18} weight="bold" /> Gerenciar Associações
+              <Users size={18} weight="bold" /> Gerenciar {labels.associations}
             </Button>
           </div>
         </div>
@@ -473,7 +471,7 @@ export default function ProducerDetails() {
               <Card className="border-0 shadow-sm bg-white rounded-3xl overflow-hidden">
                 <CardHeader className="border-b border-slate-50 p-8">
                   <CardTitle className="text-xl font-black flex items-center gap-2">
-                    <Users size={24} style={{ color: primaryColor }} weight="fill" /> Associações e Cooperativas
+                    <Users size={24} style={{ color: primaryColor }} weight="fill" /> {labels.associations}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-8">
@@ -624,7 +622,7 @@ export default function ProducerDetails() {
                       <UserCircle size={32} weight="fill" />
                     </div>
                     <div>
-                      <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight">Editar Produtor</SheetTitle>
+                      <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight">Editar {labels.producer}</SheetTitle>
                       <SheetDescription className="text-slate-500 font-bold">Atualize as informações cadastrais.</SheetDescription>
                     </div>
                   </div>
@@ -650,8 +648,8 @@ export default function ProducerDetails() {
           <SheetContent className="w-full sm:max-w-[80vw] sm:rounded-l-[2.5rem] border-0 p-0 overflow-hidden shadow-2xl">
             <div className="h-full flex flex-col bg-white">
               <SheetHeader className="p-8 border-b border-slate-50 bg-slate-50/30 text-left">
-                <SheetTitle className="text-2xl font-black text-slate-900 tracking-tight">Vínculos de Associação</SheetTitle>
-                <SheetDescription className="text-slate-500 font-bold uppercase text-xs">Entidades que este produtor faz parte.</SheetDescription>
+                <SheetTitle className="text-2xl font-black text-slate-900 tracking-tight">Vínculos de {labels.association}</SheetTitle>
+                <SheetDescription className="text-slate-500 font-bold uppercase text-xs">Entidades que este {labels.producer.toLowerCase()} faz parte.</SheetDescription>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto p-8 space-y-4 min-h-0 text-left">
                 {allAssociations.map(assoc => {
@@ -781,7 +779,7 @@ export default function ProducerDetails() {
                             }}
                             asChild
                           >
-                            <a href={`/lote/${lotDetails.code}`} target="_blank" rel="noopener noreferrer">
+                            <a href={`/${tenant?.slug}/lote/${lotDetails.code}`} target="_blank" rel="noopener noreferrer">
                               <ArrowSquareOut size={20} weight="bold" />
                               Visualizar Página
                             </a>
@@ -808,7 +806,7 @@ export default function ProducerDetails() {
                               <div id="qr-code-container" className="p-2">
                                 <QRCodeSVG 
                                   id="qr-code-svg"
-                                  value={qrCodeUrl || `${window.location.origin}/lote/${lotDetails.code}`}
+                                  value={qrCodeUrl || `${window.location.origin}/${tenant?.slug}/lote/${lotDetails.code}`}
                                   size={180}
                                   level="H"
                                   includeMargin={false}
@@ -846,7 +844,7 @@ export default function ProducerDetails() {
                                   variant="secondary"
                                   className="rounded-2xl h-12 font-black text-white hover:opacity-90 border-0 gap-2 text-xs"
                                   style={{ backgroundColor: hexToRgba(primaryColor, 0.3) }}
-                                  onClick={() => window.open(`/lote/${lotDetails.code}`, '_blank')}
+                                  onClick={() => window.open(`/${tenant?.slug}/lote/${lotDetails.code}`, '_blank')}
                                 >
                                   <Eye size={18} weight="bold" />
                                   Testar
@@ -1237,12 +1235,13 @@ export default function ProducerDetails() {
               <Button onClick={() => setIsBrandDialogOpen(false)} variant="ghost" className="rounded-xl font-bold">Cancelar</Button>
               <Button 
                 onClick={async () => {
+                  if (!tenant) return;
                   setSavingBrand(true);
                   try {
-                    await brandsApi.create({ producer_id: id!, name: brandForm.name, slug: brandForm.slug });
+                    await brandsApi.create({ producer_id: id!, name: brandForm.name, slug: brandForm.slug, tenant_id: tenant.id });
                     toast.success("Marca criada!");
                     setIsBrandDialogOpen(false);
-                    const updated = await brandsApi.getByProducer(id!);
+                    const updated = await brandsApi.getByProducer(id!, tenant.id);
                     setBrands(updated);
                   } catch (e) {
                     toast.error("Erro ao criar marca");

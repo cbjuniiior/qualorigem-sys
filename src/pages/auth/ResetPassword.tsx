@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Lock, ArrowLeft, CheckCircle, Leaf } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
+import { useTenant } from "@/hooks/use-tenant";
 import { toast } from "sonner";
 import { authApi } from "@/services/api";
 
@@ -15,7 +16,9 @@ const ResetPassword = () => {
   const [confirmPassword, setPasswordConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const { branding } = useBranding();
+  const { tenant } = useTenant();
   const navigate = useNavigate();
+  const { tenantSlug } = useParams();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +37,8 @@ const ResetPassword = () => {
       setLoading(true);
       await authApi.updatePassword(password);
       toast.success("Senha atualizada com sucesso!");
-      navigate("/auth/login");
+      const slug = tenant?.slug || tenantSlug || 'default';
+      navigate(`/${slug}/auth/login`);
     } catch (error: any) {
       toast.error(error.message || "Erro ao atualizar senha");
     } finally {
@@ -44,6 +48,7 @@ const ResetPassword = () => {
 
   const primaryColor = branding.primaryColor || '#16a34a';
   const secondaryColor = branding.secondaryColor || '#22c55e';
+  const currentSlug = tenant?.slug || tenantSlug || 'default';
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 relative overflow-hidden">
@@ -138,7 +143,7 @@ const ResetPassword = () => {
 
         <div className="text-center pt-4 flex flex-col items-center gap-4">
           <Link 
-            to="/auth/login" 
+            to={`/${currentSlug}/auth/login`}
             className="inline-flex items-center text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] gap-2 hover:text-slate-600 transition-colors"
           >
             <ArrowLeft size={14} weight="bold" />

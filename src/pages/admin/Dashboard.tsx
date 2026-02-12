@@ -2,17 +2,14 @@ import { useState, useEffect } from "react";
 import {
   Users,
   Package,
-  TrendUp,
   Eye,
   Calendar,
   MapPin,
-  Medal,
   ChartBar,
-  ArrowUp,
-  ArrowDown,
   Ticket,
   Plus,
-  CaretRight
+  CaretRight,
+  Medal
 } from "@phosphor-icons/react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +17,8 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import { producersApi, productLotsApi, associationsApi, industriesApi, productLotCharacteristicsApi } from "@/services/api";
 import { useBranding } from "@/hooks/use-branding";
 import { useAuth } from "@/hooks/use-auth";
+import { useTenant } from "@/hooks/use-tenant";
+import { useTenantLabels } from "@/hooks/use-tenant-labels";
 import { toast } from "sonner";
 import { ProducerForm } from "./Produtores";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -54,6 +53,8 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const { branding } = useBranding();
   const { user } = useAuth();
+  const { tenant } = useTenant();
+  const labels = useTenantLabels();
   const [showProducerSheet, setShowProducerSheet] = useState(false);
   const [showLotSheet, setShowLotSheet] = useState(false);
   const [lotCurrentStep, setLotCurrentStep] = useState(1);
@@ -99,11 +100,12 @@ const Dashboard = () => {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
+      if (!tenant) return;
       try {
         setLoading(true);
         const [producers, lots] = await Promise.all([
-          producersApi.getAll(),
-          productLotsApi.getAll(),
+          producersApi.getAll(tenant.id),
+          productLotsApi.getAll(tenant.id),
         ]);
 
         const categoryCount = lots.reduce((acc: any, lot) => {
@@ -141,15 +143,15 @@ const Dashboard = () => {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [tenant]);
 
   useEffect(() => {
-    if (showLotSheet) {
+    if (showLotSheet && tenant) {
       setLotCurrentStep(1);
       Promise.all([
-        producersApi.getAll(),
-        associationsApi.getAll(),
-        industriesApi.getAll()
+        producersApi.getAll(tenant.id),
+        associationsApi.getAll(tenant.id),
+        industriesApi.getAll(tenant.id)
       ]).then(([p, a, i]) => {
         setLotProducers(p);
         setLotAssociations(a);
@@ -157,10 +159,10 @@ const Dashboard = () => {
       });
 
       const generateCode = async () => {
-        if (!lotFormData.code) {
+        if (!lotFormData.code && tenant?.id) {
           try {
             const { generateLotCode } = await import("@/utils/lot-code-generator");
-            const newCode = await generateLotCode();
+            const newCode = await generateLotCode(tenant.id);
             if (newCode) {
               setLotFormData((prev) => ({ ...prev, code: newCode }));
             }
@@ -171,9 +173,10 @@ const Dashboard = () => {
       };
       generateCode();
     }
-  }, [showLotSheet]);
+  }, [showLotSheet, tenant]);
 
   const handleLotCreate = async () => {
+    if (!tenant) return;
     try {
       const lotData = {
         ...lotFormData,
@@ -183,17 +186,18 @@ const Dashboard = () => {
         longitude: lotFormData.longitude ? parseFloat(lotFormData.longitude) : null,
         altitude: lotFormData.altitude ? parseInt(lotFormData.altitude) : null,
         average_temperature: lotFormData.average_temperature ? parseFloat(lotFormData.average_temperature) : null,
+        tenant_id: tenant.id
       };
 
       const { components, characteristics, ...cleanLotData } = lotData;
       const newLot = await productLotsApi.create(cleanLotData as any);
       
       if (lotFormData.components && lotFormData.components.length > 0) {
-        await Promise.all(lotFormData.components.map(c => productLotsApi.createComponent({ ...c, lot_id: newLot.id })));
+        await Promise.all(lotFormData.components.map(c => productLotsApi.createComponent({ ...c, lot_id: newLot.id, tenant_id: tenant.id })));
       }
 
       if (characteristics && characteristics.length > 0) {
-        await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: newLot.id })));
+        await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: newLot.id, tenant_id: tenant.id })));
       }
 
       toast.success("Lote criado com sucesso!");
@@ -305,7 +309,7 @@ const Dashboard = () => {
           ) : (
             <>
               <StatCard
-                title="Produtores"
+                title={labels.producers}
                 value={stats.totalProducers}
                 icon={Users}
                 description="Parceiros ativos no sistema"
@@ -351,7 +355,7 @@ const Dashboard = () => {
               <Button 
                 variant="ghost" 
                 className="font-bold hover:bg-primary/5 rounded-xl" 
-                onClick={() => window.location.href='/admin/lotes'}
+                onClick={() => window.location.href=`/${tenant?.slug}/admin/lotes`}
                 style={{ color: primaryColor }}
               >
                 Ver Todos <CaretRight className="ml-1 h-4 w-4" weight="bold" />
@@ -464,7 +468,7 @@ const Dashboard = () => {
               </button>
               
               <button 
-                onClick={() => window.location.href='/admin/industria'}
+                onClick={() => window.location.href=`/${tenant?.slug}/admin/industria`}
                 className="flex flex-col items-center gap-3 p-6 bg-blue-50 rounded-2xl hover:bg-blue-100 transition-all group"
               >
                 <div className="p-3 bg-white rounded-xl shadow-sm text-blue-600 group-hover:scale-110 transition-transform">

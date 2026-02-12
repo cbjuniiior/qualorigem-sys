@@ -21,6 +21,8 @@ O QualOrigem-Sys utiliza o Supabase como backend, incluindo:
 Para produção, recomendamos self-hosting via EasyPanel ou Docker.
 Consulte o guia [Deploy com EasyPanel](./DEPLOY_EASYPANEL.md).
 
+**Conectar o projeto ao Supabase self-hosted:** copie `.env.example` para `.env` e preencha com a URL e a anon key do seu servidor (mesmas do painel/`.env` do Supabase na VPS). O app usa `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
+
 ## Configurando o Banco de Dados
 
 ### Passo 1: Execute o Schema Completo

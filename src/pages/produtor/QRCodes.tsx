@@ -5,15 +5,15 @@ import {
   DownloadSimple, 
   Printer, 
   Copy, 
-  Package,
-  Eye,
-  MagnifyingGlass,
-  FunnelSimple,
-  ArrowRight,
-  Info,
-  CheckCircle,
-  ShareNetwork,
-  CaretRight,
+  Package, 
+  Eye, 
+  MagnifyingGlass, 
+  FunnelSimple, 
+  ArrowRight, 
+  Info, 
+  CheckCircle, 
+  ShareNetwork, 
+  CaretRight, 
   Calendar
 } from "@phosphor-icons/react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,14 +21,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue, 
 } from "@/components/ui/select";
 import { ProducerLayout } from "@/components/layout/ProducerLayout";
 import { useAuth } from "@/hooks/use-auth";
+import { useTenant } from "@/hooks/use-tenant";
 import { productLotsApi, systemConfigApi } from "@/services/api";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -36,6 +37,7 @@ import { QRCodeSVG } from "qrcode.react";
 
 export const ProducerQRCodes = () => {
   const { user } = useAuth();
+  const { tenant } = useTenant();
   const [lotes, setLotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -45,11 +47,12 @@ export const ProducerQRCodes = () => {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!tenant || !user) return;
       try {
         setLoading(true);
         const [brand, data] = await Promise.all([
-          systemConfigApi.getBrandingConfig(),
-          productLotsApi.getByProducer(user?.id)
+          systemConfigApi.getBrandingConfig(tenant.id),
+          productLotsApi.getByProducer(user.id, tenant.id)
         ]);
         setBranding(brand);
         setLotes(data || []);
@@ -61,7 +64,7 @@ export const ProducerQRCodes = () => {
           try {
             urls[lote.id] = await generateQRCodeUrl(lote.code, lote.category);
           } catch {
-            urls[lote.id] = `${window.location.origin}/lote/${lote.code}`;
+            urls[lote.id] = `${window.location.origin}/${tenant.slug}/lote/${lote.code}`;
           }
         }
         setQrUrls(urls);
@@ -72,7 +75,7 @@ export const ProducerQRCodes = () => {
       }
     };
     loadData();
-  }, [user]);
+  }, [user, tenant]);
 
   const handleCopyUrl = (loteId: string) => {
     const url = qrUrls[loteId];
@@ -90,6 +93,7 @@ export const ProducerQRCodes = () => {
   });
 
   const primaryColor = branding?.primaryColor || '#16a34a';
+  const tenantSlug = tenant?.slug || 'default';
 
   return (
     <ProducerLayout>
@@ -216,7 +220,7 @@ export const ProducerQRCodes = () => {
                     variant="white" 
                     className="rounded-xl font-bold text-slate-400 border-0 hover:bg-white transition-all group/btn"
                   >
-                    <Link to={`/produtor/lotes`}>
+                    <Link to={`/${tenantSlug}/produtor/lotes`}>
                       <ArrowRight size={18} weight="bold" className="group-hover/btn:text-primary transition-colors" style={{ '--primary': primaryColor } as any} />
                     </Link>
                   </Button>
@@ -274,5 +278,3 @@ export const ProducerQRCodes = () => {
     </ProducerLayout>
   );
 };
-
-export default ProducerQRCodes;
