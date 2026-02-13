@@ -772,7 +772,7 @@ const LoteDetails = () => {
           </div>
 
           {/* Container de Conteúdo - Mobile First */}
-          <div className="flex-1 flex flex-col items-center relative z-10 py-12 px-6 sm:py-16 sm:px-10 h-full w-full overflow-hidden">
+          <div className="flex-1 flex flex-col items-center relative z-10 py-8 px-4 sm:px-6 sm:py-16 sm:px-10 h-full w-full overflow-hidden">
             {/* Topo - Logo ou Identificação sutil */}
             <div className="w-full flex justify-center opacity-80 mb-auto">
               {branding?.logoUrl && (
@@ -959,7 +959,7 @@ const LoteDetails = () => {
                   variant="ghost"
                   size="sm"
                   onClick={showLotInfo}
-                  className="group flex items-center gap-1.5 text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 rounded-lg transition-all duration-200 hover:scale-[1.02] font-black uppercase tracking-wider"
+                  className="group flex items-center gap-1.5 text-[10px] sm:text-xs px-3 sm:px-3 py-2 sm:py-1.5 min-h-[44px] sm:h-8 rounded-lg transition-all duration-200 hover:scale-[1.02] font-black uppercase tracking-wider"
                   style={{
                     color: branding?.primaryColor || '#16a34a',
                   }}
@@ -980,7 +980,7 @@ const LoteDetails = () => {
                   variant="ghost"
                   size="sm"
                   onClick={handleShare}
-                  className="group flex items-center gap-1.5 text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 rounded-lg transition-all duration-200 hover:scale-[1.02] font-black uppercase tracking-wider"
+                  className="group flex items-center gap-1.5 text-[10px] sm:text-xs px-3 sm:px-3 py-2 sm:py-1.5 min-h-[44px] sm:h-8 rounded-lg transition-all duration-200 hover:scale-[1.02] font-black uppercase tracking-wider"
                   style={{
                     color: branding?.secondaryColor || '#22c55e',
                   }}
@@ -1004,7 +1004,7 @@ const LoteDetails = () => {
                     navigator.clipboard.writeText(window.location.href);
                     toast.success("URL copiada para a área de transferência!");
                   }}
-                  className="group flex items-center gap-1.5 text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 rounded-lg transition-all duration-200 hover:scale-[1.02] font-black uppercase tracking-wider"
+                  className="group flex items-center gap-1.5 text-[10px] sm:text-xs px-3 sm:px-3 py-2 sm:py-1.5 min-h-[44px] sm:h-8 rounded-lg transition-all duration-200 hover:scale-[1.02] font-black uppercase tracking-wider"
                   style={{
                     color: branding?.accentColor || '#10b981',
                   }}

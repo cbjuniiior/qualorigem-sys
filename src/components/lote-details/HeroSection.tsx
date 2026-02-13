@@ -55,7 +55,7 @@ export const HeroSection = ({ loteData, isBlend, blendComponentsCount, producerN
       />
        
       {/* 4. Container Principal */}
-      <div className="relative z-10 flex-1 flex flex-col container mx-auto px-6 max-w-7xl py-12 md:py-20">
+      <div className="relative z-10 flex-1 flex flex-col container mx-auto px-4 sm:px-6 max-w-7xl py-8 sm:py-12 md:py-20">
         
         {/* Topo - Logo Premium */}
         <div className="flex justify-center opacity-0 animate-[fadeIn_1s_ease-out_forwards] mb-12">

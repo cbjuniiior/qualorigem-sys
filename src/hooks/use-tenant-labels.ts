@@ -17,6 +17,9 @@ export interface TenantLabels {
   // Propriedade (nome curto para uso em "Galeria da X", "Sobre a X")
   property: string;
 
+  /** Saudação quando não há nome do usuário (ex: "Produtor" ou "Cooperado") */
+  producerGreeting: string;
+
   // Flags
   isMarcaColetiva: boolean;
   isIG: boolean;
@@ -50,6 +53,7 @@ export function useTenantLabels(): TenantLabels {
         association: "Parceiro",
         associations: "Parceiros",
         property: "Cooperativa",
+        producerGreeting: "Cooperado",
         isMarcaColetiva: true,
         isIG: false,
         tenantType,
@@ -67,6 +71,7 @@ export function useTenantLabels(): TenantLabels {
       association: "Associação",
       associations: "Associações",
       property: "Propriedade",
+      producerGreeting: "Produtor",
       isMarcaColetiva: false,
       isIG,
       tenantType,

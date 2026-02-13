@@ -261,7 +261,7 @@ const PlatformSystemTypes = () => {
             <Skeleton className="h-5 w-96" />
           </div>
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden">
+            <Card key={i} className="border-0 shadow-lg bg-white/95 rounded-2xl border-slate-200/50 overflow-hidden">
               <Skeleton className="h-2 w-full" />
               <CardHeader>
                 <div className="flex items-start justify-between gap-4">
@@ -286,10 +286,10 @@ const PlatformSystemTypes = () => {
     <PlatformLayout>
       <div className="space-y-8">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+          <h1 className="text-3xl font-black text-white tracking-tight">
             Tipos de Sistema
           </h1>
-          <p className="text-slate-500 font-medium mt-1">
+          <p className="text-slate-400 font-medium mt-1">
             Configure os módulos e campos padrão para cada tipo de cliente na plataforma.
           </p>
         </div>
@@ -299,13 +299,13 @@ const PlatformSystemTypes = () => {
           const count = tenantCounts[t.type_key] ?? 0;
           const expanded = expandedKeys.has(t.type_key);
           const cfg = configs[t.type_key];
-          const typeColor = t.color || "#4f46e5";
+          const typeColor = t.color || "#a3e635";
 
           return (
             <Card
               key={t.type_key}
-              className={`group border-0 shadow-sm bg-white rounded-2xl overflow-hidden transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 ${
-                expanded ? "shadow-md ring-1 ring-slate-200" : ""
+              className={`group border-0 shadow-lg bg-white/95 rounded-2xl border-slate-200/50 overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 ${
+                expanded ? "shadow-xl ring-1 ring-slate-200" : ""
               }`}
             >
               <div
@@ -355,9 +355,10 @@ const PlatformSystemTypes = () => {
 
               <CardContent className="pt-0">
                 <Button
+                  type="button"
                   variant="ghost"
                   size="sm"
-                  className="rounded-xl font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 mb-4 -ml-2 transition-colors"
+                  className="rounded-xl font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 mb-4 -ml-2 transition-colors focus-visible:ring-2 focus-visible:ring-lime-400/50 focus-visible:ring-offset-2"
                   onClick={() => toggleExpanded(t.type_key)}
                 >
                   {expanded ? (
@@ -440,7 +441,7 @@ const PlatformSystemTypes = () => {
                     </div>
 
                     <Button
-                      className="w-full rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+                      className="w-full rounded-xl font-bold bg-lime-400 hover:bg-lime-300 text-slate-900 transition-colors focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
                       onClick={() => handleSave(t.type_key)}
                       disabled={saving[t.type_key]}
                     >

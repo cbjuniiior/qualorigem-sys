@@ -39,7 +39,7 @@ const Login = () => {
       } else if (tenantSlug) {
         navigate(`/${tenantSlug}/admin`, { replace: true });
       } else {
-        navigate("/default/admin", { replace: true });
+        navigate("/", { replace: true });
       }
     }
   }, [loading, user, navigate, tenant, tenantSlug, from]);
@@ -74,10 +74,10 @@ const Login = () => {
 
   const primaryColor = branding.primaryColor || '#16a34a';
   const secondaryColor = branding.secondaryColor || '#22c55e';
-  const currentSlug = tenant?.slug || tenantSlug || 'default';
+  const currentSlug = tenant?.slug ?? tenantSlug ?? '';
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
       {/* Elementos Decorativos Minimalistas */}
       <div className="absolute top-[-10%] right-[-5%] w-[400px] h-[400px] rounded-full blur-[120px] opacity-10 pointer-events-none" style={{ backgroundColor: primaryColor }} />
       <div className="absolute bottom-[-10%] left-[-5%] w-[300px] h-[300px] rounded-full blur-[100px] opacity-10 pointer-events-none" style={{ backgroundColor: secondaryColor }} />
@@ -88,7 +88,7 @@ const Login = () => {
         <div className="text-center space-y-6">
           <div className="flex flex-col items-center gap-6">
             <Link 
-              to={`/${currentSlug}`} 
+              to={currentSlug ? `/${currentSlug}` : '/'} 
               className="inline-flex items-center text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] gap-2 hover:text-slate-600 transition-colors mb-2"
             >
               <ArrowLeft size={14} weight="bold" />
@@ -123,7 +123,7 @@ const Login = () => {
 
         {/* Card de Login Minimalista */}
         <Card className="border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.04)] bg-white/80 backdrop-blur-xl rounded-[2.5rem] overflow-hidden">
-          <CardContent className="p-10">
+          <CardContent className="p-5 sm:p-10">
             <form onSubmit={handleSubmit} className="space-y-8">
               <div className="space-y-3">
                 <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">

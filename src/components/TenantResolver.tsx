@@ -3,6 +3,8 @@ import { Outlet, useParams } from "react-router-dom";
 import { TenantProvider, useTenant } from "@/hooks/use-tenant";
 import { useBranding, BrandingConfig } from "@/hooks/use-branding";
 import { systemConfigApi } from "@/services/api";
+import TenantNotFound from "@/pages/TenantNotFound";
+import TenantSuspended from "@/pages/TenantSuspended";
 
 const TenantLoadingCheck = () => {
   const { isLoading, error, tenant } = useTenant();
@@ -74,15 +76,13 @@ const TenantLoadingCheck = () => {
     );
   }
 
-  if (error || (!tenant && tenantSlug !== 'platform')) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen text-center p-4">
-        <h1 className="text-2xl font-bold mb-2">Organização não encontrada</h1>
-        <p className="text-muted-foreground">
-          Não foi possível encontrar a organização "{tenantSlug}".
-        </p>
-      </div>
-    );
+  if (error || (!tenant && tenantSlug !== "platform")) {
+    return <TenantNotFound />;
+  }
+
+  // Tenant existe mas está suspenso (inativo): bloquear acesso e mostrar mensagem amigável
+  if (tenant && tenant.status === "suspended") {
+    return <TenantSuspended />;
   }
 
   return <Outlet />;

@@ -42,9 +42,9 @@ export const ProducerLayout = ({ children }: ProducerLayoutProps) => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
 
-  // Prefixo da URL baseada no tenant
-  const tenantSlug = tenant?.slug || 'default';
-  const baseUrl = `/${tenantSlug}/produtor`;
+  // Prefixo da URL baseada no tenant (sem fallback para default)
+  const tenantSlug = tenant?.slug ?? '';
+  const baseUrl = tenantSlug ? `/${tenantSlug}/produtor` : '/';
 
   const navigation = [
     { name: "Dashboard", href: `${baseUrl}`, icon: Layout },
@@ -57,7 +57,7 @@ export const ProducerLayout = ({ children }: ProducerLayoutProps) => {
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate(`/${tenantSlug}/auth/login`);
+      navigate(tenantSlug ? `/${tenantSlug}/auth/login` : '/');
     } catch (error) {
       toast.error("Erro ao fazer logout");
     }
@@ -127,8 +127,8 @@ export const ProducerLayout = ({ children }: ProducerLayoutProps) => {
       </aside>
 
       <div className="lg:pl-72 flex flex-col min-h-screen">
-        <header className="sticky top-0 z-40 flex h-20 shrink-0 items-center gap-x-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-md px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
-          <Button variant="ghost" size="icon" className="lg:hidden text-slate-600" onClick={() => setSidebarOpen(true)}>
+        <header className="sticky top-0 z-40 flex h-16 sm:h-20 shrink-0 items-center gap-x-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-md px-3 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+          <Button variant="ghost" size="icon" className="lg:hidden text-slate-600 min-h-[44px] min-w-[44px]" onClick={() => setSidebarOpen(true)}>
             <List className="h-6 w-6" />
           </Button>
 
@@ -139,7 +139,7 @@ export const ProducerLayout = ({ children }: ProducerLayoutProps) => {
             </div>
             
             <div className="flex items-center gap-x-4 lg:gap-x-6">
-              <button type="button" className="p-2.5 text-slate-400 hover:text-primary transition-colors relative">
+              <button type="button" className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-primary transition-colors relative">
                 <Bell className="h-6 w-6" />
                 <span className="absolute top-2 right-2 flex h-2 w-2">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
@@ -151,7 +151,7 @@ export const ProducerLayout = ({ children }: ProducerLayoutProps) => {
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="-m-1.5 flex items-center p-1.5 hover:opacity-80 transition-opacity">
+                  <button className="-m-1.5 flex items-center p-1.5 min-h-[44px] min-w-[44px] hover:opacity-80 transition-opacity">
                     <Avatar className="h-9 w-9 border-2 border-white shadow-sm ring-1 ring-slate-200">
                       <AvatarImage src="" />
                       <AvatarFallback className="bg-primary text-white text-xs font-black">{userInitials}</AvatarFallback>
@@ -187,7 +187,7 @@ export const ProducerLayout = ({ children }: ProducerLayoutProps) => {
           </div>
         </main>
 
-        <footer className="py-6 border-t border-slate-200/60 px-8 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">
+        <footer className="py-6 border-t border-slate-200/60 px-4 sm:px-8 text-center text-[10px] font-black uppercase tracking-widest text-slate-300">
           {branding?.siteTitle?.split(' - ')[0] || "GeoTrace"} Pro &copy; 2026 - Rastreabilidade de Origem
         </footer>
       </div>
@@ -197,13 +197,13 @@ export const ProducerLayout = ({ children }: ProducerLayoutProps) => {
         <div className="lg:hidden fixed inset-0 z-[60] flex">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setSidebarOpen(false)} />
           <div className="relative flex w-full max-w-xs flex-1 flex-col bg-white animate-in slide-in-from-left duration-300 shadow-2xl">
-            <div className="absolute right-0 top-0 -mr-12 pt-4">
-              <Button variant="ghost" className="text-white" onClick={() => setSidebarOpen(false)}><X className="h-6 w-6" /></Button>
+            <div className="flex shrink-0 items-center justify-between h-16 px-4 border-b border-slate-100">
+              <span className="text-lg font-black text-slate-900">{branding?.siteTitle?.split(' - ')[0] || "GeoTrace"} <span className="text-primary">PRO</span></span>
+              <Button variant="ghost" size="icon" className="min-h-[44px] min-w-[44px] text-slate-600" onClick={() => setSidebarOpen(false)}>
+                <X className="h-6 w-6" />
+              </Button>
             </div>
             <div className="flex grow flex-col gap-y-5 overflow-y-auto px-6 pb-4">
-              <div className="flex h-20 shrink-0 items-center py-6">
-                <span className="text-xl font-black text-slate-900">{branding?.siteTitle?.split(' - ')[0] || "GeoTrace"} <span className="text-primary">PRO</span></span>
-              </div>
               <nav className="flex flex-1 flex-col">
                 <ul role="list" className="flex flex-1 flex-col gap-y-1">
                   {navigation.map((item) => (

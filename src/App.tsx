@@ -24,6 +24,7 @@ import { ProducerQRCodes } from "./pages/produtor/QRCodes";
 import { ProducerMetricas } from "./pages/produtor/Metricas";
 import { ProducerConfiguracoes } from "./pages/produtor/Configuracoes";
 import NotFound from "./pages/NotFound";
+import RootPlaceholder from "./pages/RootPlaceholder";
 import ProducerDetails from "./pages/admin/ProducerDetails";
 import Configuracoes from "./pages/admin/Configuracoes";
 import Usuarios from "./pages/admin/Usuarios";
@@ -42,10 +43,10 @@ import PlatformSystemTypes from "./pages/platform/SystemTypes";
 
 const queryClient = new QueryClient();
 
-/** Redireciona /lote/:codigo para /default/lote/:codigo (evita interpretar "lote" como tenant) */
-const RedirectLoteToDefault = () => {
+/** Redireciona /lote/:codigo para /?lote=:codigo (sem tenant default) */
+const RedirectLoteToRoot = () => {
   const { codigo } = useParams();
-  return <Navigate to={`/default/lote/${codigo}`} replace />;
+  return <Navigate to={`/?lote=${codigo}`} replace />;
 };
 
 const App = () => (
@@ -57,13 +58,13 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              {/* Redirecionamento da raiz para o tenant default temporariamente */}
-              <Route path="/" element={<Navigate to="/default" replace />} />
+              {/* Página na raiz: não redireciona para tenant (landing específica pode ser feita depois) */}
+              <Route path="/" element={<RootPlaceholder />} />
 
-              {/* Redirecionamentos para caminhos legados (evita interpretar "auth"/"lote" como tenant) */}
-              <Route path="/auth/login" element={<Navigate to="/default/auth/login" replace />} />
-              <Route path="/auth/reset-password" element={<Navigate to="/default/auth/reset-password" replace />} />
-              <Route path="/lote/:codigo" element={<RedirectLoteToDefault />} />
+              {/* Redirecionamentos para caminhos legados: raiz (sem tenant default) */}
+              <Route path="/auth/login" element={<Navigate to="/" replace />} />
+              <Route path="/auth/reset-password" element={<Navigate to="/" replace />} />
+              <Route path="/lote/:codigo" element={<RedirectLoteToRoot />} />
 
               {/* Login da Plataforma (sem proteção) */}
               <Route path="/platform/login" element={<PlatformLogin />} />

@@ -915,6 +915,30 @@ export type Database = {
           }
         ]
       }
+      platform_settings: {
+        Row: {
+          id: string
+          favicon_url: string | null
+          site_title: string
+          site_description: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          favicon_url?: string | null
+          site_title?: string
+          site_description?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          favicon_url?: string | null
+          site_title?: string
+          site_description?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       product_lot_sensory: {
         Row: {
           id: string

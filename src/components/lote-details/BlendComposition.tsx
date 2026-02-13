@@ -43,7 +43,7 @@ export const BlendComposition = ({ blendComponents, harvestYear, quantity, unit,
     <div className="mb-12">
       <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
         {/* Header - Redesign Premium */}
-        <div className="p-8 sm:p-10 border-b border-gray-100">
+        <div className="p-4 sm:p-10 border-b border-gray-100">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
             <div className="flex items-start gap-4">
               <div className="p-3 bg-slate-50 rounded-2xl" style={{ color: primaryColor }}>

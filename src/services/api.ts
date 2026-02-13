@@ -26,6 +26,7 @@ export type Certification = Tables<"certifications">;
 export type CertificationEntity = Tables<"certification_entities">;
 export type InternalProducer = Tables<"internal_producers">;
 export type TenantFieldSetting = Tables<"tenant_field_settings">;
+export type PlatformSettings = Tables<"platform_settings">;
 
 export type ProducerInsert = TablesInsert<"producers">;
 export type ProductLotInsert = TablesInsert<"product_lots">;
@@ -994,7 +995,7 @@ export const authApi = {
   },
   async resetPassword(email: string) {
     const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/default/auth/reset-password`,
+      redirectTo: `${window.location.origin}/`,
     });
     if (error) throw error;
     return data;
@@ -1226,6 +1227,36 @@ export const systemConfigApi = {
       siteDescription: 'Plataforma premium para rastreabilidade de produtos de origem.'
     };
   }
+};
+
+const PLATFORM_SETTINGS_ID = "00000000-0000-0000-0000-000000000001" as const;
+
+export const platformSettingsApi = {
+  async get() {
+    const { data, error } = await supabase
+      .from("platform_settings")
+      .select("*")
+      .eq("id", PLATFORM_SETTINGS_ID)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  async upsert(settings: { favicon_url?: string | null; site_title?: string; site_description?: string | null }) {
+    const { data, error } = await supabase
+      .from("platform_settings")
+      .upsert(
+        {
+          id: PLATFORM_SETTINGS_ID,
+          ...settings,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      )
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
 };
 
 // Serviços para Associações
@@ -1679,8 +1710,12 @@ export const certificationsApi = {
       .select("*")
       .eq("tenant_id", tenantId)
       .order("name");
-    if (error) throw error;
-    return data;
+    if (error) {
+      // Tabela pode não existir se MIGRATION_V3 não foi aplicada (404)
+      if (error.code === "PGRST301" || (error as any).status === 404) return [];
+      throw error;
+    }
+    return data ?? [];
   },
   async getById(id: string, tenantId: string) {
     const { data, error } = await supabase
@@ -1728,7 +1763,10 @@ export const certificationsApi = {
       `)
       .eq("entity_type", "lot")
       .eq("entity_id", lotId);
-    if (error) throw error;
+    if (error) {
+      if (error.code === "PGRST301" || (error as any).status === 404) return [];
+      throw error;
+    }
     return (data || [])
       .map((d: any) => d.certifications)
       .filter((c: any) => c && c.is_public);
@@ -1793,7 +1831,7 @@ export const internalProducersApi = {
   async getAll(tenantId: string) {
     const { data, error } = await supabase
       .from("internal_producers")
-      .select("*, producers:cooperativa_id(id, name)")
+      .select("*")
       .eq("tenant_id", tenantId)
       .order("name");
     if (error) throw error;

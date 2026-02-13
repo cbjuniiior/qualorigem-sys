@@ -231,7 +231,7 @@ const Index = () => {
               variant="link" 
               size="sm"
               className="text-white/30 hover:text-white/60 h-auto p-0 text-[10px] font-bold uppercase tracking-widest transition-colors"
-              onClick={() => navigate(`/${tenant?.slug || 'default'}/auth/login`)}
+              onClick={() => navigate(tenant?.slug ? `/${tenant.slug}/auth/login` : '/')}
             >
               Acesso Restrito
             </Button>

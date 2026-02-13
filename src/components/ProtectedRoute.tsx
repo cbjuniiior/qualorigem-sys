@@ -111,7 +111,7 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   if (!user) {
-    const loginPath = tenant ? `/${tenant.slug}/auth/login` : "/default/auth/login";
+    const loginPath = tenant ? `/${tenant.slug}/auth/login` : "/";
     return <Navigate to={loginPath} state={{ from: location }} replace />;
   }
 

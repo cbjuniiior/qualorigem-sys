@@ -12,11 +12,13 @@ import {
   Leaf,
   CaretDown,
   UserCircle,
-  Buildings,
-  Tag,
+  Handshake,
   Bell,
   MagnifyingGlass,
-  SquaresFour
+  SquaresFour,
+  UsersThree,
+  Certificate,
+  Factory
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
@@ -47,16 +49,16 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
 
-  // Prefixo da URL baseada no tenant
-  const tenantSlug = tenant?.slug || 'default';
-  const baseUrl = `/${tenantSlug}/admin`;
+  // Prefixo da URL baseada no tenant (sem fallback para default)
+  const tenantSlug = tenant?.slug ?? '';
+  const baseUrl = tenantSlug ? `/${tenantSlug}/admin` : '/';
 
   // Menu dinâmico baseado no tipo de tenant
   const baseNavigation = [
     { name: "Dashboard", href: `${baseUrl}`, icon: Layout },
-    { name: labels.associations, href: `${baseUrl}/associacoes`, icon: Buildings },
+    { name: labels.associations, href: `${baseUrl}/associacoes`, icon: Handshake },
     { name: labels.producers, href: `${baseUrl}/produtores`, icon: Users },
-    { name: "Indústria", href: `${baseUrl}/industria`, icon: Tag },
+    { name: "Indústria", href: `${baseUrl}/industria`, icon: Factory },
     { name: "Lotes", href: `${baseUrl}/lotes`, icon: Package },
     { name: "Relatórios", href: `${baseUrl}/relatorios`, icon: ChartBar },
     { name: "Gestão", href: `${baseUrl}/gestao`, icon: SquaresFour },
@@ -66,8 +68,8 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
 
   // Itens extras para marca coletiva
   const marcaColetivaExtras = labels.isMarcaColetiva ? [
-    { name: "Produtores Internos", href: `${baseUrl}/produtores-internos`, icon: Users },
-    { name: "Certificações", href: `${baseUrl}/certificacoes`, icon: Tag },
+    { name: "Produtores Internos", href: `${baseUrl}/produtores-internos`, icon: UsersThree },
+    { name: "Certificações", href: `${baseUrl}/certificacoes`, icon: Certificate },
   ] : [];
 
   // Inserir itens extras após "Produtores/Cooperativas" (índice 2)
@@ -121,7 +123,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-4 px-2">Menu Principal</div>
             <ul role="list" className="flex flex-1 flex-col gap-y-1">
               {navigation.map((item) => {
-                const isActive = location.pathname === item.href || (item.href !== baseUrl && location.pathname.startsWith(item.href));
+                const isActive = location.pathname === item.href || (item.href !== baseUrl && location.pathname.startsWith(item.href + "/"));
                 return (
                   <li key={item.name}>
                     <Link
@@ -161,11 +163,11 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
       {/* Main Content Area */}
       <div className="lg:pl-72 flex flex-col min-h-screen">
         {/* Top Header */}
-        <header className="sticky top-0 z-40 flex h-20 shrink-0 items-center gap-x-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-md px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-40 flex h-16 sm:h-20 shrink-0 items-center gap-x-4 border-b border-slate-200/60 bg-white/80 backdrop-blur-md px-3 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden text-slate-600"
+            className="lg:hidden text-slate-600 min-h-[44px] min-w-[44px]"
             onClick={() => setSidebarOpen(true)}
           >
             <List className="h-6 w-6" />
@@ -187,7 +189,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
 
             <div className="flex items-center gap-x-4 lg:gap-x-6">
               {/* Notifications */}
-              <button type="button" className="-m-2.5 p-2.5 text-slate-400 hover:text-primary transition-colors relative">
+              <button type="button" className="-m-2.5 p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-400 hover:text-primary transition-colors relative">
                 <span className="sr-only">Ver notificações</span>
                 <Bell className="h-6 w-6" />
                 <span className="absolute top-2 right-2.5 flex h-2 w-2">
@@ -202,7 +204,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
               {/* User Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="-m-1.5 flex items-center p-1.5 transition-opacity hover:opacity-80">
+                  <button className="-m-1.5 flex items-center p-1.5 min-h-[44px] min-w-[44px] transition-opacity hover:opacity-80">
                     <span className="sr-only">Abrir menu do usuário</span>
                     <Avatar className="h-9 w-9 border-2 border-white shadow-sm ring-1 ring-slate-200">
                       <AvatarImage src="" />
@@ -240,7 +242,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
         </main>
 
         {/* Footer opcional */}
-        <footer className="py-6 border-t border-slate-200/60 px-8 text-center text-xs text-slate-400">
+        <footer className="py-6 border-t border-slate-200/60 px-4 sm:px-8 text-center text-xs text-slate-400">
           &copy; 2026 {branding?.siteTitle?.split(' - ')[0] || "GeoTrace"} - Sistema de Rastreabilidade Premium
         </footer>
       </div>
@@ -250,16 +252,13 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
         <div className="lg:hidden fixed inset-0 z-[60] flex">
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={() => setSidebarOpen(false)} />
           <div className="relative flex w-full max-w-xs flex-1 flex-col bg-white animate-in slide-in-from-left duration-300">
-            <div className="absolute right-0 top-0 -mr-12 pt-4">
-              <Button variant="ghost" className="text-white" onClick={() => setSidebarOpen(false)}>
+            <div className="flex shrink-0 items-center justify-between h-16 px-4 border-b border-slate-100">
+              <span className="text-lg font-black text-slate-900">{branding?.siteTitle?.split(' - ')[0] || "GeoTrace"} Admin</span>
+              <Button variant="ghost" size="icon" className="min-h-[44px] min-w-[44px] text-slate-600" onClick={() => setSidebarOpen(false)}>
                 <X className="h-6 w-6" />
               </Button>
             </div>
-            {/* Sidebar content simplified for mobile */}
             <div className="flex grow flex-col gap-y-5 overflow-y-auto px-6 pb-4">
-              <div className="flex h-20 shrink-0 items-center py-6">
-                <span className="text-xl font-black text-slate-900">{branding?.siteTitle?.split(' - ')[0] || "GeoTrace"} Admin</span>
-              </div>
               <nav className="flex flex-1 flex-col">
                 <ul role="list" className="flex flex-1 flex-col gap-y-7">
                   <li>
@@ -287,3 +286,4 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
     </div>
   );
 };
+

@@ -62,7 +62,7 @@ export const ProducerQRCodes = () => {
         const { generateQRCodeUrl } = await import("@/utils/qr-code-generator");
         for (const lote of data || []) {
           try {
-            urls[lote.id] = await generateQRCodeUrl(lote.code, lote.category);
+            urls[lote.id] = await generateQRCodeUrl(lote.code, lote.category, tenant?.slug);
           } catch {
             urls[lote.id] = `${window.location.origin}/${tenant.slug}/lote/${lote.code}`;
           }
@@ -93,7 +93,7 @@ export const ProducerQRCodes = () => {
   });
 
   const primaryColor = branding?.primaryColor || '#16a34a';
-  const tenantSlug = tenant?.slug || 'default';
+  const tenantSlug = tenant?.slug ?? '';
 
   return (
     <ProducerLayout>
@@ -220,7 +220,7 @@ export const ProducerQRCodes = () => {
                     variant="white" 
                     className="rounded-xl font-bold text-slate-400 border-0 hover:bg-white transition-all group/btn"
                   >
-                    <Link to={`/${tenantSlug}/produtor/lotes`}>
+                    <Link to={tenantSlug ? `/${tenantSlug}/produtor/lotes` : '/'}>
                       <ArrowRight size={18} weight="bold" className="group-hover/btn:text-primary transition-colors" style={{ '--primary': primaryColor } as any} />
                     </Link>
                   </Button>

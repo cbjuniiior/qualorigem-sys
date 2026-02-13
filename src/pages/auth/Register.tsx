@@ -51,7 +51,7 @@ const Register = () => {
 
     try {
       await signUp(email, password);
-      navigate("/default/auth/login");
+      navigate("/");
     } catch (error) {
       // Erro já tratado no hook
     }
@@ -107,7 +107,7 @@ const Register = () => {
           <CardHeader className="text-center pb-2">
             <CardTitle className="text-xl text-gray-900">Criar Conta</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 sm:p-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-gray-700">
@@ -227,7 +227,7 @@ const Register = () => {
               <p className="text-sm text-gray-600">
                 Já tem uma conta?{" "}
                 <Link
-                  to="/default/auth/login"
+                  to="/"
                   className="text-green-600 hover:text-green-700 font-medium"
                 >
                   Fazer login

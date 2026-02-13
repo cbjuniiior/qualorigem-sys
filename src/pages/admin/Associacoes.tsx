@@ -23,7 +23,7 @@ import {
   Phone, 
   Globe, 
   Trash, 
-  Buildings, 
+  Handshake, 
   Users, 
   DotsThreeOutlineVertical,
   Export,
@@ -58,6 +58,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useTenant } from "@/hooks/use-tenant";
+import { useTenantLabels } from "@/hooks/use-tenant-labels";
 
 interface AssociationFormData {
   id?: string;
@@ -137,6 +138,7 @@ export default function Associacoes() {
   const [assocToDelete, setAssocToDelete] = useState<string | null>(null);
   const [branding, setBranding] = useState<any>(null);
   const { tenant } = useTenant();
+  const labels = useTenantLabels();
 
   const { searchCEP } = useCEP((data) => {
     setForm((prev: any) => ({
@@ -324,10 +326,10 @@ export default function Associacoes() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-1 text-left">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-              <Buildings size={32} style={{ color: primaryColor }} weight="fill" />
-              Associações & Cooperativas
+              <Handshake size={32} style={{ color: primaryColor }} weight="fill" />
+              {labels.associations}
             </h2>
-            <p className="text-slate-500 font-medium text-sm">Entidades que organizam e apoiam os produtores.</p>
+            <p className="text-slate-500 font-medium text-sm">Entidades que organizam e apoiam os(as) {labels.producers.toLowerCase()}.</p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline" className="rounded-xl font-bold gap-2 text-slate-600 border-slate-200">
@@ -382,10 +384,10 @@ export default function Associacoes() {
         ) : filteredItems.length === 0 ? (
           <Card className="border-0 shadow-sm bg-white rounded-3xl p-20 text-center">
             <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Buildings size={48} className="text-slate-200" />
+              <Handshake size={48} className="text-slate-200" />
             </div>
             <h3 className="text-xl font-black text-slate-900 mb-2">Nenhuma entidade encontrada</h3>
-            <p className="text-slate-400 font-medium">Cadastre associações para organizar seus produtores.</p>
+            <p className="text-slate-400 font-medium">Cadastre {labels.associations.toLowerCase()} para organizar seus(as) {labels.producers.toLowerCase()}.</p>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-left">
@@ -397,7 +399,7 @@ export default function Associacoes() {
                       <Avatar className="h-16 w-16 rounded-xl border border-slate-100 shadow-sm bg-white p-1">
                         <AvatarImage src={item.logo_url} className="object-contain" />
                         <AvatarFallback className="bg-slate-50 text-slate-300 rounded-xl">
-                          <Buildings size={32} />
+                          <Handshake size={32} />
                         </AvatarFallback>
                       </Avatar>
                       <div>
@@ -442,7 +444,7 @@ export default function Associacoes() {
                     <div className="flex items-center justify-between pt-4 border-t border-slate-50">
                       <div className="flex items-center gap-2 text-slate-400 font-bold text-xs">
                         <Users size={16} weight="fill" className="text-slate-300" />
-                        {item.producer_count || 0} Produtores
+                        {item.producer_count || 0} {labels.producers}
                       </div>
                       <div className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
                         <MapPin size={14} weight="fill" className="text-slate-300" />
@@ -466,7 +468,7 @@ export default function Associacoes() {
                       className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm text-white"
                       style={{ backgroundColor: primaryColor }}
                     >
-                      <Buildings size={32} weight="fill" />
+                      <Handshake size={32} weight="fill" />
                     </div>
                     <div>
                       <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight">
@@ -498,7 +500,7 @@ export default function Associacoes() {
                           className="ring-1 ring-slate-100"
                           style={{ backgroundColor: `${primaryColor}05`, color: primaryColor }}
                         >
-                          <Buildings size={80} weight="fill" />
+                          <Handshake size={80} weight="fill" />
                         </AvatarFallback>
                       </Avatar>
                       <button 
@@ -722,7 +724,7 @@ export default function Associacoes() {
             <AlertDialogHeader>
               <AlertDialogTitle className="text-2xl font-black text-slate-900">Confirmar Exclusão?</AlertDialogTitle>
               <AlertDialogDescription className="text-slate-500 font-medium">
-                A entidade será removida. Os produtores vinculados continuarão no sistema, mas sem o vínculo com esta associação.
+                A entidade será removida. Os(as) {labels.producers.toLowerCase()} vinculados(as) continuarão no sistema, mas sem o vínculo com esta {labels.association.toLowerCase()}.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="gap-3 mt-4">

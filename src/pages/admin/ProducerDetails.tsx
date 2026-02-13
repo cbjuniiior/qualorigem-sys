@@ -175,7 +175,7 @@ export default function ProducerDetails() {
         setBrands(b);
         setLots(l);
       } catch (e) {
-        toast.error("Erro ao carregar produtor");
+        toast.error(`Erro ao carregar ${labels.producer.toLowerCase()}`);
       } finally {
         setLoading(false);
       }
@@ -210,7 +210,7 @@ export default function ProducerDetails() {
       // Gerar URL do QR Code
       try {
         const { generateQRCodeUrl } = await import("@/utils/qr-code-generator");
-        const url = await generateQRCodeUrl(details.code, details.category);
+        const url = await generateQRCodeUrl(details.code, details.category, tenant?.slug);
         setQrCodeUrl(url);
       } catch (error) {
         setQrCodeUrl(`${window.location.origin}/${tenant.slug}/lote/${details.code}`);

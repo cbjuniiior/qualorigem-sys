@@ -36,6 +36,7 @@ import { Separator } from "@/components/ui/separator";
 import { QRCodeSVG } from "qrcode.react";
 import { useBranding } from "@/hooks/use-branding";
 import { useTenant } from "@/hooks/use-tenant";
+import { useTenantLabels } from "@/hooks/use-tenant-labels";
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -156,6 +157,7 @@ const Lotes = () => {
   
   const { branding: brandingConfig } = useBranding();
   const { tenant } = useTenant();
+  const labels = useTenantLabels();
   const primaryColor = branding?.primaryColor || brandingConfig?.primaryColor || '#16a34a';
   
   // Helper para converter hex para rgba
@@ -434,7 +436,7 @@ const Lotes = () => {
       }
 
       if (!isBlendMode && !formData.producer_id) {
-        toast.error("Selecione um produtor!");
+        toast.error(`Selecione um(a) ${labels.producer.toLowerCase()}!`);
         return;
       }
 
@@ -634,7 +636,7 @@ const Lotes = () => {
       // Gerar URL do QR Code
       try {
         const { generateQRCodeUrl } = await import("@/utils/qr-code-generator");
-        const url = await generateQRCodeUrl(details.code, details.category);
+        const url = await generateQRCodeUrl(details.code, details.category, tenant?.slug);
         setQrCodeUrl(url);
       } catch (error) {
         setQrCodeUrl(`${window.location.origin}/${tenant.slug}/lote/${details.code}`);
@@ -930,7 +932,7 @@ const Lotes = () => {
                           </div>
                           <p className="text-slate-400 text-sm font-bold flex items-center gap-1.5">
                             <Users size={16} weight="fill" className="text-slate-300" />
-                            {lot.producers?.name || "Produtor não vinculado"}
+                            {lot.producers?.name || `${labels.producer} não vinculado(a)`}
                           </p>
                           <div className="flex items-center gap-4 pt-1 flex-wrap">
                             <span className="bg-slate-50 text-slate-500 text-[10px] font-black px-2 py-1 rounded-md border border-slate-100 uppercase tracking-widest font-mono">

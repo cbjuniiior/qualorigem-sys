@@ -205,8 +205,8 @@ export const CsvImporter = ({
             </div>
 
             {/* Table Preview */}
-            <div className="flex-1 overflow-auto border rounded-xl">
-              <table className="w-full text-sm">
+            <div className="flex-1 overflow-x-auto overflow-y-auto border rounded-xl">
+              <table className="w-full text-sm min-w-[400px]">
                 <thead className="bg-slate-50 sticky top-0">
                   <tr>
                     <th className="text-left p-2 text-xs font-bold text-slate-500 w-12">#</th>

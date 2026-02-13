@@ -37,8 +37,8 @@ const ResetPassword = () => {
       setLoading(true);
       await authApi.updatePassword(password);
       toast.success("Senha atualizada com sucesso!");
-      const slug = tenant?.slug || tenantSlug || 'default';
-      navigate(`/${slug}/auth/login`);
+      const slug = tenant?.slug ?? tenantSlug ?? '';
+      navigate(slug ? `/${slug}/auth/login` : '/');
     } catch (error: any) {
       toast.error(error.message || "Erro ao atualizar senha");
     } finally {
@@ -48,7 +48,7 @@ const ResetPassword = () => {
 
   const primaryColor = branding.primaryColor || '#16a34a';
   const secondaryColor = branding.secondaryColor || '#22c55e';
-  const currentSlug = tenant?.slug || tenantSlug || 'default';
+  const currentSlug = tenant?.slug ?? tenantSlug ?? '';
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6 relative overflow-hidden">
@@ -143,7 +143,7 @@ const ResetPassword = () => {
 
         <div className="text-center pt-4 flex flex-col items-center gap-4">
           <Link 
-            to={`/${currentSlug}/auth/login`}
+            to={currentSlug ? `/${currentSlug}/auth/login` : '/'}
             className="inline-flex items-center text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] gap-2 hover:text-slate-600 transition-colors"
           >
             <ArrowLeft size={14} weight="bold" />

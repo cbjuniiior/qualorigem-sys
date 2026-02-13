@@ -117,6 +117,29 @@ export async function uploadLogoToSupabase(file: File): Promise<string> {
   return data.publicUrl;
 }
 
+/** Upload de favicon da plataforma (painel Super Admin) - bucket branding, prefixo platform/ */
+export async function uploadPlatformFaviconToSupabase(file: File): Promise<string> {
+  let fileToUpload: File | Blob = file;
+  if (file.type.startsWith('image/')) {
+    try {
+      fileToUpload = await resizeImage(file, 256);
+    } catch {
+      fileToUpload = file;
+    }
+  }
+  const fileExt = file.name.split('.').pop() || 'png';
+  const fileName = `platform/favicon-${Date.now()}.${fileExt}`;
+  const { error } = await supabase.storage.from('branding').upload(fileName, fileToUpload, {
+    cacheControl: '3600',
+    upsert: true,
+    contentType: file.type,
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from('branding').getPublicUrl(fileName);
+  if (!data?.publicUrl) throw new Error('Erro ao obter URL pública do favicon');
+  return data.publicUrl;
+}
+
 // Faz upload de um PDF para o bucket 'certificados' e retorna a URL pública
 export async function uploadCertificateToSupabase(file: File): Promise<string> {
   if (file.type !== 'application/pdf') {

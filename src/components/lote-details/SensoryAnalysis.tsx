@@ -71,7 +71,7 @@ export const SensoryAnalysis = ({ loteData, branding }: SensoryAnalysisProps) =>
   return (
     <div className="mb-12 text-left">
       <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
-        <div className="p-6 md:p-8 pb-0">
+        <div className="p-4 sm:p-6 md:p-8 pb-0">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2.5 rounded-xl bg-slate-50" style={{ color: primaryColor }}>
               <ChartPieSlice className="h-6 w-6" weight="duotone" />
@@ -83,7 +83,7 @@ export const SensoryAnalysis = ({ loteData, branding }: SensoryAnalysisProps) =>
           </div>
         </div>
         
-        <div className="p-6 md:p-8 pt-6">
+        <div className="p-4 sm:p-6 md:p-8 pt-6">
           <div className="flex flex-col items-center">
             
             {/* Gráfico Radar Centralizado */}

@@ -1,24 +1,23 @@
-import { useLocation, Link, useNavigate } from "react-router-dom";
-import { useTenant } from "@/hooks/use-tenant";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useBranding } from "@/hooks/use-branding";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, House, Compass } from "@phosphor-icons/react";
+import { ArrowLeft, House, Buildings } from "@phosphor-icons/react";
 
-const NotFound = () => {
-  const location = useLocation();
+/**
+ * Página exibida quando a URL contém um slug de tenant que não existe
+ * (ex.: /asd, /asd/dashboard). Mesmo visual da 404, com CTAs para início e plataforma.
+ */
+const TenantNotFound = () => {
   const navigate = useNavigate();
-  const { tenant } = useTenant();
+  const { tenantSlug } = useParams<{ tenantSlug: string }>();
   const { branding } = useBranding();
   const primaryColor = branding?.primaryColor || "#16a34a";
-
-  const homeLink = tenant ? `/${tenant.slug}` : "/";
-  const homeLabel = tenant ? "Início" : "Página inicial";
 
   const handleGoBack = () => {
     if (window.history.length > 1) {
       navigate(-1);
     } else {
-      navigate(homeLink);
+      navigate("/");
     }
   };
 
@@ -31,7 +30,7 @@ const NotFound = () => {
             className="w-24 h-24 rounded-3xl flex items-center justify-center shadow-lg"
             style={{ backgroundColor: `${primaryColor}12` }}
           >
-            <Compass size={48} className="text-slate-400" weight="duotone" />
+            <Buildings size={48} className="text-slate-400" weight="duotone" />
           </div>
           <span
             className="text-8xl font-black tracking-tighter tabular-nums"
@@ -44,17 +43,18 @@ const NotFound = () => {
         {/* Mensagem */}
         <div className="space-y-2">
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            Página não encontrada
+            Organização não encontrada
           </h1>
           <p className="text-slate-500 font-medium text-sm">
-            O endereço que você acessou não existe ou foi movido.
+            Não foi possível encontrar a organização &quot;{tenantSlug || "—"}&quot;.
+            Verifique o endereço ou acesse a página inicial.
           </p>
         </div>
 
-        {/* Caminho (útil para debug) */}
-        {location.pathname !== "/" && (
-          <p className="text-xs font-mono text-slate-400 truncate max-w-full px-2" title={location.pathname}>
-            {location.pathname}
+        {/* Slug na URL (debug) */}
+        {tenantSlug && (
+          <p className="text-xs font-mono text-slate-400 truncate max-w-full px-2" title={`/${tenantSlug}`}>
+            /{tenantSlug}
           </p>
         )}
 
@@ -73,25 +73,22 @@ const NotFound = () => {
             className="rounded-xl font-bold h-12 px-6 text-white hover:opacity-90 shadow-lg"
             style={{ backgroundColor: primaryColor }}
           >
-            <Link to={homeLink}>
+            <Link to="/">
               <House size={20} weight="bold" className="mr-2" />
-              {homeLabel}
+              Página inicial
             </Link>
           </Button>
         </div>
 
-        {/* Link plataforma quando não está em contexto de tenant */}
-        {!tenant && (
-          <p className="text-sm text-slate-400">
-            Administrador?{" "}
-            <Link to="/platform" className="font-bold hover:underline" style={{ color: primaryColor }}>
-              Acessar plataforma
-            </Link>
-          </p>
-        )}
+        <p className="text-sm text-slate-400">
+          Administrador?{" "}
+          <Link to="/platform" className="font-bold hover:underline" style={{ color: primaryColor }}>
+            Acessar plataforma
+          </Link>
+        </p>
       </div>
     </div>
   );
 };
 
-export default NotFound;
+export default TenantNotFound;

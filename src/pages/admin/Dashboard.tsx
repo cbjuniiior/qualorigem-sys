@@ -464,7 +464,7 @@ const Dashboard = () => {
                 >
                   <Users size={24} weight="fill" />
                 </div>
-                <span className="text-sm font-black tracking-tight text-center" style={{ color: primaryColor }}>Novo Produtor</span>
+                <span className="text-sm font-black tracking-tight text-center" style={{ color: primaryColor }}>Novo {labels.producer}</span>
               </button>
               
               <button 
@@ -495,8 +495,8 @@ const Dashboard = () => {
                     <Users size={32} weight="fill" />
                   </div>
                   <div>
-                    <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight">Novo Produtor</SheetTitle>
-                    <SheetDescription className="text-slate-500 font-bold text-base">Cadastre as informações do produtor e sua propriedade.</SheetDescription>
+                    <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight">Novo {labels.producer}</SheetTitle>
+                    <SheetDescription className="text-slate-500 font-bold text-base">Cadastre as informações do(a) {labels.producer.toLowerCase()} e sua propriedade.</SheetDescription>
                   </div>
                 </div>
 
@@ -510,7 +510,7 @@ const Dashboard = () => {
                 setCurrentStep={setProducerCurrentStep}
                 onSubmit={() => {
                   setShowProducerSheet(false);
-                  toast.success("Produtor cadastrado com sucesso!");
+                  toast.success(`${labels.producer} cadastrado com sucesso!`);
                 }} 
                 onCancel={() => setShowProducerSheet(false)} 
               />

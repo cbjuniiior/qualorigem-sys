@@ -11,7 +11,6 @@ import {
 } from "@phosphor-icons/react";
 import { platformApi } from "@/services/api";
 import { toast } from "sonner";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -27,7 +26,7 @@ const TYPE_LABELS: Record<string, string> = { ig: "IG", marca_coletiva: "Marca C
 
 const getTypeColor = (type: string) => {
   switch (type) {
-    case "ig": return "bg-indigo-100 text-indigo-600";
+    case "ig": return "bg-lime-100 text-lime-700";
     case "marca_coletiva": return "bg-emerald-100 text-emerald-600";
     case "privado": return "bg-slate-100 text-slate-600";
     default: return "bg-slate-100 text-slate-600";
@@ -166,23 +165,24 @@ export const PlatformTenants = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Clientes</h2>
-            <p className="text-slate-500 font-medium">Gerencie os clientes da plataforma.</p>
+            <h2 className="text-3xl font-black text-white tracking-tight">Clientes</h2>
+            <p className="text-slate-400 font-medium">Gerencie os clientes da plataforma.</p>
           </div>
-          <Button onClick={openNew} className="rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200">
+          <Button onClick={openNew} className="rounded-xl font-bold bg-lime-400 hover:bg-lime-300 text-slate-900 shadow-lg shadow-lime-500/20 focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1520]">
             <Plus size={20} weight="bold" className="mr-2" /> Novo Cliente
           </Button>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <div className="bg-white/95 rounded-2xl p-5 shadow-lg border border-slate-200/50">
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Filtros</p>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-              <Input placeholder="Buscar por nome ou slug..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-12 h-11 bg-slate-50 border-0 rounded-xl font-medium shadow-sm focus-visible:ring-indigo-500 focus-visible:ring-2" />
+              <Input placeholder="Buscar por nome ou slug..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-12 h-11 bg-slate-50 border-0 rounded-xl font-medium shadow-sm focus-visible:ring-lime-500 focus-visible:ring-2" />
             </div>
             <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-[180px] h-11 rounded-xl bg-slate-50 border-0 shadow-sm">
+              <SelectTrigger className="w-full sm:w-[180px] h-11 rounded-xl bg-slate-50 border-0 shadow-sm">
                 <FunnelSimple size={16} className="mr-2 text-slate-400" />
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
@@ -194,7 +194,7 @@ export const PlatformTenants = () => {
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[160px] h-11 rounded-xl bg-slate-50 border-0 shadow-sm">
+              <SelectTrigger className="w-full sm:w-[160px] h-11 rounded-xl bg-slate-50 border-0 shadow-sm">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -215,19 +215,24 @@ export const PlatformTenants = () => {
 
         {/* List */}
         {loading ? (
-          <div className="space-y-4">{Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-2xl" />)}</div>
+          <div className="space-y-4">{Array(4).fill(0).map((_, i) => <div key={i} className="h-24 w-full rounded-2xl bg-slate-800/50 border border-slate-700/50 animate-pulse" />)}</div>
         ) : filtered.length === 0 ? (
-          <Card className="border-0 shadow-sm rounded-2xl">
+          <Card className="border-0 shadow-lg bg-white/95 rounded-2xl border-slate-200/50">
             <CardContent className="p-12 text-center">
-              <Buildings size={56} className="mx-auto text-slate-200 mb-4" weight="duotone" />
-              <p className="font-bold text-slate-500 text-lg mb-1">Nenhum cliente encontrado</p>
-              <p className="text-sm text-slate-400">Tente ajustar os filtros ou criar um novo cliente.</p>
+              <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                <Buildings size={40} className="text-slate-400" weight="duotone" />
+              </div>
+              <p className="font-bold text-slate-600 text-lg mb-1">Nenhum cliente encontrado</p>
+              <p className="text-sm text-slate-400 mb-6">Ajuste os filtros ou cadastre um novo cliente.</p>
+              <Button onClick={openNew} className="rounded-xl font-bold bg-lime-400 text-slate-900 hover:bg-lime-300 shadow-lg shadow-lime-500/20 focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2">
+                <Plus size={18} weight="bold" className="mr-2" /> Novo Cliente
+              </Button>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {filtered.map((tenant) => (
-              <Card key={tenant.id} className="group border-0 shadow-sm bg-white rounded-2xl hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
+              <Card key={tenant.id} className="group border-0 shadow-lg bg-white/95 rounded-2xl border-slate-200/50 hover:-translate-y-0.5 hover:shadow-xl transition-all duration-200">
                 <CardContent className="p-6 flex items-center justify-between gap-6">
                   <div className="flex items-center gap-5 min-w-0 cursor-pointer" onClick={() => navigate(`/platform/tenants/${tenant.id}`)}>
                     <div className={`h-14 w-14 rounded-2xl ${getTypeColor(tenant.type)} flex items-center justify-center shrink-0 transition-colors`}>
@@ -249,13 +254,13 @@ export const PlatformTenants = () => {
 
                   <div className="flex items-center gap-1 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity">
                     <Separator orientation="vertical" className="h-6 mr-1" />
-                    <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-indigo-600" title="Ver detalhes" onClick={() => navigate(`/platform/tenants/${tenant.id}`)}>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-lime-600" title="Ver detalhes" onClick={() => navigate(`/platform/tenants/${tenant.id}`)}>
                       <Eye size={18} />
                     </Button>
-                    <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-slate-400 hover:text-indigo-600" title="Abrir painel">
+                    <Button variant="ghost" size="icon" asChild className="h-9 w-9 text-slate-400 hover:text-lime-600" title="Abrir painel">
                       <a href={`/${tenant.slug}/admin`} target="_blank" rel="noreferrer"><ArrowSquareOut size={18} /></a>
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-indigo-600" title="Editar" onClick={() => openEdit(tenant)}>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-lime-600" title="Editar" onClick={() => openEdit(tenant)}>
                       <PencilSimple size={18} />
                     </Button>
                     <Button variant="ghost" size="icon" className={`h-9 w-9 ${tenant.status === "active" ? "text-slate-400 hover:text-amber-600" : "text-slate-400 hover:text-emerald-600"}`} title={tenant.status === "active" ? "Suspender" : "Ativar"} onClick={() => handleToggleStatus(tenant)}>
@@ -274,7 +279,7 @@ export const PlatformTenants = () => {
 
       {/* Create/Edit Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[560px] rounded-2xl p-0 overflow-hidden bg-white">
+        <DialogContent className="sm:max-w-[560px] rounded-2xl p-0 overflow-hidden bg-white border border-slate-200 shadow-2xl" aria-describedby={undefined}>
           <DialogHeader className="p-8 pb-0">
             <DialogTitle className="text-2xl font-black text-slate-900">
               {editingTenant ? "Editar Cliente" : "Novo Cliente"}
@@ -287,8 +292,8 @@ export const PlatformTenants = () => {
             {/* Tenant fields */}
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                  <Buildings size={16} className="text-indigo-600" />
+                <div className="h-8 w-8 rounded-lg bg-lime-100 flex items-center justify-center">
+                  <Buildings size={16} className="text-lime-600" />
                 </div>
                 <div className="text-sm font-black text-slate-500 uppercase tracking-widest">
                   Dados do Cliente
@@ -296,11 +301,11 @@ export const PlatformTenants = () => {
               </div>
               <div className="space-y-2">
                 <Label>Nome *</Label>
-                <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value, ...(!editingTenant ? { slug: autoSlug(e.target.value) } : {}) })} placeholder="Ex: Raiz do Acre" className="h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-indigo-500 focus-visible:ring-2" />
+                <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value, ...(!editingTenant ? { slug: autoSlug(e.target.value) } : {}) })} placeholder="Ex: Raiz do Acre" className="h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-lime-500 focus-visible:ring-2" />
               </div>
               <div className="space-y-2">
                 <Label>Slug (URL) *</Label>
-                <Input value={formData.slug} onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/\s+/g, "-") })} placeholder="raiz-do-acre" className="h-11 rounded-xl bg-slate-50 border-0 font-mono text-sm focus-visible:ring-indigo-500 focus-visible:ring-2" disabled={!!editingTenant} />
+                <Input value={formData.slug} onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/\s+/g, "-") })} placeholder="raiz-do-acre" className="h-11 rounded-xl bg-slate-50 border-0 font-mono text-sm focus-visible:ring-lime-500 focus-visible:ring-2" disabled={!!editingTenant} />
                 <p className="text-xs text-slate-400">Identificador na URL. Não pode ser alterado após criação.</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -344,16 +349,16 @@ export const PlatformTenants = () => {
                   <p className="text-xs text-slate-400">Este usuário será criado como administrador do cliente e poderá acessar o painel admin.</p>
                   <div className="space-y-2">
                     <Label>Nome completo</Label>
-                    <Input value={formData.admin_name} onChange={(e) => setFormData({ ...formData, admin_name: e.target.value })} placeholder="Nome do administrador" className="h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-indigo-500 focus-visible:ring-2" />
+                    <Input value={formData.admin_name} onChange={(e) => setFormData({ ...formData, admin_name: e.target.value })} placeholder="Nome do administrador" className="h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-lime-500 focus-visible:ring-2" />
                   </div>
                   <div className="space-y-2">
                     <Label>Email *</Label>
-                    <Input type="email" value={formData.admin_email} onChange={(e) => setFormData({ ...formData, admin_email: e.target.value })} placeholder="admin@email.com" className="h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-indigo-500 focus-visible:ring-2" />
+                    <Input type="email" value={formData.admin_email} onChange={(e) => setFormData({ ...formData, admin_email: e.target.value })} placeholder="admin@email.com" className="h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-lime-500 focus-visible:ring-2" />
                   </div>
                   <div className="space-y-2">
                     <Label>Senha temporária *</Label>
                     <div className="relative">
-                      <Input type="text" value={formData.admin_password} onChange={(e) => setFormData({ ...formData, admin_password: e.target.value })} placeholder="Mínimo 6 caracteres" className="h-11 rounded-xl bg-slate-50 border-0 font-medium pr-10 focus-visible:ring-indigo-500 focus-visible:ring-2" />
+                      <Input type="text" value={formData.admin_password} onChange={(e) => setFormData({ ...formData, admin_password: e.target.value })} placeholder="Mínimo 6 caracteres" className="h-11 rounded-xl bg-slate-50 border-0 font-medium pr-10 focus-visible:ring-lime-500 focus-visible:ring-2" />
                       <LockKey size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" />
                     </div>
                     <p className="text-xs text-slate-400">O administrador deverá alterar a senha no primeiro acesso.</p>
@@ -364,7 +369,7 @@ export const PlatformTenants = () => {
           </div>
           <DialogFooter className="p-8 pt-0">
             <Button variant="ghost" onClick={() => setIsModalOpen(false)} className="rounded-xl font-bold text-slate-500">Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving} className="rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-8">
+            <Button onClick={handleSave} disabled={saving} className="rounded-xl font-bold bg-lime-400 hover:bg-lime-300 text-slate-900 px-8 focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2">
               {saving ? "Salvando..." : editingTenant ? "Atualizar" : "Criar Cliente"}
             </Button>
           </DialogFooter>
@@ -373,7 +378,7 @@ export const PlatformTenants = () => {
 
       {/* Delete Dialog */}
       <AlertDialog open={!!deletingTenant} onOpenChange={() => setDeletingTenant(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-2xl border border-slate-200 shadow-2xl max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir cliente "{deletingTenant?.name}"?</AlertDialogTitle>
             <AlertDialogDescription>

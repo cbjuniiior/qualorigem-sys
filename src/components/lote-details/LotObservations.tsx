@@ -9,7 +9,7 @@ export const LotObservations = ({ lotObservations }: LotObservationsProps) => {
 
   return (
     <div className="mb-8 md:mb-12">
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 md:p-8 shadow-sm hover:shadow-md transition-shadow duration-300 relative overflow-hidden group">
+      <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 md:p-8 shadow-sm hover:shadow-md transition-shadow duration-300 relative overflow-hidden group">
         {/* Elemento decorativo de fundo */}
         <div className="absolute top-0 right-0 -mt-2 -mr-2 w-16 h-16 md:w-24 md:h-24 bg-gray-50 rounded-full opacity-50 group-hover:scale-110 transition-transform duration-500"></div>
         

@@ -40,6 +40,7 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import { categoriesApi, characteristicsApi, systemConfigApi, sensoryAttributesApi, tenantsApi } from "@/services/api";
 import { useBranding } from "@/hooks/use-branding";
 import { useTenant } from "@/hooks/use-tenant";
+import { useTenantLabels } from "@/hooks/use-tenant-labels";
 import { uploadLogoToSupabase } from "@/services/upload";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -72,6 +73,7 @@ const COLOR_PRESETS = {
 
 const GestaoPlataforma = () => {
   const { tenant } = useTenant();
+  const labels = useTenantLabels();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("categorias");
   const { branding: currentBranding, setBrandingConfig } = useBranding();
@@ -182,8 +184,10 @@ const GestaoPlataforma = () => {
       setEditingCategory(null);
       setCategoryForm({ name: "", description: "" });
       loadData();
-    } catch (error) {
-      toast.error("Erro ao salvar categoria");
+    } catch (error: unknown) {
+      const err = error as { code?: string; message?: string; status?: number };
+      const isConflict = err?.code === "23505" || err?.status === 409 || /duplicate|unique|already exists|conflict/i.test(String(err?.message ?? ""));
+      toast.error(isConflict ? "Já existe uma categoria com esse nome. Use outro nome ou edite a existente." : "Erro ao salvar categoria");
     } finally {
       setSaving(false);
     }
@@ -222,8 +226,10 @@ const GestaoPlataforma = () => {
       setEditingCharacteristic(null);
       setCharacteristicForm({ name: "", description: "" });
       loadData();
-    } catch (error) {
-      toast.error("Erro ao salvar característica");
+    } catch (error: unknown) {
+      const err = error as { code?: string; message?: string; status?: number };
+      const isConflict = err?.code === "23505" || err?.status === 409 || /duplicate|unique|already exists|conflict/i.test(String(err?.message ?? ""));
+      toast.error(isConflict ? "Já existe uma característica com esse nome. Use outro nome ou edite a existente." : "Erro ao salvar característica");
     } finally {
       setSaving(false);
     }
@@ -268,8 +274,10 @@ const GestaoPlataforma = () => {
         show_average: true
       });
       loadData();
-    } catch (error) {
-      toast.error("Erro ao salvar atributo sensorial");
+    } catch (error: unknown) {
+      const err = error as { code?: string; message?: string; status?: number };
+      const isConflict = err?.code === "23505" || err?.status === 409 || /duplicate|unique|already exists|conflict/i.test(String(err?.message ?? ""));
+      toast.error(isConflict ? "Já existe um atributo sensorial com esse nome. Use outro nome ou edite o existente." : "Erro ao salvar atributo sensorial");
     } finally {
       setSaving(false);
     }
@@ -1140,7 +1148,7 @@ const GestaoPlataforma = () => {
                       <SelectContent className="rounded-xl font-bold">
                         <SelectItem value="auto">Automático (Sequencial)</SelectItem>
                         <SelectItem value="manual">Manual (Livre)</SelectItem>
-                        <SelectItem value="producer_brand">Produtor / Marca + Lote</SelectItem>
+                        <SelectItem value="producer_brand">{labels.producer} / Marca + Lote</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1153,7 +1161,7 @@ const GestaoPlataforma = () => {
                           <div className="space-y-1">
                             <p className="text-xs font-black text-blue-700 uppercase tracking-wider">Como funciona:</p>
                             <p className="text-xs text-blue-600 font-medium leading-relaxed">
-                              O sistema usará o nome (ou marca) do produtor como prefixo. Na hora do cadastro, você poderá escolher se o restante do código será automático ou manual.
+                              O sistema usará o nome (ou marca) do(a) {labels.producer.toLowerCase()} como prefixo. Na hora do cadastro, você poderá escolher se o restante do código será automático ou manual.
                             </p>
                           </div>
                         </div>
@@ -1462,7 +1470,7 @@ const GestaoPlataforma = () => {
               <Input 
                 value={sensoryForm.description}
                 onChange={e => setSensoryForm({ ...sensoryForm, description: e.target.value })}
-                placeholder="Breve explicação para o produtor" 
+                placeholder={`Breve explicação para o(a) ${labels.producer.toLowerCase()}`} 
                 className="rounded-xl bg-slate-50 border-0 h-12 font-medium focus-visible:ring-primary"
                 style={{ '--primary': primaryColor } as any}
               />

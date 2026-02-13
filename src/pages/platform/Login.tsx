@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
+import { usePlatformBranding } from "@/hooks/use-platform-branding";
 import { toast } from "sonner";
 
 const PlatformLogin = () => {
@@ -15,6 +16,8 @@ const PlatformLogin = () => {
   const { signIn, loading, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  usePlatformBranding();
 
   const from = (location.state as any)?.from?.pathname || "/platform";
 
@@ -40,14 +43,11 @@ const PlatformLogin = () => {
     }
   };
 
-  const primaryColor = "#6366f1"; // Indigo para diferenciar do login de tenant
-  const secondaryColor = "#8b5cf6";
-
   return (
-    <div className="min-h-screen bg-[#0F172A] flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-[#0b1520] flex items-center justify-center p-6 relative overflow-hidden">
       {/* Elementos Decorativos */}
-      <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full blur-[150px] opacity-20 pointer-events-none bg-indigo-500" />
-      <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full blur-[120px] opacity-15 pointer-events-none bg-violet-600" />
+      <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full blur-[150px] opacity-20 pointer-events-none bg-lime-500" />
+      <div className="absolute bottom-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full blur-[120px] opacity-15 pointer-events-none bg-lime-400" />
       <div className="absolute top-[50%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-[200px] opacity-5 pointer-events-none bg-white" />
 
       <div className="w-full max-w-md space-y-10 animate-in fade-in zoom-in-95 duration-700 relative z-10">
@@ -55,8 +55,8 @@ const PlatformLogin = () => {
         {/* Header */}
         <div className="text-center space-y-6">
           <div className="flex flex-col items-center gap-6">
-            <div className="w-20 h-20 rounded-3xl flex items-center justify-center shadow-2xl shadow-indigo-500/30 rotate-3 bg-gradient-to-br from-indigo-500 to-violet-600">
-              <ShieldCheck className="h-10 w-10 text-white" weight="fill" />
+            <div className="w-20 h-20 rounded-3xl flex items-center justify-center shadow-2xl shadow-lime-500/30 rotate-3 bg-lime-400">
+              <ShieldCheck className="h-10 w-10 text-slate-900" weight="fill" />
             </div>
           </div>
           
@@ -71,7 +71,7 @@ const PlatformLogin = () => {
         </div>
 
         {/* Card de Login */}
-        <Card className="border border-slate-700/50 shadow-[0_20px_50px_rgba(0,0,0,0.3)] bg-slate-800/80 backdrop-blur-xl rounded-[2.5rem] overflow-hidden">
+        <Card className="border border-slate-600/60 shadow-[0_24px_48px_rgba(0,0,0,0.4)] bg-slate-800/90 backdrop-blur-xl rounded-[2.5rem] overflow-hidden">
           <CardContent className="p-10">
             <form onSubmit={handleSubmit} className="space-y-8">
               <div className="space-y-3">
@@ -79,7 +79,7 @@ const PlatformLogin = () => {
                   E-mail do Administrador
                 </Label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-lime-400 transition-colors">
                     <Envelope size={20} weight="bold" />
                   </div>
                   <Input
@@ -88,7 +88,7 @@ const PlatformLogin = () => {
                     placeholder="admin@exemplo.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="h-14 pl-12 bg-slate-900/50 border-slate-600/50 rounded-2xl font-bold text-white placeholder:text-slate-500 focus-visible:ring-indigo-500 focus-visible:bg-slate-900 transition-all"
+                    className="h-14 pl-12 bg-slate-900/50 border-slate-600/50 rounded-2xl font-bold text-white placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 focus-visible:bg-slate-900 transition-all"
                     required
                   />
                 </div>
@@ -99,7 +99,7 @@ const PlatformLogin = () => {
                   Senha
                 </Label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-lime-400 transition-colors">
                     <Lock size={20} weight="bold" />
                   </div>
                   <Input
@@ -108,7 +108,7 @@ const PlatformLogin = () => {
                     placeholder="Sua senha"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="h-14 pl-12 pr-12 bg-slate-900/50 border-slate-600/50 rounded-2xl font-bold text-white placeholder:text-slate-500 focus-visible:ring-indigo-500 focus-visible:bg-slate-900 transition-all"
+                    className="h-14 pl-12 pr-12 bg-slate-900/50 border-slate-600/50 rounded-2xl font-bold text-white placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800 focus-visible:bg-slate-900 transition-all"
                     required
                   />
                   <button
@@ -124,13 +124,12 @@ const PlatformLogin = () => {
               <div className="pt-2">
                 <Button
                   type="submit"
-                  className="w-full h-14 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-2xl hover:opacity-95 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 border-0 bg-gradient-to-r from-indigo-500 to-violet-600"
-                  style={{ boxShadow: `0 20px 40px -10px rgba(99, 102, 241, 0.4)` }}
+                  className="w-full h-14 text-slate-900 font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-2xl shadow-lime-500/30 hover:opacity-95 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 border-0 bg-lime-400 hover:bg-lime-300 focus-visible:ring-2 focus-visible:ring-lime-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-800"
                   disabled={loading}
                 >
                   {loading ? (
                     <div className="flex items-center gap-2">
-                      <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <div className="h-4 w-4 border-2 border-slate-900/20 border-t-slate-900 rounded-full animate-spin" />
                       Autenticando...
                     </div>
                   ) : (
@@ -144,10 +143,10 @@ const PlatformLogin = () => {
 
         {/* Footer */}
         <div className="text-center pt-4 flex flex-col items-center gap-4">
-          <p className="text-slate-600 font-black uppercase text-[9px] tracking-[0.3em]">
-            GeoTrace Platform &copy; 2026
+          <p className="text-slate-500 font-black uppercase text-[9px] tracking-[0.3em]">
+            QualOrigem Platform &copy; 2026
           </p>
-          <div className="h-px w-12 bg-slate-700" />
+          <div className="h-px w-12 bg-slate-600" />
         </div>
       </div>
     </div>

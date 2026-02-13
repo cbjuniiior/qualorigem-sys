@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { ProducerLayout } from "@/components/layout/ProducerLayout";
 import { useAuth } from "@/hooks/use-auth";
 import { useTenant } from "@/hooks/use-tenant";
+import { useTenantLabels } from "@/hooks/use-tenant-labels";
 import { productLotsApi, systemConfigApi } from "@/services/api";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export const ProducerDashboard = () => {
   const { user } = useAuth();
   const { tenant } = useTenant();
+  const labels = useTenantLabels();
   const [lotes, setLotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [branding, setBranding] = useState<any>(null);
@@ -62,7 +64,7 @@ export const ProducerDashboard = () => {
   }, [user, tenant]);
 
   const primaryColor = branding?.primaryColor || '#16a34a';
-  const tenantSlug = tenant?.slug || 'default';
+  const tenantSlug = tenant?.slug ?? '';
 
   const StatCard = ({ title, value, icon: Icon, color }: any) => (
     <Card className="border-0 shadow-sm bg-white overflow-hidden group hover:shadow-lg transition-all">
@@ -86,7 +88,7 @@ export const ProducerDashboard = () => {
         {/* Welcome Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-1">
-            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Olá, {user?.user_metadata?.full_name?.split(' ')[0] || "Produtor"}! 🌿</h2>
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">Olá, {user?.user_metadata?.full_name?.split(' ')[0] || labels.producerGreeting}! 🌿</h2>
             <p className="text-slate-500 font-medium">Veja o desempenho da sua produção e rastreabilidade.</p>
           </div>
           <div className="flex items-center gap-3">
@@ -95,7 +97,7 @@ export const ProducerDashboard = () => {
               className="rounded-xl font-bold text-white hover:opacity-90 shadow-lg h-12 px-6 transition-all"
               style={{ backgroundColor: primaryColor, shadowColor: `${primaryColor}30` } as any}
             >
-              <Link to={`/${tenantSlug}/produtor/lotes`}>
+              <Link to={tenantSlug ? `/${tenantSlug}/produtor/lotes` : '/'}>
                 <Plus size={20} weight="bold" className="mr-2" /> Novo Lote
               </Link>
             </Button>
@@ -128,7 +130,7 @@ export const ProducerDashboard = () => {
                 className="font-bold hover:bg-primary/5 rounded-xl transition-all"
                 style={{ color: primaryColor }}
               >
-                <Link to={`/${tenantSlug}/produtor/lotes`}>Ver Todos <CaretRight className="ml-1" weight="bold" /></Link>
+                <Link to={tenantSlug ? `/${tenantSlug}/produtor/lotes` : '/'}>Ver Todos <CaretRight className="ml-1" weight="bold" /></Link>
               </Button>
             </CardHeader>
             <CardContent className="p-0">
@@ -179,7 +181,7 @@ export const ProducerDashboard = () => {
                   className="w-full rounded-xl font-black text-white hover:opacity-90 h-12 transition-all shadow-lg"
                   style={{ backgroundColor: primaryColor }}
                 >
-                  <Link to={`/${tenantSlug}/produtor/qrcodes`}>Acessar Etiquetas</Link>
+                  <Link to={tenantSlug ? `/${tenantSlug}/produtor/qrcodes` : '/'}>Acessar Etiquetas</Link>
                 </Button>
               </div>
               <QrCode size={140} weight="thin" className="absolute -bottom-10 -right-10 text-primary/5 rotate-12" style={{ color: primaryColor }} />
@@ -190,14 +192,14 @@ export const ProducerDashboard = () => {
                 <CardTitle className="text-lg font-black">Links Rápidos</CardTitle>
               </CardHeader>
               <CardContent className="p-4 space-y-2">
-                <Link to={`/${tenantSlug}/produtor/metricas`} className="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-all group">
+                <Link to={tenantSlug ? `/${tenantSlug}/produtor/metricas` : '/'} className="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-all group">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:scale-110 transition-transform"><ChartBar weight="fill" /></div>
                     <span className="font-bold text-slate-700">Ver Métricas</span>
                   </div>
                   <CaretRight weight="bold" className="text-slate-300" />
                 </Link>
-                <Link to={`/${tenantSlug}/produtor/configuracoes`} className="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-all group">
+                <Link to={tenantSlug ? `/${tenantSlug}/produtor/configuracoes` : '/'} className="flex items-center justify-between p-4 rounded-2xl hover:bg-slate-50 transition-all group">
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-slate-50 text-slate-600 rounded-lg group-hover:scale-110 transition-transform"><Gear weight="fill" /></div>
                     <span className="font-bold text-slate-700">Configurações</span>

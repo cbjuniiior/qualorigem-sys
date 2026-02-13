@@ -70,7 +70,7 @@ export const ProducerLotes = () => {
   const [branding, setBranding] = useState<any>(null);
 
   const primaryColor = branding?.primaryColor || '#16a34a';
-  const tenantSlug = tenant?.slug || 'default';
+  const tenantSlug = tenant?.slug ?? '';
 
   const [formData, setFormData] = useState({
     code: "",
@@ -508,10 +508,10 @@ export const ProducerLotes = () => {
 
                       <div className="flex items-center gap-2 border-l border-slate-50 pl-6">
                         <Button variant="ghost" size="icon" asChild className="h-10 w-10 rounded-xl text-blue-600 hover:bg-blue-50">
-                          <a href={`/${tenantSlug}/lote/${lote.code}`} target="_blank" rel="noreferrer"><Eye size={20} weight="bold" /></a>
+                          <a href={tenantSlug ? `/${tenantSlug}/lote/${lote.code}` : '/'} target="_blank" rel="noreferrer"><Eye size={20} weight="bold" /></a>
                         </Button>
                         <Button variant="ghost" size="icon" asChild className="h-10 w-10 rounded-xl text-slate-600 hover:bg-slate-50">
-                          <Link to={`/${tenantSlug}/produtor/qrcodes/${lote.id}`}><QrCode size={20} weight="bold" /></Link>
+                          <Link to={tenantSlug ? `/${tenantSlug}/produtor/qrcodes/${lote.id}` : '/'}><QrCode size={20} weight="bold" /></Link>
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

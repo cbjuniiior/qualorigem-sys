@@ -45,7 +45,7 @@ import { toast } from "sonner";
 // Generate deterministic color from string
 const getAvatarColor = (str: string) => {
   const colors = [
-    "bg-indigo-500",
+    "bg-lime-500",
     "bg-emerald-500",
     "bg-amber-500",
     "bg-rose-500",
@@ -205,25 +205,25 @@ export const PlatformUsers = () => {
     <PlatformLayout>
       <div className="space-y-8">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+          <h2 className="text-3xl font-black text-white tracking-tight">
             Usuários da Plataforma
           </h2>
-          <p className="text-slate-500 font-medium mt-1">
+          <p className="text-slate-400 font-medium mt-1">
             Gestão de todos os usuários e Super Admins da plataforma.
           </p>
         </div>
 
         <Tabs defaultValue="users" className="space-y-6">
-          <TabsList className="bg-white shadow-sm rounded-xl p-1 border-0">
+          <TabsList className="bg-white/95 shadow-lg rounded-xl p-1.5 border border-slate-200/50">
             <TabsTrigger
               value="users"
-              className="rounded-lg font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-sm px-4 py-2.5 transition-all"
+              className="rounded-lg font-bold data-[state=active]:bg-lime-400 data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-4 py-2.5 transition-all"
             >
               <Users size={16} className="mr-2" /> Todos os Usuários ({users.length})
             </TabsTrigger>
             <TabsTrigger
               value="admins"
-              className="rounded-lg font-bold data-[state=active]:bg-indigo-600 data-[state=active]:text-white data-[state=active]:shadow-sm px-4 py-2.5 transition-all"
+              className="rounded-lg font-bold data-[state=active]:bg-lime-400 data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-4 py-2.5 transition-all"
             >
               <ShieldCheck size={16} className="mr-2" /> Super Admins ({admins.length})
             </TabsTrigger>
@@ -231,8 +231,8 @@ export const PlatformUsers = () => {
 
           {/* TAB 1: All Users */}
           <TabsContent value="users">
-            <Card className="border-0 shadow-sm bg-white rounded-2xl">
-              <CardHeader className="border-b border-slate-50">
+            <Card className="border-0 shadow-lg bg-white/95 rounded-2xl border-slate-200/50">
+              <CardHeader className="border-b border-slate-100">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-lg font-black">Todos os Usuários</CardTitle>
@@ -245,7 +245,7 @@ export const PlatformUsers = () => {
                     placeholder="Buscar por nome ou email..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-11 h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-indigo-500 focus-visible:ring-2"
+                    className="pl-11 h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-lime-500 focus-visible:ring-2"
                   />
                 </div>
               </CardHeader>
@@ -255,13 +255,15 @@ export const PlatformUsers = () => {
                     {Array(5)
                       .fill(0)
                       .map((_, i) => (
-                        <Skeleton key={i} className="h-14 rounded-xl" />
+                        <div key={i} className="h-14 rounded-xl bg-slate-100 animate-pulse" />
                       ))}
                   </div>
                 ) : filteredUsers.length === 0 ? (
                   <div className="p-12 text-center">
-                    <Users size={56} className="mx-auto mb-4 text-slate-300" weight="duotone" />
-                    <p className="font-bold text-slate-500 mb-1 text-lg">Nenhum usuário encontrado</p>
+                    <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                      <Users size={40} className="text-slate-400" weight="duotone" />
+                    </div>
+                    <p className="font-bold text-slate-600 mb-1 text-lg">Nenhum usuário encontrado</p>
                     <p className="text-sm text-slate-400">
                       {searchTerm
                         ? "Tente outro termo de busca."
@@ -275,8 +277,9 @@ export const PlatformUsers = () => {
                       return (
                         <button
                           key={u.id}
+                          type="button"
                           onClick={() => openUserDetail(u)}
-                          className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors text-left"
+                          className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors text-left focus:outline-none focus-visible:bg-slate-50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-lime-400/30 rounded-lg"
                         >
                           <div className="flex items-center gap-4 min-w-0">
                             <div className={`w-10 h-10 rounded-xl ${avatarColor} flex items-center justify-center font-black text-sm text-white shrink-0 ring-2 ring-transparent hover:ring-slate-200 transition-all`}>
@@ -288,7 +291,7 @@ export const PlatformUsers = () => {
                                   {u.full_name || "Sem nome"}
                                 </p>
                                 {adminIds.has(u.id) && (
-                                  <Badge className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-0 text-[10px] font-black shadow-sm">
+                                  <Badge className="bg-gradient-to-r from-lime-500 to-lime-400 text-white border-0 text-[10px] font-black shadow-sm">
                                     <Crown size={10} className="mr-1" /> Super Admin
                                   </Badge>
                                 )}
@@ -325,8 +328,8 @@ export const PlatformUsers = () => {
 
           {/* TAB 2: Super Admins */}
           <TabsContent value="admins">
-            <Card className="border-0 shadow-sm bg-white rounded-2xl">
-              <CardHeader className="flex flex-row items-center justify-between border-b border-slate-50">
+            <Card className="border-0 shadow-lg bg-white/95 rounded-2xl border-slate-200/50">
+              <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100">
                 <div>
                   <CardTitle className="text-lg font-black">Super Admins</CardTitle>
                   <CardDescription>Administradores da plataforma com acesso total.</CardDescription>
@@ -342,7 +345,7 @@ export const PlatformUsers = () => {
                   </Button>
                   <Button
                     size="sm"
-                    className="rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                    className="rounded-xl font-bold bg-lime-400 hover:bg-lime-300 text-slate-900 focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2"
                     onClick={() => setCreateOpen(true)}
                   >
                     <UserPlus size={16} className="mr-2" /> Criar Super Admin
@@ -355,14 +358,16 @@ export const PlatformUsers = () => {
                     {Array(2)
                       .fill(0)
                       .map((_, i) => (
-                        <Skeleton key={i} className="h-14 rounded-xl" />
+                        <div key={i} className="h-14 rounded-xl bg-slate-100 animate-pulse" />
                       ))}
                   </div>
                 ) : admins.length === 0 ? (
                   <div className="p-12 text-center">
-                    <ShieldCheck size={56} className="mx-auto mb-4 text-slate-300" weight="duotone" />
-                    <p className="font-bold text-slate-500 mb-1 text-lg">Nenhum Super Admin configurado</p>
-                    <p className="text-sm text-slate-400 mb-4">
+                    <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                      <ShieldCheck size={40} className="text-slate-400" weight="duotone" />
+                    </div>
+                    <p className="font-bold text-slate-600 mb-1 text-lg">Nenhum Super Admin configurado</p>
+                    <p className="text-sm text-slate-400 mb-6">
                       Promova um usuário existente ou crie um novo administrador.
                     </p>
                     <div className="flex items-center justify-center gap-2">
@@ -376,7 +381,7 @@ export const PlatformUsers = () => {
                       </Button>
                       <Button
                         size="sm"
-                        className="rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+                        className="rounded-xl font-bold bg-lime-400 hover:bg-lime-300 text-slate-900"
                         onClick={() => setCreateOpen(true)}
                       >
                         Criar Super Admin
@@ -391,7 +396,7 @@ export const PlatformUsers = () => {
                         className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors"
                       >
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shrink-0 shadow-sm ring-2 ring-indigo-100">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-lime-500 to-lime-400 flex items-center justify-center shrink-0 shadow-sm ring-2 ring-lime-100">
                             <Crown size={18} className="text-white" weight="fill" />
                           </div>
                           <div>
@@ -453,7 +458,7 @@ export const PlatformUsers = () => {
                   </p>
                   <p className="text-sm text-slate-500 mt-1">{selectedUser.email}</p>
                   {adminIds.has(selectedUser.id) && (
-                    <Badge className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-0 text-xs font-bold mt-2 shadow-sm">
+                    <Badge className="bg-gradient-to-r from-lime-500 to-lime-400 text-white border-0 text-xs font-bold mt-2 shadow-sm">
                       <Crown size={12} className="mr-1" /> Super Admin
                     </Badge>
                   )}
@@ -530,7 +535,7 @@ export const PlatformUsers = () => {
               value={promoteEmail}
               onChange={(e) => setPromoteEmail(e.target.value)}
               placeholder="usuario@email.com"
-              className="h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-indigo-500 focus-visible:ring-2"
+              className="h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-lime-500 focus-visible:ring-2"
             />
           </div>
           <DialogFooter>
@@ -540,7 +545,7 @@ export const PlatformUsers = () => {
             <Button
               onClick={handlePromote}
               disabled={promoting}
-              className="rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="rounded-xl font-bold bg-lime-400 hover:bg-lime-300 text-slate-900"
             >
               {promoting ? "Promovendo..." : "Promover"}
             </Button>
@@ -566,7 +571,7 @@ export const PlatformUsers = () => {
                 value={createName}
                 onChange={(e) => setCreateName(e.target.value)}
                 placeholder="Nome do administrador"
-                className="h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-indigo-500 focus-visible:ring-2"
+                className="h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-lime-500 focus-visible:ring-2"
               />
             </div>
             <div className="space-y-2">
@@ -578,7 +583,7 @@ export const PlatformUsers = () => {
                 value={createEmail}
                 onChange={(e) => setCreateEmail(e.target.value)}
                 placeholder="admin@email.com"
-                className="h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-indigo-500 focus-visible:ring-2"
+                className="h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-lime-500 focus-visible:ring-2"
               />
             </div>
             <div className="space-y-2">
@@ -592,7 +597,7 @@ export const PlatformUsers = () => {
                   value={createPassword}
                   onChange={(e) => setCreatePassword(e.target.value)}
                   placeholder="Senha temporária (mín. 6 caracteres)"
-                  className="pl-11 h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-indigo-500 focus-visible:ring-2"
+                  className="pl-11 h-11 rounded-xl bg-slate-50 border-0 font-medium focus-visible:ring-lime-500 focus-visible:ring-2"
                 />
               </div>
             </div>
@@ -604,7 +609,7 @@ export const PlatformUsers = () => {
             <Button
               onClick={handleCreateAdmin}
               disabled={creating}
-              className="rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="rounded-xl font-bold bg-lime-400 hover:bg-lime-300 text-slate-900"
             >
               {creating ? "Criando..." : "Criar Admin"}
             </Button>

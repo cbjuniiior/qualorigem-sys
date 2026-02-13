@@ -24,6 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { usePlatformBranding } from "@/hooks/use-platform-branding";
 
 interface PlatformLayoutProps {
   children: React.ReactNode;
@@ -66,6 +67,8 @@ export const PlatformLayout = ({ children }: PlatformLayoutProps) => {
   const userEmail = user?.email || "";
   const userInitials = userEmail.substring(0, 2).toUpperCase();
 
+  usePlatformBranding();
+
   // Build breadcrumb
   const pathSegments = location.pathname.split("/").filter(Boolean);
   const breadcrumbs: { label: string; href?: string }[] = [{ label: "Plataforma", href: "/platform" }];
@@ -88,16 +91,17 @@ export const PlatformLayout = ({ children }: PlatformLayoutProps) => {
           onClick={mobile ? () => setSidebarOpen(false) : undefined}
           className={`
             group relative flex gap-x-3 rounded-xl ${mobile ? "p-4" : "p-3"} text-sm leading-6 font-bold transition-all duration-200 ease-out
+            focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1e32]
             ${isActive
-              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-900/30 translate-x-1"
+              ? "bg-lime-400 text-slate-900 shadow-lg shadow-lime-500/20 translate-x-1"
               : "text-slate-400 hover:bg-slate-800 hover:text-white hover:translate-x-1"}
           `}
         >
           {isActive && (
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-white rounded-r-full shadow-sm" />
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-slate-900 rounded-r-full shadow-sm" />
           )}
           <item.icon
-            className={`${mobile ? "h-6 w-6" : "h-5 w-5"} shrink-0 transition-all duration-200 ease-out ${isActive ? "text-white" : "text-slate-500 group-hover:text-white"}`}
+            className={`${mobile ? "h-6 w-6" : "h-5 w-5"} shrink-0 transition-all duration-200 ease-out ${isActive ? "text-slate-900" : "text-slate-500 group-hover:text-white"}`}
             weight={isActive ? "fill" : "bold"}
           />
           {item.name}
@@ -107,18 +111,18 @@ export const PlatformLayout = ({ children }: PlatformLayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[#0b1520]">
       {/* Sidebar Desktop */}
       <aside className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
-        <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gradient-to-b from-slate-900 to-slate-950 px-6 pb-4">
+        <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gradient-to-b from-[#0f1e32] to-[#0b1520] px-6 pb-4 border-r border-slate-800/50">
           <div className="flex h-24 shrink-0 items-center justify-center py-6">
             <Link to="/platform" className="flex items-center gap-3 transition-all duration-200 ease-out hover:opacity-90">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-600 shadow-lg shadow-indigo-500/30 ring-2 ring-indigo-500/20">
-                <SquaresFour className="h-6 w-6 text-white" weight="fill" />
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-lime-400 shadow-lg shadow-lime-500/20 ring-2 ring-lime-400/30">
+                <SquaresFour className="h-6 w-6 text-slate-900" weight="fill" />
               </div>
               <div className="flex flex-col">
                 <span className="text-lg font-black tracking-tight text-white">QualOrigem</span>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Platform Admin</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-lime-400">Platform Admin</span>
               </div>
             </Link>
           </div>
@@ -141,8 +145,9 @@ export const PlatformLayout = ({ children }: PlatformLayoutProps) => {
 
             <div className="mt-auto pt-6 border-t border-slate-800">
               <button
+                type="button"
                 onClick={handleSignOut}
-                className="group flex w-full gap-x-3 rounded-xl p-3 text-sm font-bold text-slate-400 hover:bg-rose-900/20 hover:text-rose-400 transition-all duration-200 ease-out"
+                className="group flex w-full gap-x-3 rounded-xl p-3 text-sm font-bold text-slate-400 hover:bg-rose-900/20 hover:text-rose-400 transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1e32]"
               >
                 <SignOut className="h-5 w-5 shrink-0 text-slate-500 group-hover:text-rose-400 transition-all duration-200 ease-out" weight="bold" />
                 Sair da Plataforma
@@ -153,11 +158,12 @@ export const PlatformLayout = ({ children }: PlatformLayoutProps) => {
       </aside>
 
       <div className="lg:pl-72 flex flex-col min-h-screen">
-        <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-slate-200/80 bg-white/80 backdrop-blur-md px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-slate-700/60 bg-[#0f1e32]/95 backdrop-blur-md px-3 shadow-lg shadow-black/5 sm:gap-x-6 sm:px-6 lg:px-8">
           <Button 
+            type="button"
             variant="ghost" 
             size="icon" 
-            className="lg:hidden text-slate-600 transition-all duration-200 ease-out hover:bg-slate-100" 
+            className="lg:hidden text-slate-400 min-h-[44px] min-w-[44px] transition-all duration-200 ease-out hover:bg-slate-800 hover:text-white rounded-xl focus-visible:ring-lime-400 focus-visible:ring-offset-[#0b1520]" 
             onClick={() => setSidebarOpen(true)}
           >
             <List className="h-6 w-6" />
@@ -167,16 +173,16 @@ export const PlatformLayout = ({ children }: PlatformLayoutProps) => {
           <div className="hidden sm:flex items-center gap-1.5 text-sm">
             {breadcrumbs.map((crumb, i) => (
               <span key={i} className="flex items-center gap-1.5">
-                {i > 0 && <CaretRight size={12} className="text-slate-300" />}
+                {i > 0 && <CaretRight size={12} className="text-slate-500" />}
                 {crumb.href && i < breadcrumbs.length - 1 ? (
                   <Link 
                     to={crumb.href} 
-                    className="text-slate-400 hover:text-indigo-600 font-medium transition-all duration-200 ease-out"
+                    className="text-slate-400 hover:text-lime-400 font-medium transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1e32] rounded px-1"
                   >
                     {crumb.label}
                   </Link>
                 ) : (
-                  <span className="text-slate-700 font-bold px-2.5 py-1 rounded-md bg-slate-100/80">
+                  <span className="text-white font-bold px-2.5 py-1 rounded-lg bg-lime-400/15 text-lime-400 border border-lime-400/30">
                     {crumb.label}
                   </span>
                 )}
@@ -188,17 +194,17 @@ export const PlatformLayout = ({ children }: PlatformLayoutProps) => {
             <div className="flex items-center gap-x-4 lg:gap-x-6">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="-m-1.5 flex items-center p-1.5 hover:opacity-80 transition-all duration-200 ease-out rounded-lg hover:ring-2 hover:ring-indigo-200/50 ring-offset-2">
-                    <Avatar className="h-9 w-9 border-2 border-white shadow-sm ring-1 ring-slate-200">
+                  <button className="-m-1.5 flex items-center p-1.5 hover:opacity-90 transition-all duration-200 ease-out rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b1520]">
+                    <Avatar className="h-9 w-9 border-2 border-slate-700 shadow-sm ring-1 ring-slate-600">
                       <AvatarImage src="" />
-                      <AvatarFallback className="bg-indigo-600 text-white text-xs font-black">{userInitials}</AvatarFallback>
+                      <AvatarFallback className="bg-lime-400 text-slate-900 text-xs font-black">{userInitials}</AvatarFallback>
                     </Avatar>
                     <span className="hidden lg:flex lg:items-center">
-                      <span className="ml-3 text-sm font-black text-slate-900">Super Admin</span>
+                      <span className="ml-3 text-sm font-black text-white">Super Admin</span>
                     </span>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64 mt-2 rounded-xl shadow-2xl border-slate-100 p-2">
+                <DropdownMenuContent align="end" className="w-64 mt-2 rounded-2xl shadow-2xl border border-slate-200/80 bg-white p-2">
                   <div className="px-3 py-3">
                     <p className="text-sm font-black text-slate-900">Super Admin</p>
                     <p className="text-xs text-slate-500 truncate">{userEmail}</p>
@@ -206,14 +212,14 @@ export const PlatformLayout = ({ children }: PlatformLayoutProps) => {
                   <DropdownMenuSeparator className="bg-slate-100 my-1" />
                   <DropdownMenuItem 
                     onClick={() => navigate("/platform/settings")} 
-                    className="rounded-lg py-2.5 font-bold cursor-pointer transition-all duration-200 ease-out"
+                    className="rounded-xl py-2.5 font-bold cursor-pointer transition-all duration-200 ease-out focus:bg-lime-50 focus:text-lime-700"
                   >
                     <Gear size={16} className="mr-2" /> Configurações
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-slate-100 my-1" />
                   <DropdownMenuItem 
                     onClick={handleSignOut} 
-                    className="rounded-lg py-2.5 font-bold cursor-pointer text-rose-600 focus:bg-rose-50 focus:text-rose-600 transition-all duration-200 ease-out"
+                    className="rounded-xl py-2.5 font-bold cursor-pointer text-rose-600 focus:bg-rose-50 focus:text-rose-600 transition-all duration-200 ease-out"
                   >
                     <SignOut size={16} className="mr-2" weight="bold" /> Sair da Plataforma
                   </DropdownMenuItem>
@@ -224,14 +230,12 @@ export const PlatformLayout = ({ children }: PlatformLayoutProps) => {
         </header>
 
         <main className="flex-1 py-8 px-4 sm:px-6 lg:px-8 relative">
-          {/* Subtle top gradient overlay */}
-          <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-white/60 via-white/20 to-transparent pointer-events-none" />
           <div className="mx-auto max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-700 relative z-10">
             {children}
           </div>
           {/* Footer watermark */}
           <div className="absolute bottom-0 left-0 right-0 h-16 flex items-center justify-center pointer-events-none">
-            <span className="text-xs font-bold text-slate-300/40 tracking-widest uppercase">
+            <span className="text-xs font-bold text-slate-500/60 tracking-widest uppercase">
               QualOrigem Platform
             </span>
           </div>
@@ -241,12 +245,13 @@ export const PlatformLayout = ({ children }: PlatformLayoutProps) => {
       {/* Mobile Sidebar */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-[60] flex">
-          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm transition-opacity duration-200 ease-out" onClick={() => setSidebarOpen(false)} />
-          <div className="relative flex w-full max-w-xs flex-1 flex-col bg-gradient-to-b from-slate-900 to-slate-950 animate-in slide-in-from-left duration-300 shadow-2xl">
-            <div className="absolute right-4 top-4 z-10">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200 ease-out" onClick={() => setSidebarOpen(false)} />
+          <div className="relative flex w-full max-w-xs flex-1 flex-col bg-gradient-to-b from-[#0f1e32] to-[#0b1520] animate-in slide-in-from-left duration-300 shadow-2xl border-r border-slate-800/50">
+            <div className="absolute right-2 top-2 z-10">
               <Button 
                 variant="ghost" 
-                className="text-white hover:bg-slate-800 transition-all duration-200 ease-out" 
+                size="icon"
+                className="min-h-[44px] min-w-[44px] text-white hover:bg-slate-800 transition-all duration-200 ease-out" 
                 onClick={() => setSidebarOpen(false)}
               >
                 <X className="h-6 w-6" />
@@ -255,12 +260,12 @@ export const PlatformLayout = ({ children }: PlatformLayoutProps) => {
             <div className="flex grow flex-col gap-y-5 overflow-y-auto px-6 pb-4">
               <div className="flex h-24 shrink-0 items-center justify-center py-6 relative">
                 <Link to="/platform" className="flex items-center gap-3 transition-all duration-200 ease-out hover:opacity-90" onClick={() => setSidebarOpen(false)}>
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-indigo-600 shadow-lg shadow-indigo-500/30 ring-2 ring-indigo-500/20">
-                    <SquaresFour className="h-6 w-6 text-white" weight="fill" />
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-lime-400 shadow-lg shadow-lime-500/20 ring-2 ring-lime-400/30">
+                    <SquaresFour className="h-6 w-6 text-slate-900" weight="fill" />
                   </div>
                   <div className="flex flex-col">
                     <span className="text-lg font-black tracking-tight text-white">QualOrigem</span>
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">Platform Admin</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-lime-400">Platform Admin</span>
                   </div>
                 </Link>
               </div>
@@ -282,8 +287,9 @@ export const PlatformLayout = ({ children }: PlatformLayoutProps) => {
 
                 <div className="mt-auto pt-6 border-t border-slate-800">
                   <button
+                    type="button"
                     onClick={handleSignOut}
-                    className="group flex w-full gap-x-3 rounded-xl p-4 text-sm font-bold text-slate-400 hover:bg-rose-900/20 hover:text-rose-400 transition-all duration-200 ease-out"
+                    className="group flex w-full gap-x-3 rounded-xl p-4 text-sm font-bold text-slate-400 hover:bg-rose-900/20 hover:text-rose-400 transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1e32]"
                   >
                     <SignOut className="h-6 w-6 shrink-0 text-slate-500 group-hover:text-rose-400 transition-all duration-200 ease-out" weight="bold" />
                     Sair da Plataforma

@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Separator } from "@/components/ui/separator";
 import { QRCodeSVG } from "qrcode.react";
 import { productLotsApi } from "@/services/api";
+import { useTenant } from "@/hooks/use-tenant";
 import { toast } from "sonner";
 import { ProductLot } from "@/types/lot";
 
@@ -97,6 +98,7 @@ export const LotDetailsModal = ({
   onEdit,
   onDelete 
 }: LotDetailsModalProps) => {
+  const { tenant } = useTenant();
   const [lotDetails, setLotDetails] = useState<ProductLot | null>(null);
   const [loading, setLoading] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
@@ -106,11 +108,11 @@ export const LotDetailsModal = ({
       if (lotDetails?.code) {
         try {
           const { generateQRCodeUrl } = await import("@/utils/qr-code-generator");
-          const url = await generateQRCodeUrl(lotDetails.code, lotDetails.category);
+          const url = await generateQRCodeUrl(lotDetails.code, lotDetails.category, tenant?.slug);
           setQrCodeUrl(url);
         } catch (error) {
           console.error('Erro ao gerar URL do QR Code:', error);
-          setQrCodeUrl(`${window.location.origin}/lote/${lotDetails.code}`);
+          setQrCodeUrl(tenant?.slug ? `${window.location.origin}/${tenant.slug}/lote/${lotDetails.code}` : `${window.location.origin}/`);
         }
       }
     };

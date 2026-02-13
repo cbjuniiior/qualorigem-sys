@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { PlatformLayout } from "@/components/layout/PlatformLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   ShieldCheck,
   Globe,
@@ -19,9 +21,16 @@ import {
   Fingerprint,
   ChartBar,
   UserCircle,
+  PaintBrush,
+  Image,
+  FloppyDisk,
+  CircleNotch,
 } from "@phosphor-icons/react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { platformSettingsApi } from "@/services/api";
+import { uploadPlatformFaviconToSupabase } from "@/services/upload";
+import type { PlatformSettings as PlatformSettingsType } from "@/services/api";
 
 const MODULE_ICONS: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
   traceability: Package,
@@ -43,14 +52,78 @@ const MODULE_DESCRIPTIONS: Record<string, string> = {
   crm: "Gestão de relacionamento com clientes",
 };
 
+const DEFAULT_SITE_TITLE = "QualOrigem - Painel Admin";
+const DEFAULT_SITE_DESCRIPTION = "Sistema de rastreabilidade de origem.";
+
 export const PlatformSettings = () => {
   const [copied, setCopied] = useState<string | null>(null);
+  const [platformSettings, setPlatformSettings] = useState<PlatformSettingsType | null>(null);
+  const [personalizationLoading, setPersonalizationLoading] = useState(true);
+  const [personalizationSaving, setPersonalizationSaving] = useState(false);
+  const [formTitle, setFormTitle] = useState(DEFAULT_SITE_TITLE);
+  const [formDescription, setFormDescription] = useState(DEFAULT_SITE_DESCRIPTION);
+  const [formFaviconUrl, setFormFaviconUrl] = useState<string | null>(null);
+  const faviconInputRef = useRef<HTMLInputElement>(null);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     setCopied(label);
     toast.success(`${label} copiado!`);
     setTimeout(() => setCopied(null), 2000);
+  };
+
+  // Load platform settings (personalização)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await platformSettingsApi.get();
+        if (cancelled) return;
+        setPlatformSettings(data ?? null);
+        if (data) {
+          setFormTitle(data.site_title || DEFAULT_SITE_TITLE);
+          setFormDescription(data.site_description ?? DEFAULT_SITE_DESCRIPTION);
+          setFormFaviconUrl(data.favicon_url ?? null);
+        }
+      } catch (e) {
+        if (!cancelled) toast.error("Erro ao carregar personalização.");
+      } finally {
+        if (!cancelled) setPersonalizationLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleSavePersonalization = async () => {
+    setPersonalizationSaving(true);
+    try {
+      await platformSettingsApi.upsert({
+        site_title: formTitle || DEFAULT_SITE_TITLE,
+        site_description: formDescription || undefined,
+        favicon_url: formFaviconUrl ?? undefined,
+      });
+      toast.success("Personalização salva.");
+    } catch (e) {
+      toast.error("Erro ao salvar personalização.");
+    } finally {
+      setPersonalizationSaving(false);
+    }
+  };
+
+  const handleFaviconFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith("image/")) {
+      toast.error("Selecione uma imagem válida.");
+      return;
+    }
+    try {
+      const url = await uploadPlatformFaviconToSupabase(file);
+      setFormFaviconUrl(url);
+      toast.success("Favicon enviado.");
+    } catch (err) {
+      toast.error("Erro ao enviar favicon.");
+    }
+    e.target.value = "";
   };
 
   // Supabase info
@@ -60,15 +133,91 @@ export const PlatformSettings = () => {
     <PlatformLayout>
       <div className="space-y-8">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Configurações</h2>
-          <p className="text-slate-500 font-medium">Configurações globais da plataforma QualOrigem.</p>
+          <h2 className="text-3xl font-black text-white tracking-tight">Configurações</h2>
+          <p className="text-slate-400 font-medium">Configurações globais da plataforma QualOrigem.</p>
         </div>
 
-        {/* Platform Info */}
-        <Card className="border-0 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all duration-200">
-          <CardHeader className="border-b border-slate-50">
+        {/* Personalização da plataforma */}
+        <Card className="border-0 shadow-lg bg-white/95 rounded-2xl border-slate-200/50 hover:shadow-xl transition-all duration-200">
+          <CardHeader className="border-b border-slate-100">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-indigo-100 rounded-xl text-indigo-600">
+              <div className="p-2.5 bg-pink-100 rounded-xl text-pink-600">
+                <PaintBrush size={20} weight="fill" />
+              </div>
+              <div>
+                <CardTitle className="text-lg font-black">Personalização da plataforma</CardTitle>
+                <CardDescription>Favicon, título e descrição usados nas páginas do painel da plataforma (login, clientes, usuários). Nas páginas dos clientes (tenants) continua sendo usada a logo do tenant.</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-6 space-y-6">
+            {personalizationLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <CircleNotch className="h-8 w-8 animate-spin text-slate-400" />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Favicon</Label>
+                  <p className="text-xs text-slate-500 mb-2">Usado nas abas do navegador nas páginas do painel (login, clientes, etc.). Nas páginas dos clientes (tenants) continua a logo do tenant.</p>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    {(formFaviconUrl || platformSettings?.favicon_url) && (
+                      <div className="w-12 h-12 rounded-xl border border-slate-200 overflow-hidden bg-slate-50 flex items-center justify-center shrink-0">
+                        <img src={formFaviconUrl || platformSettings?.favicon_url || ""} alt="Favicon" className="w-10 h-10 object-contain" />
+                      </div>
+                    )}
+                    <input
+                      ref={faviconInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFaviconFile}
+                    />
+                    <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => faviconInputRef.current?.click()}>
+                      <Image size={18} className="mr-2" /> {formFaviconUrl || platformSettings?.favicon_url ? "Trocar favicon" : "Enviar imagem"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="platform-site-title" className="text-xs font-black uppercase tracking-widest text-slate-500">Título do site</Label>
+                  <Input
+                    id="platform-site-title"
+                    value={formTitle}
+                    onChange={(e) => setFormTitle(e.target.value)}
+                    placeholder={DEFAULT_SITE_TITLE}
+                    className="rounded-xl bg-slate-50 border-slate-200"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="platform-site-description" className="text-xs font-black uppercase tracking-widest text-slate-500">Descrição do site</Label>
+                  <textarea
+                    id="platform-site-description"
+                    value={formDescription}
+                    onChange={(e) => setFormDescription(e.target.value)}
+                    placeholder={DEFAULT_SITE_DESCRIPTION}
+                    rows={3}
+                    className="flex w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400 focus-visible:ring-offset-2"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleSavePersonalization}
+                  disabled={personalizationSaving}
+                  className="rounded-xl bg-lime-500 hover:bg-lime-600 text-white font-bold"
+                >
+                  {personalizationSaving ? <CircleNotch size={18} className="mr-2 animate-spin" /> : <FloppyDisk size={18} className="mr-2" />}
+                  Salvar
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Platform Info */}
+        <Card className="border-0 shadow-lg bg-white/95 rounded-2xl border-slate-200/50 hover:shadow-xl transition-all duration-200">
+          <CardHeader className="border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-lime-100 rounded-xl text-lime-600">
                 <Info size={20} weight="fill" />
               </div>
               <div>
@@ -107,8 +256,8 @@ export const PlatformSettings = () => {
         </Card>
 
         {/* Security */}
-        <Card className="border-0 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all duration-200">
-          <CardHeader className="border-b border-slate-50">
+        <Card className="border-0 shadow-lg bg-white/95 rounded-2xl border-slate-200/50 hover:shadow-xl transition-all duration-200">
+          <CardHeader className="border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-amber-100 rounded-xl text-amber-600">
                 <ShieldCheck size={20} weight="fill" />
@@ -154,8 +303,8 @@ export const PlatformSettings = () => {
         </Card>
 
         {/* DB & Migration Guide */}
-        <Card className="border-0 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all duration-200">
-          <CardHeader className="border-b border-slate-50">
+        <Card className="border-0 shadow-lg bg-white/95 rounded-2xl border-slate-200/50 hover:shadow-xl transition-all duration-200">
+          <CardHeader className="border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-violet-100 rounded-xl text-violet-600">
                 <Database size={20} weight="fill" />
@@ -217,8 +366,8 @@ export const PlatformSettings = () => {
         </Card>
 
         {/* Modules Catalog */}
-        <Card className="border-0 shadow-sm bg-white rounded-2xl hover:shadow-md transition-all duration-200">
-          <CardHeader className="border-b border-slate-50">
+        <Card className="border-0 shadow-lg bg-white/95 rounded-2xl border-slate-200/50 hover:shadow-xl transition-all duration-200">
+          <CardHeader className="border-b border-slate-100">
             <div className="flex items-center gap-3">
               <div className="p-2.5 bg-emerald-100 rounded-xl text-emerald-600">
                 <Globe size={20} weight="fill" />

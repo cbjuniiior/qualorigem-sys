@@ -51,6 +51,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useTenant } from "@/hooks/use-tenant";
+import { useTenantLabels } from "@/hooks/use-tenant-labels";
 
 interface ReportData {
   totalProducers: number;
@@ -65,6 +66,7 @@ interface ReportData {
 }
 
 const Relatorios = () => {
+  const labels = useTenantLabels();
   const [reportData, setReportData] = useState<ReportData>({
     totalProducers: 0,
     totalLots: 0,
@@ -421,7 +423,7 @@ const Relatorios = () => {
               />
 
               <SearchableSelect
-                label="Filtrar por Produtor"
+                label={`Filtrar por ${labels.producer}`}
                 value={filters.producerId}
                 onChange={(v) =>
                   setFilters((prev) => ({
@@ -436,8 +438,8 @@ const Relatorios = () => {
                           : "all",
                   }))
                 }
-                placeholder="Todos os produtores"
-                allLabel="Todos os Produtores"
+                placeholder={`Todos(as) ${labels.producers.toLowerCase()}`}
+                allLabel={`Todos(as) ${labels.producers}`}
                 options={producers.map((p) => ({ value: p.id, label: p.name }))}
               />
 
@@ -493,7 +495,7 @@ const Relatorios = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {loading ? Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-32 w-full rounded-2xl" />) : (
             <>
-              <StatCard title="Total Produtores" value={reportData.totalProducers} icon={Users} color="#10b981" />
+              <StatCard title={`Total ${labels.producers}`} value={reportData.totalProducers} icon={Users} color="#10b981" />
               <StatCard title="Lotes Rastreados" value={reportData.totalLots} icon={Package} color="#3b82f6" />
               <StatCard title="Selos Emitidos" value={reportData.totalSeals.toLocaleString()} icon={Tag} color="#f59e0b" />
               <StatCard title="Cidades Atendidas" value={reportData.cities.length} icon={MapPin} color="#8b5cf6" />
@@ -508,7 +510,7 @@ const Relatorios = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-xl font-black text-slate-900">Evolução do Sistema</CardTitle>
-                  <CardDescription className="font-medium text-slate-400">Crescimento de lotes e produtores nos últimos meses</CardDescription>
+                  <CardDescription className="font-medium text-slate-400">Crescimento de lotes e {labels.producers.toLowerCase()} nos últimos meses</CardDescription>
                 </div>
                 <TrendUp size={32} className="text-primary/20" weight="fill" />
               </div>
@@ -687,7 +689,7 @@ const Relatorios = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Card className="border-0 shadow-sm bg-white rounded-2xl overflow-hidden">
             <CardHeader className="border-b border-slate-50 px-8 py-6">
-              <CardTitle className="text-xl font-black text-slate-900">Top Produtores</CardTitle>
+              <CardTitle className="text-xl font-black text-slate-900">Top {labels.producers}</CardTitle>
               <CardDescription className="font-medium text-slate-400">Liderança em volume de lotes registrados</CardDescription>
             </CardHeader>
             <CardContent className="p-0">

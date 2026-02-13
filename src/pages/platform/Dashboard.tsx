@@ -17,7 +17,6 @@ import {
   TrendUp,
 } from "@phosphor-icons/react";
 import { platformApi } from "@/services/api";
-import { Skeleton } from "@/components/ui/skeleton";
 
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr);
@@ -105,16 +104,16 @@ export const PlatformDashboard = () => {
   const recentTenants = allTenants.slice(0, 5);
 
   const statCards = [
-    { title: "Total Clientes", value: stats.total_tenants, icon: Buildings, color: "#4f46e5" },
-    { title: "Clientes Ativos", value: stats.active_tenants, icon: CheckCircle, color: "#10b981" },
-    { title: "Usuários Globais", value: stats.total_users, icon: Users, color: "#f59e0b" },
-    { title: "Lotes Registrados", value: stats.total_lots, icon: Package, color: "#8b5cf6" },
+    { title: "Total Clientes", value: stats.total_tenants, icon: Buildings, color: "#a3e635" },
+    { title: "Clientes Ativos", value: stats.active_tenants, icon: CheckCircle, color: "#22c55e" },
+    { title: "Usuários Globais", value: stats.total_users, icon: Users, color: "#eab308" },
+    { title: "Lotes Registrados", value: stats.total_lots, icon: Package, color: "#a78bfa" },
   ];
 
   const typeRows = [
-    { type: "ig", label: "IG", color: "#4f46e5" },
-    { type: "marca_coletiva", label: "Marca Coletiva", color: "#10b981" },
-    { type: "privado", label: "Privado", color: "#f59e0b" },
+    { type: "ig", label: "IG", color: "#a3e635" },
+    { type: "marca_coletiva", label: "Marca Coletiva", color: "#22c55e" },
+    { type: "privado", label: "Privado", color: "#eab308" },
   ];
 
   const typeCounts = allTenants.reduce(
@@ -141,23 +140,23 @@ export const PlatformDashboard = () => {
   return (
     <PlatformLayout>
       <div className="space-y-8">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Visão Geral</h2>
-          <p className="text-slate-500 font-medium mt-1">Monitoramento global da plataforma QualOrigem.</p>
-          <p className="text-sm text-slate-400 font-medium mt-2">Bem-vindo! Hoje é {currentDate}</p>
+        <div className="space-y-1">
+          <h1 className="text-3xl font-black text-white tracking-tight">Visão Geral</h1>
+          <p className="text-slate-400 font-medium">Monitoramento global da plataforma QualOrigem.</p>
+          <p className="text-sm text-slate-500">Bem-vindo! Hoje é {currentDate}</p>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {loading ? (
             Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-32 w-full rounded-2xl" />
+              <div key={i} className="h-32 w-full rounded-2xl bg-slate-800/50 border border-slate-700/50 animate-pulse" />
             ))
           ) : (
             statCards.map((card) => (
               <Card 
                 key={card.title} 
-                className="border-0 shadow-sm bg-white overflow-hidden rounded-2xl hover:-translate-y-1 hover:shadow-md transition-all duration-300 cursor-default"
+                className="border-0 shadow-lg bg-white/95 overflow-hidden rounded-2xl border-slate-200/50 hover:-translate-y-1 hover:shadow-xl transition-all duration-300 cursor-default"
               >
                 <div className="h-1.5" style={{ backgroundColor: card.color }} />
                 <CardContent className="p-6">
@@ -182,13 +181,15 @@ export const PlatformDashboard = () => {
         </div>
 
         {/* Quick Actions */}
-        <Card className="border-0 shadow-sm bg-white rounded-2xl">
-          <CardContent className="p-4">
+        <Card className="border-0 shadow-lg bg-white/95 rounded-2xl border-slate-200/50">
+          <CardHeader className="pb-2 pt-5 px-5">
+            <CardTitle className="text-sm font-black text-slate-500 uppercase tracking-widest">Ações rápidas</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0 px-5 pb-5">
             <div className="flex flex-wrap gap-3">
               <Button
-                variant="outline"
                 size="sm"
-                className="rounded-xl font-bold border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-all duration-200"
+                className="rounded-xl font-bold bg-lime-400 text-slate-900 hover:bg-lime-300 shadow-lg shadow-lime-500/20 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2"
                 onClick={() => navigate("/platform/tenants")}
               >
                 <Plus size={18} className="mr-2" weight="bold" />
@@ -197,7 +198,7 @@ export const PlatformDashboard = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="rounded-xl font-bold border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-all duration-200"
+                className="rounded-xl font-bold border-lime-400/50 bg-white hover:bg-lime-50 hover:border-lime-400 text-lime-700 transition-all duration-200"
                 onClick={() => navigate("/platform/users")}
               >
                 <Users size={18} className="mr-2" weight="bold" />
@@ -210,15 +211,15 @@ export const PlatformDashboard = () => {
         {/* Two-column grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Últimos Clientes */}
-          <Card className="border-0 shadow-sm bg-white rounded-2xl lg:col-span-2">
-            <CardHeader className="border-b border-slate-50 px-6 py-5">
+          <Card className="border-0 shadow-lg bg-white/95 rounded-2xl border-slate-200/50 lg:col-span-2">
+            <CardHeader className="border-b border-slate-100 px-6 py-5">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-black text-slate-900">Últimos Clientes</CardTitle>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate("/platform/tenants")}
-                  className="text-indigo-600 font-bold hover:text-indigo-700 transition-all duration-200"
+                  className="text-lime-600 font-bold hover:text-lime-700 hover:bg-lime-50 transition-all duration-200"
                 >
                   Ver todos <ArrowRight size={16} className="ml-1" weight="bold" />
                 </Button>
@@ -228,15 +229,18 @@ export const PlatformDashboard = () => {
               {loading ? (
                 <div className="p-6 space-y-3">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <Skeleton key={i} className="h-14 w-full rounded-xl" />
+                    <div key={i} className="h-14 w-full rounded-xl bg-slate-100 animate-pulse" />
                   ))}
                 </div>
               ) : recentTenants.length === 0 ? (
                 <div className="p-12 text-center">
-                  <Buildings size={64} className="mx-auto mb-4 text-slate-200" weight="duotone" />
-                  <p className="font-bold text-slate-500 mb-4">Nenhum cliente cadastrado</p>
+                  <div className="w-20 h-20 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                    <Buildings size={40} className="text-slate-400" weight="duotone" />
+                  </div>
+                  <p className="font-bold text-slate-600 mb-1">Nenhum cliente cadastrado</p>
+                  <p className="text-sm text-slate-400 mb-6">Cadastre o primeiro cliente para começar.</p>
                   <Button
-                    className="rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all duration-200"
+                    className="rounded-xl font-bold bg-lime-400 text-slate-900 hover:bg-lime-300 shadow-lg shadow-lime-500/20 transition-all duration-200"
                     onClick={() => navigate("/platform/tenants")}
                   >
                     <Plus size={18} className="mr-2" weight="bold" />
@@ -248,8 +252,11 @@ export const PlatformDashboard = () => {
                   {recentTenants.map((tenant) => (
                     <div
                       key={tenant.id}
-                      className="relative flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-all duration-200 cursor-pointer group border-l-4 border-l-transparent hover:border-l-indigo-500"
+                      role="button"
+                      tabIndex={0}
+                      className="relative flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-all duration-200 cursor-pointer group border-l-4 border-l-transparent hover:border-l-lime-400 focus:outline-none focus-visible:bg-slate-50 focus-visible:border-l-lime-400"
                       onClick={() => navigate(`/platform/tenants/${tenant.id}`)}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); navigate(`/platform/tenants/${tenant.id}`); } }}
                     >
                       <div className="flex items-center gap-4">
                         <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 group-hover:bg-slate-200 transition-all duration-200">
@@ -296,17 +303,17 @@ export const PlatformDashboard = () => {
           </Card>
 
           {/* Por Tipo */}
-          <Card className="border-0 shadow-sm bg-white rounded-2xl">
-            <CardHeader className="border-b border-slate-50 px-6 py-5">
+          <Card className="border-0 shadow-lg bg-white/95 rounded-2xl border-slate-200/50">
+            <CardHeader className="border-b border-slate-100 px-6 py-5">
               <CardTitle className="text-lg font-black text-slate-900">Por Tipo</CardTitle>
             </CardHeader>
             <CardContent className="p-6">
               {loading ? (
                 <div className="space-y-3">
                   {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full rounded-xl" />
+                    <div key={i} className="h-12 w-full rounded-xl bg-slate-100 animate-pulse" />
                   ))}
-                  <Skeleton className="h-16 w-full rounded-xl mt-4" />
+                  <div className="h-16 w-full rounded-xl bg-slate-100 animate-pulse mt-4" />
                 </div>
               ) : (
                 <>
@@ -340,12 +347,12 @@ export const PlatformDashboard = () => {
                     })}
                   </div>
 
-                  <div className="mt-4 p-5 bg-gradient-to-br from-indigo-50 via-indigo-50/80 to-indigo-100 rounded-xl text-center border border-indigo-100">
-                    <p className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-2">
+                  <div className="mt-4 p-5 bg-gradient-to-br from-lime-50 via-lime-50/80 to-lime-100 rounded-xl text-center border border-lime-200">
+                    <p className="text-xs font-black text-lime-600 uppercase tracking-widest mb-2">
                       Taxa de Ativação
                     </p>
-                    <p className="text-3xl font-black text-indigo-700 mb-1">{activationRate}%</p>
-                    <p className="text-xs font-bold text-indigo-500">
+                    <p className="text-3xl font-black text-lime-700 mb-1">{activationRate}%</p>
+                    <p className="text-xs font-bold text-lime-600">
                       {stats.active_tenants} de {stats.total_tenants} clientes
                     </p>
                   </div>
