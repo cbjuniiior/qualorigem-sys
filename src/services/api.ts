@@ -124,38 +124,25 @@ export const platformApi = {
     return data;
   },
 
-  // Criar tenant + primeiro admin (atômico via RPC)
+  // Criar tenant + primeiro admin (atômico via RPC — evita tenant_id null por RLS)
   async createTenantWithAdmin(
     tenantData: { name: string; slug: string; type: string; status?: string },
     adminEmail: string,
     adminPassword: string,
     adminName: string
   ) {
-    // 1. Criar o tenant
-    const { data: tenant, error: tenantError } = await supabase
-      .from("tenants")
-      .insert(tenantData)
-      .select()
-      .single();
-    if (tenantError) throw tenantError;
-
-    // 2. Criar o usuário e vinculá-lo ao tenant
-    try {
-      const { data: userId, error: userError } = await supabase
-        .rpc("create_user_for_tenant", {
-          p_email: adminEmail,
-          p_password: adminPassword,
-          p_full_name: adminName,
-          p_tenant_id: tenant.id,
-          p_role: "tenant_admin",
-        });
-      if (userError) throw userError;
-      return { tenant, userId };
-    } catch (err) {
-      // Se falhar ao criar usuário, tentar excluir o tenant criado
-      await supabase.from("tenants").delete().eq("id", tenant.id);
-      throw err;
-    }
+    const { data: tenantId, error } = await supabase.rpc("create_tenant_with_admin", {
+      p_name: tenantData.name,
+      p_slug: tenantData.slug,
+      p_type: tenantData.type,
+      p_status: tenantData.status ?? "active",
+      p_admin_email: adminEmail,
+      p_admin_password: adminPassword,
+      p_admin_name: adminName,
+      p_admin_role: "tenant_admin",
+    });
+    if (error) throw error;
+    return { tenant: { id: tenantId, ...tenantData }, userId: tenantId };
   },
 
   // Atualizar tenant

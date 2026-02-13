@@ -6,6 +6,7 @@
 -- administração da plataforma (superadmin).
 -- =====================================================
 -- NOTA: Execute APÓS MIGRATION_V3
+-- No Supabase, pgcrypto já vem no schema "extensions"; usamos extensions.gen_salt / extensions.crypt.
 
 -- =====================================================
 -- 1. Listar todos os usuários (cross-tenant)
@@ -197,7 +198,7 @@ BEGIN
     new_user_id,
     '00000000-0000-0000-0000-000000000000',
     p_email,
-    crypt(p_password, gen_salt('bf')),
+    extensions.crypt(p_password, extensions.gen_salt('bf')),
     now(),
     jsonb_build_object('full_name', p_full_name),
     now(), now(), 'authenticated', 'authenticated',
