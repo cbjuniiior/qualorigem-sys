@@ -55,7 +55,7 @@ function mergeBranding(
   return {
     ...base,
     ...t,
-    siteTitle: useTenantNameAndLogo && t.siteTitle?.trim() ? t.siteTitle.trim() : platformName,
+    siteTitle: (t.siteTitle && t.siteTitle.trim()) ? t.siteTitle.trim() : platformName,
     logoUrl: useTenantNameAndLogo && t.logoUrl?.trim() ? t.logoUrl.trim() : platformFavicon,
     siteDescription: (t.siteDescription && String(t.siteDescription).trim()) ? t.siteDescription : platformDescription,
     ogImageUrl: tenantHeaderImage ?? platformOgImage,
