@@ -30,24 +30,27 @@ function tenantHasPersonalization(b: BrandingConfig | null): boolean {
  * Cores e demais opções do tenant são sempre mescladas quando existirem.
  */
 function mergeBranding(
-  platform: { site_title?: string | null; favicon_url?: string | null; site_description?: string | null } | null,
+  platform: { site_title?: string | null; favicon_url?: string | null; site_description?: string | null; og_image_url?: string | null } | null,
   tenantBranding: BrandingConfig | null
 ): BrandingConfig {
   const platformName = platform?.site_title?.trim() || DEFAULT_PLATFORM_NAME;
   const platformFavicon = platform?.favicon_url?.trim() || null;
   const platformDescription = platform?.site_description?.trim() ?? DEFAULT_BRANDING.siteDescription;
+  const platformOgImage = platform?.og_image_url?.trim() || null;
 
   const base: BrandingConfig = {
     ...DEFAULT_BRANDING,
     siteTitle: platformName,
     logoUrl: platformFavicon,
     siteDescription: platformDescription,
+    ogImageUrl: platformOgImage,
   };
 
   if (!tenantBranding) return base;
 
   const t = tenantBranding;
   const useTenantNameAndLogo = tenantHasPersonalization(tenantBranding);
+  const tenantHeaderImage = (t.headerImageUrl && t.headerImageUrl.trim()) || null;
 
   return {
     ...base,
@@ -55,6 +58,7 @@ function mergeBranding(
     siteTitle: useTenantNameAndLogo && t.siteTitle?.trim() ? t.siteTitle.trim() : platformName,
     logoUrl: useTenantNameAndLogo && t.logoUrl?.trim() ? t.logoUrl.trim() : platformFavicon,
     siteDescription: (t.siteDescription && String(t.siteDescription).trim()) ? t.siteDescription : platformDescription,
+    ogImageUrl: tenantHeaderImage ?? platformOgImage,
   };
 }
 

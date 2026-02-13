@@ -11,6 +11,8 @@ export interface BrandingConfig {
   videoBackgroundUrl?: string | null;
   siteTitle?: string;
   siteDescription?: string;
+  /** URL da imagem para Open Graph / preview de links (derivada: header do tenant ou plataforma). */
+  ogImageUrl?: string | null;
 }
 
 interface BrandingContextType {
@@ -70,17 +72,23 @@ const applyBrandingToDOM = (config: BrandingConfig) => {
   setMetaProperty("og:description", description);
   setMetaProperty("og:type", "website");
   setMetaProperty("og:url", typeof window !== "undefined" ? window.location.origin + window.location.pathname : "");
-  if (config.logoUrl) {
-    setMetaProperty("og:image", config.logoUrl);
+
+  const ogImage = config.ogImageUrl || config.logoUrl;
+  const ogImageAbsolute = ogImage && typeof window !== "undefined"
+    ? (ogImage.startsWith("http") ? ogImage : new URL(ogImage, window.location.origin).href)
+    : null;
+  if (ogImageAbsolute) {
+    setMetaProperty("og:image", ogImageAbsolute);
     let twitterImg = document.querySelector('meta[name="twitter:image"]') as HTMLMetaElement | null;
-    if (twitterImg) twitterImg.content = config.logoUrl;
+    if (twitterImg) twitterImg.content = ogImageAbsolute;
     else {
       twitterImg = document.createElement("meta");
       twitterImg.name = "twitter:image";
-      twitterImg.content = config.logoUrl;
+      twitterImg.content = ogImageAbsolute;
       document.head.appendChild(twitterImg);
     }
   }
+
   let twitterCard = document.querySelector('meta[name="twitter:card"]') as HTMLMetaElement | null;
   if (!twitterCard) {
     twitterCard = document.createElement("meta");
