@@ -19,7 +19,8 @@ interface BrandingContextType {
   resetBranding: () => void;
 }
 
-const DEFAULT_BRANDING: BrandingConfig = {
+/** Usado como fallback quando o tenant não tem personalização (nome e favicon da plataforma). */
+export const DEFAULT_BRANDING: BrandingConfig = {
   preset: 'default',
   primaryColor: '#16a34a',
   secondaryColor: '#22c55e',
@@ -88,16 +89,15 @@ const applyBrandingToDOM = (config: BrandingConfig) => {
   }
   twitterCard.content = "summary_large_image";
 
-  if (config.logoUrl) {
-    const favicon = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
-    if (favicon) {
-      favicon.href = config.logoUrl;
-    } else {
-      const newFavicon = document.createElement('link');
-      newFavicon.rel = 'icon';
-      newFavicon.href = config.logoUrl;
-      document.head.appendChild(newFavicon);
-    }
+  const faviconHref = config.logoUrl || '/favicon.ico';
+  let favicon = document.querySelector("link[rel*='icon']") as HTMLLinkElement | null;
+  if (favicon) {
+    favicon.href = faviconHref;
+  } else {
+    favicon = document.createElement('link');
+    favicon.rel = 'icon';
+    favicon.href = faviconHref;
+    document.head.appendChild(favicon);
   }
 };
 

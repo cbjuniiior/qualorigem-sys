@@ -111,7 +111,7 @@ export const AdminLayout = ({ children }: AdminLayoutProps) => {
                     <Leaf className="h-6 w-6 text-white" weight="fill" />
                   </div>
                   <span className="text-2xl font-black tracking-tight text-slate-900">
-                    {branding?.siteTitle?.split(' - ')[0] || "GeoTrace"}
+                    {branding?.siteTitle?.split(' - ')[0] || "QualOrigem"}
                   </span>
                 </>
               )}
