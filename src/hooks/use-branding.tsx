@@ -31,17 +31,63 @@ const DEFAULT_BRANDING: BrandingConfig = {
 
 const BrandingContext = createContext<BrandingContextType | undefined>(undefined);
 
+function setMetaProperty(property: string, content: string) {
+  const selector = `meta[property="${property}"]`;
+  let el = document.querySelector(selector) as HTMLMetaElement | null;
+  if (el) {
+    el.content = content;
+  } else {
+    el = document.createElement("meta");
+    el.setAttribute("property", property);
+    el.content = content;
+    document.head.appendChild(el);
+  }
+}
+
 const applyBrandingToDOM = (config: BrandingConfig) => {
   const root = document.documentElement;
   root.style.setProperty('--primary', hexToHsl(config.primaryColor));
   root.style.setProperty('--secondary', hexToHsl(config.secondaryColor));
   root.style.setProperty('--accent', hexToHsl(config.accentColor));
   root.style.setProperty('--ring', hexToHsl(config.primaryColor));
-  
-  if (config.siteTitle) {
-    document.title = config.siteTitle;
+
+  const title = config.siteTitle || 'Portal de Rastreabilidade';
+  const description = config.siteDescription || 'Sistema de rastreabilidade de produtos';
+
+  document.title = title;
+
+  let metaDesc = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
+  if (metaDesc) metaDesc.content = description;
+  else {
+    metaDesc = document.createElement("meta");
+    metaDesc.name = "description";
+    metaDesc.content = description;
+    document.head.appendChild(metaDesc);
   }
-  
+
+  setMetaProperty("og:title", title);
+  setMetaProperty("og:description", description);
+  setMetaProperty("og:type", "website");
+  setMetaProperty("og:url", typeof window !== "undefined" ? window.location.origin + window.location.pathname : "");
+  if (config.logoUrl) {
+    setMetaProperty("og:image", config.logoUrl);
+    let twitterImg = document.querySelector('meta[name="twitter:image"]') as HTMLMetaElement | null;
+    if (twitterImg) twitterImg.content = config.logoUrl;
+    else {
+      twitterImg = document.createElement("meta");
+      twitterImg.name = "twitter:image";
+      twitterImg.content = config.logoUrl;
+      document.head.appendChild(twitterImg);
+    }
+  }
+  let twitterCard = document.querySelector('meta[name="twitter:card"]') as HTMLMetaElement | null;
+  if (!twitterCard) {
+    twitterCard = document.createElement("meta");
+    twitterCard.name = "twitter:card";
+    document.head.appendChild(twitterCard);
+  }
+  twitterCard.content = "summary_large_image";
+
   if (config.logoUrl) {
     const favicon = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
     if (favicon) {

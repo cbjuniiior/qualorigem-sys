@@ -921,6 +921,7 @@ export type Database = {
           favicon_url: string | null
           site_title: string
           site_description: string | null
+          og_image_url: string | null
           updated_at: string
         }
         Insert: {
@@ -928,6 +929,7 @@ export type Database = {
           favicon_url?: string | null
           site_title?: string
           site_description?: string | null
+          og_image_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -935,6 +937,7 @@ export type Database = {
           favicon_url?: string | null
           site_title?: string
           site_description?: string | null
+          og_image_url?: string | null
           updated_at?: string
         }
         Relationships: []

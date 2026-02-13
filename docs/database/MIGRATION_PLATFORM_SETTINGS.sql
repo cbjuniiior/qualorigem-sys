@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.platform_settings (
   favicon_url text,
   site_title text NOT NULL DEFAULT 'QualOrigem - Painel Admin',
   site_description text,
+  og_image_url text,
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT platform_settings_singleton CHECK (id = '00000000-0000-0000-0000-000000000001'::uuid)
 );
@@ -39,6 +40,6 @@ CREATE POLICY "Platform admins write platform_settings"
   WITH CHECK (public.is_platform_admin());
 
 -- Inserir linha única (singleton)
-INSERT INTO public.platform_settings (id, site_title, site_description)
-VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 'QualOrigem - Painel Admin', 'Sistema de rastreabilidade de origem.')
+INSERT INTO public.platform_settings (id, site_title, site_description, og_image_url)
+VALUES ('00000000-0000-0000-0000-000000000001'::uuid, 'QualOrigem - Painel Admin', 'Sistema de rastreabilidade de origem.', null)
 ON CONFLICT (id) DO NOTHING;

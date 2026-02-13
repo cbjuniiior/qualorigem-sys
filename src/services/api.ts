@@ -1241,7 +1241,7 @@ export const platformSettingsApi = {
     if (error) throw error;
     return data;
   },
-  async upsert(settings: { favicon_url?: string | null; site_title?: string; site_description?: string | null }) {
+  async upsert(settings: { favicon_url?: string | null; site_title?: string; site_description?: string | null; og_image_url?: string | null }) {
     const { data, error } = await supabase
       .from("platform_settings")
       .upsert(

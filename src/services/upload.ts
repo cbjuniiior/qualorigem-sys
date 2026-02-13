@@ -140,6 +140,29 @@ export async function uploadPlatformFaviconToSupabase(file: File): Promise<strin
   return data.publicUrl;
 }
 
+/** Upload da imagem OG (redes sociais / compartilhamento) - bucket branding, prefixo platform/ */
+export async function uploadPlatformOgImageToSupabase(file: File): Promise<string> {
+  let fileToUpload: File | Blob = file;
+  if (file.type.startsWith('image/')) {
+    try {
+      fileToUpload = await resizeImage(file, 1200);
+    } catch {
+      fileToUpload = file;
+    }
+  }
+  const fileExt = file.name.split('.').pop() || 'png';
+  const fileName = `platform/og-image-${Date.now()}.${fileExt}`;
+  const { error } = await supabase.storage.from('branding').upload(fileName, fileToUpload, {
+    cacheControl: '3600',
+    upsert: true,
+    contentType: file.type,
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from('branding').getPublicUrl(fileName);
+  if (!data?.publicUrl) throw new Error('Erro ao obter URL pública da imagem OG');
+  return data.publicUrl;
+}
+
 // Faz upload de um PDF para o bucket 'certificados' e retorna a URL pública
 export async function uploadCertificateToSupabase(file: File): Promise<string> {
   if (file.type !== 'application/pdf') {

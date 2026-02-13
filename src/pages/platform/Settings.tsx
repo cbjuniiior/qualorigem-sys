@@ -29,7 +29,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { platformSettingsApi } from "@/services/api";
-import { uploadPlatformFaviconToSupabase } from "@/services/upload";
+import { uploadPlatformFaviconToSupabase, uploadPlatformOgImageToSupabase } from "@/services/upload";
 import type { PlatformSettings as PlatformSettingsType } from "@/services/api";
 
 const MODULE_ICONS: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
@@ -63,7 +63,9 @@ export const PlatformSettings = () => {
   const [formTitle, setFormTitle] = useState(DEFAULT_SITE_TITLE);
   const [formDescription, setFormDescription] = useState(DEFAULT_SITE_DESCRIPTION);
   const [formFaviconUrl, setFormFaviconUrl] = useState<string | null>(null);
+  const [formOgImageUrl, setFormOgImageUrl] = useState<string | null>(null);
   const faviconInputRef = useRef<HTMLInputElement>(null);
+  const ogImageInputRef = useRef<HTMLInputElement>(null);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -84,6 +86,7 @@ export const PlatformSettings = () => {
           setFormTitle(data.site_title || DEFAULT_SITE_TITLE);
           setFormDescription(data.site_description ?? DEFAULT_SITE_DESCRIPTION);
           setFormFaviconUrl(data.favicon_url ?? null);
+          setFormOgImageUrl(data.og_image_url ?? null);
         }
       } catch (e) {
         if (!cancelled) toast.error("Erro ao carregar personalização.");
@@ -101,6 +104,7 @@ export const PlatformSettings = () => {
         site_title: formTitle || DEFAULT_SITE_TITLE,
         site_description: formDescription || undefined,
         favicon_url: formFaviconUrl ?? undefined,
+        og_image_url: formOgImageUrl ?? undefined,
       });
       toast.success("Personalização salva.");
     } catch (e) {
@@ -126,6 +130,22 @@ export const PlatformSettings = () => {
     e.target.value = "";
   };
 
+  const handleOgImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith("image/")) {
+      toast.error("Selecione uma imagem válida.");
+      return;
+    }
+    try {
+      const url = await uploadPlatformOgImageToSupabase(file);
+      setFormOgImageUrl(url);
+      toast.success("Imagem OG enviada.");
+    } catch (err) {
+      toast.error("Erro ao enviar imagem.");
+    }
+    e.target.value = "";
+  };
+
   // Supabase info
   const supabaseUrl = (supabase as any).supabaseUrl || import.meta.env.VITE_SUPABASE_URL || "";
 
@@ -145,8 +165,8 @@ export const PlatformSettings = () => {
                 <PaintBrush size={20} weight="fill" />
               </div>
               <div>
-                <CardTitle className="text-lg font-black">Personalização da plataforma</CardTitle>
-                <CardDescription>Favicon, título e descrição usados nas páginas do painel da plataforma (login, clientes, usuários). Nas páginas dos clientes (tenants) continua sendo usada a logo do tenant.</CardDescription>
+                <CardTitle className="text-lg font-black">Personalização e SEO</CardTitle>
+                <CardDescription>Título, descrição e imagens usados na página raiz, no painel e ao compartilhar links (redes sociais). Nas páginas dos clientes (tenants) continua sendo usada a logo do tenant.</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -179,7 +199,8 @@ export const PlatformSettings = () => {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="platform-site-title" className="text-xs font-black uppercase tracking-widest text-slate-500">Título do site</Label>
+                  <Label htmlFor="platform-site-title" className="text-xs font-black uppercase tracking-widest text-slate-500">Título do site (SEO e abas)</Label>
+                  <p className="text-xs text-slate-500 mb-1">Exibido na aba do navegador e em compartilhamentos (og:title).</p>
                   <Input
                     id="platform-site-title"
                     value={formTitle}
@@ -189,7 +210,8 @@ export const PlatformSettings = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="platform-site-description" className="text-xs font-black uppercase tracking-widest text-slate-500">Descrição do site</Label>
+                  <Label htmlFor="platform-site-description" className="text-xs font-black uppercase tracking-widest text-slate-500">Descrição do site (SEO)</Label>
+                  <p className="text-xs text-slate-500 mb-1">Meta description e og:description — aparece em buscas e ao compartilhar o link.</p>
                   <textarea
                     id="platform-site-description"
                     value={formDescription}
@@ -198,6 +220,27 @@ export const PlatformSettings = () => {
                     rows={3}
                     className="flex w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400 focus-visible:ring-offset-2"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-black uppercase tracking-widest text-slate-500">Imagem para redes sociais (OG Image)</Label>
+                  <p className="text-xs text-slate-500 mb-2">Imagem exibida ao compartilhar o link no WhatsApp, Facebook, Twitter etc. Recomendado: 1200×630 px.</p>
+                  <div className="flex items-start gap-4 flex-wrap">
+                    {(formOgImageUrl || platformSettings?.og_image_url) && (
+                      <div className="w-40 h-[105px] rounded-xl border border-slate-200 overflow-hidden bg-slate-50 shrink-0">
+                        <img src={formOgImageUrl || platformSettings?.og_image_url || ""} alt="Preview OG" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <input
+                      ref={ogImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleOgImageFile}
+                    />
+                    <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => ogImageInputRef.current?.click()}>
+                      <Image size={18} className="mr-2" /> {formOgImageUrl || platformSettings?.og_image_url ? "Trocar imagem" : "Enviar imagem"}
+                    </Button>
+                  </div>
                 </div>
                 <Button
                   type="button"
