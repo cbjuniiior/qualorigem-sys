@@ -63,6 +63,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { sanitizeUuidFields } from "@/lib/sanitize-uuid";
 
 interface Producer {
   id: string;
@@ -499,13 +500,15 @@ const Lotes = () => {
         cleanLotData.average_temperature = null;
       }
 
+      const sanitizedLotData = sanitizeUuidFields(cleanLotData as Record<string, unknown>, ["producer_id", "brand_id", "association_id", "industry_id"]);
+
       if (editingLot) {
-        await productLotsApi.update(editingLot.id, tenant.id, cleanLotData as any);
+        await productLotsApi.update(editingLot.id, tenant.id, sanitizedLotData as any);
         if (editingLot.id) {
           // Atualizar componentes
           await productLotsApi.deleteComponentsByLot(editingLot.id, tenant.id);
           if (isBlendMode && components.length > 0) {
-            await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: editingLot.id, tenant_id: tenant.id })));
+            await Promise.all(components.map(c => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: editingLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
           }
 
           // Atualizar características
@@ -571,10 +574,10 @@ const Lotes = () => {
           finalCode = await generateLotCode(tenant.id, prefix || undefined, true);
         }
 
-        const newLot = await productLotsApi.create({ ...cleanLotData, code: finalCode } as any);
+        const newLot = await productLotsApi.create({ ...sanitizedLotData, code: finalCode } as any);
         // Criar componentes
         if (isBlendMode && components.length > 0) {
-          await Promise.all(components.map(c => productLotsApi.createComponent({ ...c, lot_id: newLot.id, tenant_id: tenant.id })));
+          await Promise.all(components.map(c => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: newLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
         }
         // Criar características
         if (characteristics && characteristics.length > 0) {

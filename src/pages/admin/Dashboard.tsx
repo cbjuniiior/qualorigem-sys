@@ -26,6 +26,7 @@ import { LotForm, LOT_STEPS } from "@/components/lots/LotForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { FormStepIndicator } from "@/components/ui/step-indicator";
+import { sanitizeUuidFields } from "@/lib/sanitize-uuid";
 
 interface DashboardStats {
   totalProducers: number;
@@ -190,10 +191,11 @@ const Dashboard = () => {
       };
 
       const { components, characteristics, ...cleanLotData } = lotData;
-      const newLot = await productLotsApi.create(cleanLotData as any);
+      const sanitizedLotData = sanitizeUuidFields(cleanLotData as Record<string, unknown>, ["producer_id", "brand_id", "association_id", "industry_id"]);
+      const newLot = await productLotsApi.create(sanitizedLotData as any);
       
       if (lotFormData.components && lotFormData.components.length > 0) {
-        await Promise.all(lotFormData.components.map(c => productLotsApi.createComponent({ ...c, lot_id: newLot.id, tenant_id: tenant.id })));
+        await Promise.all(lotFormData.components.map(c => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: newLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
       }
 
       if (characteristics && characteristics.length > 0) {

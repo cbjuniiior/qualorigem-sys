@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { sanitizeUuidFields } from "@/lib/sanitize-uuid";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, "");
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -1584,9 +1585,10 @@ export const productLotCharacteristicsApi = {
     return data;
   },
   async create(lotCharacteristic: ProductLotCharacteristicInsert) {
+    const sanitized = sanitizeUuidFields(lotCharacteristic as Record<string, unknown>, ["characteristic_id"]);
     const { data, error } = await supabase
       .from("product_lot_characteristics")
-      .insert(lotCharacteristic)
+      .insert(sanitized)
       .select()
       .single();
     if (error) throw error;
@@ -1677,9 +1679,10 @@ export const productLotSensoryApi = {
     return data;
   },
   async create(lotSensory: ProductLotSensoryInsert) {
+    const sanitized = sanitizeUuidFields(lotSensory as Record<string, unknown>, ["sensory_attribute_id"]);
     const { data, error } = await supabase
       .from("product_lot_sensory")
-      .insert(lotSensory)
+      .insert(sanitized)
       .select()
       .single();
     if (error) throw error;
@@ -1805,9 +1808,10 @@ export const certificationsApi = {
       .eq("entity_type", "lot")
       .eq("entity_id", lotId)
       .eq("tenant_id", tenantId);
-    // Inserir novas
-    if (certificationIds.length > 0) {
-      const inserts = certificationIds.map(cid => ({
+    // Filtrar IDs inválidos (evita erro UUID com string vazia)
+    const validIds = certificationIds.filter(id => id && String(id).trim().length > 0);
+    if (validIds.length > 0) {
+      const inserts = validIds.map(cid => ({
         certification_id: cid,
         entity_type: "lot" as const,
         entity_id: lotId,
@@ -1905,8 +1909,9 @@ export const internalProducersApi = {
       .delete()
       .eq("lot_id", lotId)
       .eq("tenant_id", tenantId);
-    if (internalProducerIds.length > 0) {
-      const inserts = internalProducerIds.map(pid => ({
+    const validIds = internalProducerIds.filter(id => id && String(id).trim().length > 0);
+    if (validIds.length > 0) {
+      const inserts = validIds.map(pid => ({
         lot_id: lotId,
         internal_producer_id: pid,
         tenant_id: tenantId,
@@ -1939,8 +1944,9 @@ export const lotIndustriesApi = {
       .delete()
       .eq("lot_id", lotId)
       .eq("tenant_id", tenantId);
-    if (industryIds.length > 0) {
-      const inserts = industryIds.map(iid => ({
+    const validIds = industryIds.filter(id => id && String(id).trim().length > 0);
+    if (validIds.length > 0) {
+      const inserts = validIds.map(iid => ({
         lot_id: lotId,
         industry_id: iid,
         tenant_id: tenantId,
