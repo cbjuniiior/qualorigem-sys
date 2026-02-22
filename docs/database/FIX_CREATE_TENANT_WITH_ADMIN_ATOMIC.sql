@@ -57,7 +57,7 @@ BEGIN
     id, instance_id, email, encrypted_password,
     email_confirmed_at, raw_user_meta_data,
     created_at, updated_at, role, aud,
-    confirmation_token
+    confirmation_token, email_change, email_change_token_new, recovery_token
   ) VALUES (
     new_user_id,
     '00000000-0000-0000-0000-000000000000',
@@ -66,7 +66,7 @@ BEGIN
     now(),
     jsonb_build_object('full_name', p_admin_name),
     now(), now(), 'authenticated', 'authenticated',
-    ''
+    '', '', '', ''
   );
 
   INSERT INTO auth.identities (

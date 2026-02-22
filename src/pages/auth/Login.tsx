@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/use-auth";
 import { useBranding } from "@/hooks/use-branding";
 import { useTenant } from "@/hooks/use-tenant";
+import { addTenantLogin } from "@/lib/tenant-logins";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const Login = () => {
@@ -66,6 +68,8 @@ const Login = () => {
 
     try {
       await signIn(email, password);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && tenant) addTenantLogin(tenant.id, user.id);
       // Navegação acontece no useEffect
     } catch (error) {
       // Erro já tratado no hook

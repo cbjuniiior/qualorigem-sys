@@ -120,6 +120,16 @@ VITE_SUPABASE_URL=https://seu-projeto.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6...
 ```
 
+## Criar Cliente com Admin (Edge Function)
+
+Para que o fluxo "Novo Cliente" funcione corretamente (admin consegue fazer login após criação):
+
+1. **Execute a RPC** no SQL Editor: `docs/database/RPC_GET_USER_BY_EMAIL.sql`
+2. **Implante a Edge Function** `create-tenant-with-admin`:
+   ```bash
+   supabase functions deploy create-tenant-with-admin
+   ```
+
 ## Troubleshooting
 
 ### Erro 406 - Not Acceptable

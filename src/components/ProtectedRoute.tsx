@@ -3,6 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
 import { useTenant } from "@/hooks/use-tenant";
 import { supabase } from "@/integrations/supabase/client";
+import { hasLoggedInToTenant } from "@/lib/tenant-logins";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -113,6 +114,17 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   if (!user) {
     const loginPath = tenant ? `/${tenant.slug}/auth/login` : "/";
     return <Navigate to={loginPath} state={{ from: location }} replace />;
+  }
+
+  // Exige login específico neste tenant (não acesso automático por ser membro em outro)
+  if (tenant && !hasLoggedInToTenant(tenant.id, user.id)) {
+    return (
+      <Navigate
+        to={`/${tenant.slug}/auth/login`}
+        state={{ from: location }}
+        replace
+      />
+    );
   }
 
   // Mostra loading enquanto verifica acesso (inclui hasAccess === null = ainda não verificou)

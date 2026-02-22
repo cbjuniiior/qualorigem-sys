@@ -124,25 +124,33 @@ export const platformApi = {
     return data;
   },
 
-  // Criar tenant + primeiro admin (atômico via RPC — evita tenant_id null por RLS)
+  // Criar tenant + primeiro admin via Edge Function (usa Admin API para criar usuário corretamente)
   async createTenantWithAdmin(
     tenantData: { name: string; slug: string; type: string; status?: string },
     adminEmail: string,
     adminPassword: string,
     adminName: string
   ) {
-    const { data: tenantId, error } = await supabase.rpc("create_tenant_with_admin", {
-      p_name: tenantData.name,
-      p_slug: tenantData.slug,
-      p_type: tenantData.type,
-      p_status: tenantData.status ?? "active",
-      p_admin_email: adminEmail,
-      p_admin_password: adminPassword,
-      p_admin_name: adminName,
-      p_admin_role: "tenant_admin",
+    const { data, error } = await supabase.functions.invoke("create-tenant-with-admin", {
+      body: {
+        tenantData: {
+          name: tenantData.name,
+          slug: tenantData.slug,
+          type: tenantData.type,
+          status: tenantData.status ?? "active",
+        },
+        adminEmail,
+        adminPassword,
+        adminName: adminName || adminEmail.split("@")[0],
+      },
     });
     if (error) throw error;
-    return { tenant: { id: tenantId, ...tenantData }, userId: tenantId };
+    const err = data?.error;
+    if (err) throw new Error(typeof err === "string" ? err : err?.message ?? "Erro ao criar cliente");
+    return {
+      tenant: data?.tenant ?? { id: data?.tenantId, ...tenantData },
+      userId: data?.userId,
+    };
   },
 
   // Atualizar tenant

@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { authApi } from "@/services/api";
 import { supabase } from "@/integrations/supabase/client";
+import { clearTenantLogins } from "@/lib/tenant-logins";
 import { toast } from "sonner";
 
 interface AuthContextType {
@@ -85,6 +86,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           clearTimeout(timeoutId);
 
           if (event === "SIGNED_OUT") {
+            clearTenantLogins();
             toast.success("Logout realizado com sucesso!");
             setLoginToastShown(false);
             localStorage.removeItem("loginToastShown");
@@ -131,6 +133,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const signOut = async () => {
     try {
       setLoading(true);
+      clearTenantLogins();
       await authApi.signOut();
     } catch (error: any) {
       toast.error(error.message || "Erro ao fazer logout");
