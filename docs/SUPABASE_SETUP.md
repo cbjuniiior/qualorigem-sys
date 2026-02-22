@@ -130,6 +130,13 @@ Para que o fluxo "Novo Cliente" funcione corretamente (admin consegue fazer logi
    supabase functions deploy create-tenant-with-admin
    ```
 
+## Preview de links (Open Graph por tenant)
+
+Para que o preview ao compartilhar links (WhatsApp, Facebook, etc.) exiba nome, descrição e logo do tenant:
+
+1. **Execute a RPC** no SQL Editor: `docs/database/RPC_GET_TENANT_OG_META.sql`
+2. O servidor Node (`server/og-server.js`) injeta as meta tags automaticamente quando crawlers solicitam a página.
+
 ## Troubleshooting
 
 ### Erro 406 - Not Acceptable

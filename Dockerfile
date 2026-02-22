@@ -51,16 +51,20 @@ RUN if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then \
 
 RUN npm run build
 
-# Production stage: serve the built assets via nginx
-FROM nginx:1.27-alpine AS production
+# Production stage: serve via Node (injeta meta OG para crawlers)
+FROM node:20-alpine AS production
 
-# Copy a custom nginx configuration to handle client-side routing
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+WORKDIR /app
 
-# Copy the built assets from the builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Copiar apenas o necessário para produção
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./
+COPY server ./server
 
-# Expose the default nginx port
+ENV NODE_ENV=production
+ENV STATIC_ROOT=/app/dist
+ENV PORT=80
+
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["node", "server/og-server.js"]
