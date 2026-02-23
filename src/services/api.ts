@@ -1,5 +1,4 @@
 import { supabase } from "@/integrations/supabase/client";
-import { FunctionsHttpError } from "@supabase/supabase-js";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { sanitizeUuidFields } from "@/lib/sanitize-uuid";
 
@@ -888,7 +887,7 @@ export const usersApi = {
 
       if (error) {
         let message = error.message || 'Erro ao criar usuário';
-        if (error instanceof FunctionsHttpError && error.context) {
+        if (error?.context && typeof error.context.json === 'function') {
           try {
             const body = await error.context.json();
             if (body?.error) {
@@ -913,6 +912,16 @@ export const usersApi = {
         created_at: data?.created_at ?? new Date().toISOString(),
       };
     } catch (err: any) {
+      let extractedMessage: string | null = null;
+      if (err?.context && typeof err.context.json === 'function') {
+        try {
+          const body = await err.context.json();
+          if (body?.error) {
+            extractedMessage = typeof body.error === 'string' ? body.error : (body.error?.message ?? err.message);
+          }
+        } catch (_) {}
+        if (extractedMessage) throw new Error(extractedMessage);
+      }
       if (err.status === 500 || err.message?.includes('500')) {
         throw new Error('Erro no servidor de autenticação.');
       }
