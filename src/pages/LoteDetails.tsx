@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, ShareNetwork, Copy, CaretDown, Tag, SpeakerHigh, Fingerprint, FileText, Users, Buildings } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { productLotsApi, producersApi, associationsApi, certificationsApi, internalProducersApi, lotAssociationsApi } from "@/services/api";
+import { productLotsApi, producersApi, associationsApi, certificationsApi, internalProducersApi, lotAssociationsApi, lotIndustriesApi, industriesApi } from "@/services/api";
 import { useBranding } from "@/hooks/use-branding";
 import type { LotComponent } from "@/services/api";
 import { useTenant } from "@/hooks/use-tenant";
@@ -76,7 +76,7 @@ const LoteDetails = () => {
   const [loteData, setLoteData] = useState<LoteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [producer, setProducer] = useState<any | null>(null);
-  const [industry, setIndustry] = useState<any | null>(null);
+  const [industries, setIndustries] = useState<any[]>([]);
   const [associations, setAssociations] = useState<any[]>([]);
   const [lotCertifications, setLotCertifications] = useState<any[]>([]);
   const [internalProducerCount, setInternalProducerCount] = useState(0);
@@ -242,14 +242,28 @@ const LoteDetails = () => {
           if (producerId) associationsApi.getByProducer(producerId, tenant.id).then(setAssociations).catch(() => {});
         }
 
-        // Buscar dados da indústria se houver
-        if (data.industry_id) {
-          try {
-            const { industriesApi } = await import("@/services/api");
+        // Indústrias vinculadas ao lote (product_lot_industries); fallback: industry_id legado
+        try {
+          const lotIndustries = await lotIndustriesApi.getByLot(data.id, tenant.id);
+          if (lotIndustries && lotIndustries.length > 0) {
+            setIndustries(lotIndustries);
+          } else if (data.industry_id) {
             const industryData = await industriesApi.getById(data.industry_id, tenant.id);
-            setIndustry(industryData);
-          } catch (e) {
-            console.error("Erro ao buscar indústria:", e);
+            setIndustries(industryData ? [industryData] : []);
+          } else {
+            setIndustries([]);
+          }
+        } catch (e) {
+          console.error("Erro ao buscar indústrias do lote:", e);
+          if (data.industry_id) {
+            try {
+              const industryData = await industriesApi.getById(data.industry_id, tenant.id);
+              setIndustries(industryData ? [industryData] : []);
+            } catch {
+              setIndustries([]);
+            }
+          } else {
+            setIndustries([]);
           }
         }
 
@@ -1117,7 +1131,7 @@ const LoteDetails = () => {
             <LotObservations expertNotes={loteData.sensory_notes} lotObservations={loteData.lot_observations} />
 
             {/* Nova Seção: Procedência e Certificação - Redesign Premium */}
-            {(loteData.seals_quantity || (associations && associations.length > 0) || industry) && (
+            {(loteData.seals_quantity || (associations && associations.length > 0) || (industries && industries.length > 0)) && (
               <div className="pt-16 sm:pt-24 border-t border-slate-100">
                 <div className="text-center mb-12 sm:mb-16">
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest mb-4">
@@ -1183,12 +1197,12 @@ const LoteDetails = () => {
                         </div>
                       ))}
 
-                      {/* Indústria */}
-                      {industry && (
-                        <div className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-6 group">
+                      {/* Indústrias */}
+                      {industries.map((ind: any) => (
+                        <div key={ind.id} className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-6 group">
                           <div className="w-20 h-20 flex-shrink-0 rounded-2xl bg-slate-50 border border-slate-50 flex items-center justify-center p-3 transition-transform duration-500 group-hover:scale-105">
-                            {industry.logo_url ? (
-                              <img src={industry.logo_url} alt={industry.name} className="w-full h-full object-contain filter grayscale group-hover:grayscale-0 transition-all duration-500" />
+                            {ind.logo_url ? (
+                              <img src={ind.logo_url} alt={ind.name} className="w-full h-full object-contain filter grayscale group-hover:grayscale-0 transition-all duration-500" />
                             ) : (
                               <Buildings size={32} weight="duotone" className="text-slate-300" />
                             )}
@@ -1198,14 +1212,14 @@ const LoteDetails = () => {
                               Indústria Parceira
                             </div>
                             <h4 className="text-lg font-black text-slate-900 leading-tight group-hover:text-primary transition-colors" style={{ '--primary': branding?.primaryColor || '#16a34a' } as any}>
-                              {industry.name}
+                              {ind.name}
                             </h4>
                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
-                              {industry.city}, {industry.state}
+                              {ind.city}, {ind.state}
                             </p>
                           </div>
                         </div>
-                      )}
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -1219,7 +1233,7 @@ const LoteDetails = () => {
               blendComponents={blendComponents}
               producer={currentProducer}
               producerName={currentProducer?.name}
-              industry={industry}
+              industry={industries?.[0] ?? undefined}
               associations={associations}
               branding={branding || undefined}
             />

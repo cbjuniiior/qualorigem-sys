@@ -10,6 +10,40 @@ interface SensorialRadarChartProps {
   showAverage?: boolean;
 }
 
+/** Quebra o texto em até 2 linhas por palavras (evita cortar no meio). */
+function splitLabelIntoTwoLines(label: string, maxCharsPerLine: number = 14): [string, string] {
+  const words = label.trim().split(/\s+/);
+  if (words.length <= 1) return [label, ""];
+  let line1 = "";
+  let line2 = "";
+  for (const w of words) {
+    const next = line1 ? `${line1} ${w}` : w;
+    if (next.length <= maxCharsPerLine) {
+      line1 = next;
+    } else {
+      line2 = line2 ? `${line2} ${w}` : w;
+    }
+  }
+  if (!line1 && line2) return [line2, ""];
+  return [line1, line2];
+}
+
+/** Tick customizado para quebrar labels em 2 linhas e evitar corte. */
+function PolarAngleTick({ payload, x, y, textAnchor }: { payload?: { value?: string; atributo?: string }; x?: number; y?: number; textAnchor?: string }) {
+  const label = (payload?.value ?? payload?.atributo ?? "") as string;
+  const [line1, line2] = splitLabelIntoTwoLines(label);
+  const fill = "#94a3b8";
+  const fontSize = 9;
+  return (
+    <g className="recharts-layer recharts-polar-angle-axis-tick">
+      <text x={x} y={y} textAnchor={textAnchor} fill={fill} fontSize={fontSize} fontWeight={900}>
+        <tspan x={x} dy="0em">{line1}</tspan>
+        {line2 ? <tspan x={x} dy="1.1em">{line2}</tspan> : null}
+      </text>
+    </g>
+  );
+}
+
 export const SensorialRadarChart = ({ data, branding, showAverage = true }: SensorialRadarChartProps) => {
   const primaryColor = branding?.primaryColor || '#059669';
   const secondaryColor = branding?.secondaryColor || '#10b981';
@@ -37,11 +71,11 @@ export const SensorialRadarChart = ({ data, branding, showAverage = true }: Sens
   return (
     <div className="w-full relative">
       <ResponsiveContainer width="100%" height={350}>
-        <RadarChart data={chartData} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
+        <RadarChart data={chartData} margin={{ top: 28, right: 38, bottom: 28, left: 38 }}>
           <PolarGrid stroke="#e5e7eb" />
           <PolarAngleAxis 
             dataKey="atributo" 
-            tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 900 }}
+            tick={<PolarAngleTick />}
           />
           <PolarRadiusAxis 
             angle={90} 

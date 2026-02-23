@@ -873,56 +873,32 @@ export const usersApi = {
 
   async create(userData: { email: string; password: string; full_name?: string }, tenantId: string) {
     try {
-      const { data: currentSession } = await supabase.auth.getSession();
-      const adminSession = currentSession?.session;
-
-      const { data, error } = await supabase.auth.signUp({
-        email: userData.email,
-        password: userData.password,
-        options: {
-          data: {
-            full_name: userData.full_name || '',
-          },
+      const { data, error } = await supabase.functions.invoke('manage-users', {
+        method: 'POST',
+        body: {
+          action: 'create',
+          email: userData.email.trim(),
+          password: userData.password,
+          full_name: userData.full_name?.trim() ?? '',
+          tenant_id: tenantId,
+          role: 'viewer',
         },
       });
 
       if (error) {
-        if (error.message.includes('email') || error.message.includes('confirmation') || error.message.includes('smtp')) {
-          throw new Error('Erro de email/SMTP. Verifique configurações do Supabase.');
-        }
-        throw error;
+        throw new Error(error.message || 'Erro ao chamar serviço de usuários.');
       }
 
-      // Atualizar user_profiles com tenant_id
-      if (data.user) {
-        await supabase.from("user_profiles").upsert({
-          id: data.user.id,
-          email: userData.email,
-          full_name: userData.full_name || '',
-          is_active: true,
-          tenant_id: tenantId // VINCULA AO TENANT
-        }, { onConflict: 'id' });
-
-        // Criar membership
-        await supabase.from("tenant_memberships").insert({
-          tenant_id: tenantId,
-          user_id: data.user.id,
-          role: 'viewer' // Default role
-        });
-      }
-
-      if (adminSession) {
-        await supabase.auth.setSession({
-          access_token: adminSession.access_token,
-          refresh_token: adminSession.refresh_token,
-        });
+      const errMsg = data?.error;
+      if (errMsg) {
+        throw new Error(typeof errMsg === 'string' ? errMsg : (errMsg?.message ?? 'Erro ao criar usuário'));
       }
 
       return {
-        id: data.user?.id,
-        email: userData.email,
-        full_name: userData.full_name,
-        created_at: new Date().toISOString(),
+        id: data?.id,
+        email: data?.email ?? userData.email,
+        full_name: data?.full_name ?? userData.full_name,
+        created_at: data?.created_at ?? new Date().toISOString(),
       };
     } catch (err: any) {
       if (err.status === 500 || err.message?.includes('500')) {
