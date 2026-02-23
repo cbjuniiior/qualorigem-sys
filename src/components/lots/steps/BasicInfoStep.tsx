@@ -43,6 +43,16 @@ import {
   DialogHeader, 
   DialogTitle 
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface BasicInfoStepProps {
   tenantId: string;
@@ -90,8 +100,8 @@ export const BasicInfoStep = ({
   const [loadingBrands, setLoadingBrands] = useState(false);
   const [lotConfig, setLotConfig] = useState<any>(null);
   const [codeMode, setCodeMode] = useState<'auto' | 'manual'>('auto');
-  const [industryPopoverOpen, setIndustryPopoverOpen] = useState(false);
-
+  const [allowCodeEditInEditing, setAllowCodeEditInEditing] = useState(false);
+  const [showChangeUrlWarningModal, setShowChangeUrlWarningModal] = useState(false);
   // Backward compatibility: initialize industry_ids from industry_id if not set
   useEffect(() => {
     if (!formData.industry_ids && formData.industry_id) {
@@ -221,6 +231,13 @@ export const BasicInfoStep = ({
     }
   }, [formData.producer_id, formData.brand_id, codeMode, lotConfig, isBlendMode, producers, brands, tenantId]);
 
+  useEffect(() => {
+    if (!isEditing) {
+      setAllowCodeEditInEditing(false);
+      setShowChangeUrlWarningModal(false);
+    }
+  }, [isEditing]);
+
   const handleProducerChange = (value: string) => {
     setFormData((prev: any) => ({ 
       ...prev, 
@@ -233,35 +250,6 @@ export const BasicInfoStep = ({
   const handleBrandChange = (value: string) => {
     setFormData((prev: any) => ({ ...prev, brand_id: value }));
   };
-
-  const toggleIndustry = (industryId: string) => {
-    setFormData((prev: any) => {
-      const current = prev.industry_ids || [];
-      const isSelected = current.includes(industryId);
-      const updated = isSelected
-        ? current.filter((id: string) => id !== industryId)
-        : [...current, industryId];
-      return {
-        ...prev,
-        industry_ids: updated,
-        // Keep backward compat: set industry_id to first selected or empty
-        industry_id: updated.length > 0 ? updated[0] : ""
-      };
-    });
-  };
-
-  const removeIndustry = (industryId: string) => {
-    setFormData((prev: any) => {
-      const updated = (prev.industry_ids || []).filter((id: string) => id !== industryId);
-      return {
-        ...prev,
-        industry_ids: updated,
-        industry_id: updated.length > 0 ? updated[0] : ""
-      };
-    });
-  };
-
-  const selectedIndustryIds: string[] = formData.industry_ids || [];
 
   const loadEntities = async () => {
     try {
@@ -428,96 +416,6 @@ export const BasicInfoStep = ({
                       </Select>
                     </div>
 
-                    {/* Multi-select de Indústrias */}
-                    {industries.length > 0 && (
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                          <Buildings size={16} style={{ color: primaryColor }} /> Indústrias Vinculadas
-                        </Label>
-                        <Popover open={industryPopoverOpen} onOpenChange={setIndustryPopoverOpen}>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="w-full min-h-[3rem] rounded-xl bg-white border border-slate-200 shadow-sm px-4 py-2.5 text-left font-bold text-sm flex items-center gap-2 flex-wrap hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-0"
-                              style={{ '--primary': primaryColor, '--tw-ring-color': primaryColor } as any}
-                            >
-                              {selectedIndustryIds.length === 0 ? (
-                                <span className="text-slate-400 font-bold">Selecione as indústrias...</span>
-                              ) : (
-                                selectedIndustryIds.map((id: string) => {
-                                  const ind = industries.find((i: any) => i.id === id);
-                                  if (!ind) return null;
-                                  return (
-                                    <Badge
-                                      key={id}
-                                      className="border-0 font-black text-[11px] rounded-lg px-2.5 py-1 flex items-center gap-1.5 cursor-default"
-                                      style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
-                                    >
-                                      <Buildings size={12} weight="fill" />
-                                      {ind.name}
-                                      <span
-                                        role="button"
-                                        tabIndex={0}
-                                        className="ml-0.5 rounded-full hover:bg-black/10 p-0.5 cursor-pointer"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          removeIndustry(id);
-                                        }}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter' || e.key === ' ') {
-                                            e.stopPropagation();
-                                            removeIndustry(id);
-                                          }
-                                        }}
-                                      >
-                                        <XIcon size={10} weight="bold" />
-                                      </span>
-                                    </Badge>
-                                  );
-                                })
-                              )}
-                              <CaretDown size={16} className="ml-auto text-slate-400 flex-shrink-0" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2 rounded-xl shadow-xl border-slate-100" align="start">
-                            <div className="space-y-1 max-h-[200px] overflow-y-auto">
-                              {industries.map((industry: any) => {
-                                const isChecked = selectedIndustryIds.includes(industry.id);
-                                return (
-                                  <label
-                                    key={industry.id}
-                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
-                                      isChecked ? 'bg-slate-50' : 'hover:bg-slate-50'
-                                    }`}
-                                  >
-                                    <Checkbox
-                                      checked={isChecked}
-                                      onCheckedChange={() => toggleIndustry(industry.id)}
-                                      className="rounded-md border-slate-300 data-[state=checked]:border-transparent"
-                                      style={isChecked ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
-                                    />
-                                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                                      <Buildings size={14} weight={isChecked ? "fill" : "regular"} style={{ color: isChecked ? primaryColor : '#94a3b8' }} />
-                                      <span className={`text-sm truncate ${isChecked ? 'font-black text-slate-800' : 'font-bold text-slate-600'}`}>
-                                        {industry.name}
-                                      </span>
-                                    </div>
-                                  </label>
-                                );
-                              })}
-                              {industries.length === 0 && (
-                                <p className="text-xs text-slate-400 font-bold text-center py-3">Nenhuma indústria cadastrada</p>
-                              )}
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase ml-1">
-                          {selectedIndustryIds.length > 0
-                            ? `${selectedIndustryIds.length} indústria${selectedIndustryIds.length > 1 ? 's' : ''} selecionada${selectedIndustryIds.length > 1 ? 's' : ''}`
-                            : "Selecione uma ou mais indústrias para este lote."}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 )}
 
@@ -606,14 +504,39 @@ export const BasicInfoStep = ({
 
                   <div className="relative group">
                     {isEditing ? (
-                      <div className="h-14 bg-slate-50 border border-slate-200 rounded-2xl flex items-center px-6 shadow-inner cursor-not-allowed opacity-70">
-                        <span className="text-2xl font-mono font-black text-slate-500 tracking-tighter">
-                          {formData.code}
-                        </span>
-                        <div className="ml-auto flex items-center gap-2">
-                          <Badge className="bg-slate-200 text-slate-500 font-black text-[9px] uppercase">Bloqueado</Badge>
+                      allowCodeEditInEditing ? (
+                        <div className="space-y-2">
+                          <Input
+                            value={formData.code}
+                            onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                            placeholder="CÓDIGO DO LOTE"
+                            className="h-14 bg-white border-slate-200 rounded-2xl font-mono font-black text-2xl text-slate-800 focus-visible:ring-primary text-center uppercase tracking-widest placeholder:text-slate-200"
+                            style={{ '--primary': primaryColor } as any}
+                          />
+                          <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider flex items-center gap-1">
+                            <WarningCircle size={12} weight="fill" /> A URL pública do lote será alterada ao salvar.
+                          </p>
                         </div>
-                      </div>
+                      ) : (
+                        <div className="h-14 bg-slate-50 border border-slate-200 rounded-2xl flex items-center px-6 shadow-inner flex-wrap gap-2">
+                          <span className="text-2xl font-mono font-black text-slate-500 tracking-tighter">
+                            {formData.code}
+                          </span>
+                          <div className="ml-auto flex items-center gap-2">
+                            <Badge className="bg-slate-200 text-slate-500 font-black text-[9px] uppercase">Bloqueado</Badge>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-[11px] font-black uppercase tracking-wider h-8 px-3 rounded-lg"
+                              style={{ color: primaryColor }}
+                              onClick={() => setShowChangeUrlWarningModal(true)}
+                            >
+                              Alterar URL
+                            </Button>
+                          </div>
+                        </div>
+                      )
                     ) : codeMode === 'auto' ? (
                       <div className="h-14 bg-white border border-slate-100 rounded-2xl flex items-center px-6 transition-all group-hover:border-primary/30 shadow-inner" style={{ '--primary': primaryColor } as any}>
                         <span className="text-2xl font-mono font-black text-slate-800 tracking-tighter">
@@ -808,6 +731,39 @@ export const BasicInfoStep = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showChangeUrlWarningModal} onOpenChange={setShowChangeUrlWarningModal}>
+        <AlertDialogContent className="rounded-3xl border-0 shadow-2xl max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-black text-slate-900">Alterar o código do lote (URL)?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-slate-600 font-medium space-y-2 text-left">
+                <p>O código do lote define a <strong>URL pública</strong> do lote (ex.: /tenant/lote/GT-0010).</p>
+                <p>Ao alterar o código:</p>
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  <li>A URL antiga deixará de funcionar.</li>
+                  <li>QR codes e links já impressos ou compartilhados com a URL antiga não levarão mais a este lote.</li>
+                  <li>Quem acessar o link antigo pode ver erro ou outro conteúdo.</li>
+                </ul>
+                <p className="text-amber-700 font-semibold text-sm">Recomenda-se avisar parceiros e reimprimir QR codes se necessário.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-3 mt-4 text-left flex-col-reverse sm:flex-row">
+            <AlertDialogCancel className="rounded-xl font-bold border-slate-200">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl font-bold text-white"
+              style={{ backgroundColor: primaryColor }}
+              onClick={() => {
+                setAllowCodeEditInEditing(true);
+                setShowChangeUrlWarningModal(false);
+              }}
+            >
+              Entendi, quero alterar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

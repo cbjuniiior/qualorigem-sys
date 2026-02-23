@@ -1,9 +1,9 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, ShareNetwork, Copy, CaretDown, Tag, SpeakerHigh, Fingerprint, FileText, Users } from "@phosphor-icons/react";
+import { ArrowLeft, ShareNetwork, Copy, CaretDown, Tag, SpeakerHigh, Fingerprint, FileText, Users, Buildings } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { productLotsApi, producersApi, associationsApi, certificationsApi, internalProducersApi } from "@/services/api";
+import { productLotsApi, producersApi, associationsApi, certificationsApi, internalProducersApi, lotAssociationsApi } from "@/services/api";
 import { useBranding } from "@/hooks/use-branding";
 import type { LotComponent } from "@/services/api";
 import { useTenant } from "@/hooks/use-tenant";
@@ -214,20 +214,32 @@ const LoteDetails = () => {
         
         // Tentar obter dados do produtor do relacionamento
         if (data.producers) {
-          // Lidar com retorno do Supabase que pode ser objeto ou array
           const producerData = Array.isArray(data.producers) ? data.producers[0] : data.producers;
-          if (producerData) {
-            setProducer(producerData);
-            associationsApi.getByProducer(producerData.id, tenant.id).then(setAssociations).catch(() => {});
-          }
+          if (producerData) setProducer(producerData);
         } else if (data.producer_id) {
-          // Fallback: buscar dados do produtor se não vieram no join
-          const [producerData, associationsData] = await Promise.all([
-            producersApi.getById(data.producer_id, tenant.id),
-            associationsApi.getByProducer(data.producer_id, tenant.id)
-          ]);
-          setProducer(producerData);
-          setAssociations(associationsData);
+          try {
+            const producerData = await producersApi.getById(data.producer_id, tenant.id);
+            setProducer(producerData);
+          } catch (e) {
+            console.error("Erro ao buscar produtor:", e);
+          }
+        }
+
+        // Associações vinculadas ao lote (product_lot_associations); fallback: associações do produtor
+        try {
+          const lotAssocs = await lotAssociationsApi.getByLot(data.id, tenant.id);
+          if (lotAssocs && lotAssocs.length > 0) {
+            setAssociations(lotAssocs);
+          } else {
+            const producerId = data.producer_id || (data.producers && (Array.isArray(data.producers) ? data.producers[0] : data.producers)?.id);
+            if (producerId) {
+              const assocs = await associationsApi.getByProducer(producerId, tenant.id);
+              setAssociations(assocs || []);
+            }
+          }
+        } catch (e) {
+          const producerId = data.producer_id || (data.producers && (Array.isArray(data.producers) ? data.producers[0] : data.producers)?.id);
+          if (producerId) associationsApi.getByProducer(producerId, tenant.id).then(setAssociations).catch(() => {});
         }
 
         // Buscar dados da indústria se houver
@@ -1101,8 +1113,8 @@ const LoteDetails = () => {
             {/* 4. Análise Sensorial */}
             <SensoryAnalysis loteData={loteData} branding={branding || undefined} />
 
-            {/* 5. Observações do Especialista */}
-            <LotObservations lotObservations={loteData.lot_observations} />
+            {/* 5. Nota do Especialista (sensory_notes) e Relato do Produtor (lot_observations) */}
+            <LotObservations expertNotes={loteData.sensory_notes} lotObservations={loteData.lot_observations} />
 
             {/* Nova Seção: Procedência e Certificação - Redesign Premium */}
             {(loteData.seals_quantity || (associations && associations.length > 0) || industry) && (

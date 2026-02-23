@@ -1,4 +1,4 @@
-import { Medal, Users, Calendar, Package, MapPin, Tag, Buildings, CheckCircle, WarningCircle, CircleNotch, Mountains, Thermometer, MapTrifold, Camera, Trash, Plus, ChatCircleText, CaretDown, MagnifyingGlass, Check } from "@phosphor-icons/react";
+import { Medal, Users, Calendar, Package, MapPin, Tag, Buildings, CheckCircle, WarningCircle, CircleNotch, Mountains, Thermometer, MapTrifold, Camera, Trash, Plus, ChatCircleText, CaretDown, MagnifyingGlass, Check, X as XIcon } from "@phosphor-icons/react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -91,9 +91,40 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
   const [savedProperties, setSavedProperties] = useState<any[]>([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("new");
   const [loadingProperties, setLoadingProperties] = useState(false);
-
+  const [industryPopoverOpen, setIndustryPopoverOpen] = useState(false);
+  const [associationPopoverOpen, setAssociationPopoverOpen] = useState(false);
 
   const labels = useTenantLabels();
+  const selectedIndustryIds: string[] = formData.industry_ids || [];
+  const selectedAssociationIds: string[] = formData.association_ids || [];
+  const toggleAssociation = (associationId: string) => {
+    setFormData((prev: any) => {
+      const current = prev.association_ids || [];
+      const isSelected = current.includes(associationId);
+      const updated = isSelected ? current.filter((id: string) => id !== associationId) : [...current, associationId];
+      return { ...prev, association_ids: updated, association_id: updated.length > 0 ? updated[0] : "" };
+    });
+  };
+  const removeAssociation = (associationId: string) => {
+    setFormData((prev: any) => {
+      const updated = (prev.association_ids || []).filter((id: string) => id !== associationId);
+      return { ...prev, association_ids: updated, association_id: updated.length > 0 ? updated[0] : "" };
+    });
+  };
+  const toggleIndustry = (industryId: string) => {
+    setFormData((prev: any) => {
+      const current = prev.industry_ids || [];
+      const isSelected = current.includes(industryId);
+      const updated = isSelected ? current.filter((id: string) => id !== industryId) : [...current, industryId];
+      return { ...prev, industry_ids: updated, industry_id: updated.length > 0 ? updated[0] : "" };
+    });
+  };
+  const removeIndustry = (industryId: string) => {
+    setFormData((prev: any) => {
+      const updated = (prev.industry_ids || []).filter((id: string) => id !== industryId);
+      return { ...prev, industry_ids: updated, industry_id: updated.length > 0 ? updated[0] : "" };
+    });
+  };
   const primaryColor = branding?.primaryColor || '#16a34a';
   const secondaryColor = branding?.secondaryColor || '#22c55e';
   const accentColor = branding?.accentColor || '#10b981';
@@ -199,8 +230,8 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
           setSavedProperties(Array.from(uniqueProperties.values()));
           
           // Auto-selecionar associação se houver apenas uma
-          if (producerAssocs.length === 1 && !formData.association_id) {
-            setFormData((prev: any) => ({ ...prev, association_id: producerAssocs[0].id }));
+          if (producerAssocs.length === 1 && !(formData.association_ids?.length)) {
+            setFormData((prev: any) => ({ ...prev, association_id: producerAssocs[0].id, association_ids: [producerAssocs[0].id] }));
           }
         } catch (error) {
           console.error("Erro ao carregar dados do produtor:", error);
@@ -328,44 +359,154 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
                 <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
                   <Users size={16} style={{ color: primaryColor }} /> {labels.association} *
                 </Label>
-                <Select 
-                  value={formData.association_id} 
-                  onValueChange={value => setFormData((prev: any) => ({ ...prev, association_id: value }))}
-                  disabled={!formData.producer_id}
-                >
-                  <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus:ring-primary font-bold shadow-sm" style={{ '--primary': primaryColor } as any}>
-                    <SelectValue placeholder={!formData.producer_id ? `Aguardando ${labels.producer.toLowerCase()}...` : "Selecione a entidade"} />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl font-bold">
-                    {filteredAssociations.map((assoc) => (
-                      <SelectItem key={assoc.id} value={assoc.id}>
-                        {assoc.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {filteredAssociations.length > 0 ? (
+                  <Popover open={associationPopoverOpen} onOpenChange={setAssociationPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={!formData.producer_id}
+                        className="w-full min-h-[3rem] rounded-xl bg-slate-50 border border-slate-200 shadow-sm px-4 py-2.5 text-left font-bold text-sm flex items-center gap-2 flex-wrap hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:opacity-60 disabled:cursor-not-allowed"
+                        style={{ '--primary': primaryColor, '--tw-ring-color': primaryColor } as React.CSSProperties}
+                      >
+                        {!formData.producer_id ? (
+                          <span className="text-slate-400 font-bold">Aguardando {labels.producer.toLowerCase()}...</span>
+                        ) : selectedAssociationIds.length === 0 ? (
+                          <span className="text-slate-400 font-bold">Selecione uma ou mais associações...</span>
+                        ) : (
+                          selectedAssociationIds.map((id: string) => {
+                            const assoc = filteredAssociations.find((a: any) => a.id === id);
+                            if (!assoc) return null;
+                            return (
+                              <Badge
+                                key={id}
+                                className="border-0 font-black text-[11px] rounded-lg px-2.5 py-1 flex items-center gap-1.5 cursor-default"
+                                style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
+                              >
+                                <Users size={12} weight="fill" />
+                                {assoc.name}
+                                <span
+                                  role="button"
+                                  tabIndex={0}
+                                  className="ml-0.5 rounded-full hover:bg-black/10 p-0.5 cursor-pointer"
+                                  onClick={(e) => { e.stopPropagation(); removeAssociation(id); }}
+                                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); removeAssociation(id); } }}
+                                >
+                                  <XIcon size={10} weight="bold" />
+                                </span>
+                              </Badge>
+                            );
+                          })
+                        )}
+                        {formData.producer_id && <CaretDown size={16} className="ml-auto text-slate-400 flex-shrink-0" />}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2 rounded-xl shadow-xl border-slate-100" align="start">
+                      <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                        {filteredAssociations.map((assoc: any) => {
+                          const isChecked = selectedAssociationIds.includes(assoc.id);
+                          return (
+                            <label
+                              key={assoc.id}
+                              className={cn("flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors", isChecked ? "bg-slate-50" : "hover:bg-slate-50")}
+                            >
+                              <Checkbox
+                                checked={isChecked}
+                                onCheckedChange={() => toggleAssociation(assoc.id)}
+                                className="rounded-md border-slate-300 data-[state=checked]:border-transparent"
+                                style={isChecked ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
+                              />
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <Users size={14} weight={isChecked ? "fill" : "regular"} style={{ color: isChecked ? primaryColor : "#94a3b8" }} />
+                                <span className={cn("text-sm truncate", isChecked ? "font-black text-slate-800" : "font-bold text-slate-600")}>{assoc.name}</span>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <p className="text-sm text-slate-500 font-bold py-2">{!formData.producer_id ? `Selecione um(a) ${labels.producer.toLowerCase()} para ver associações.` : "Nenhuma associação disponível."}</p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                  <Tag size={16} style={{ color: primaryColor }} /> Indústria Parceira
+                  <Tag size={16} style={{ color: primaryColor }} /> Indústrias Parceiras
                 </Label>
-                <Select 
-                  value={formData.industry_id} 
-                  onValueChange={value => setFormData((prev: any) => ({ ...prev, industry_id: value }))}
-                >
-                  <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus:ring-primary font-bold shadow-sm" style={{ '--primary': primaryColor } as any}>
-                    <SelectValue placeholder="Processamento (Opcional)" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl font-bold">
-                    <SelectItem value="none" className="font-bold text-slate-400 italic">Venda Direta / Sem Indústria</SelectItem>
-                    {industries.map((industry) => (
-                      <SelectItem key={industry.id} value={industry.id}>
-                        {industry.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {industries.length > 0 ? (
+                  <>
+                    <Popover open={industryPopoverOpen} onOpenChange={setIndustryPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="w-full min-h-[3rem] rounded-xl bg-slate-50 border border-slate-200 shadow-sm px-4 py-2.5 text-left font-bold text-sm flex items-center gap-2 flex-wrap hover:border-slate-300 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-0"
+                          style={{ '--primary': primaryColor, '--tw-ring-color': primaryColor } as React.CSSProperties}
+                        >
+                          {selectedIndustryIds.length === 0 ? (
+                            <span className="text-slate-400 font-bold">Selecione uma ou mais indústrias...</span>
+                          ) : (
+                            selectedIndustryIds.map((id: string) => {
+                              const ind = industries.find((i: any) => i.id === id);
+                              if (!ind) return null;
+                              return (
+                                <Badge
+                                  key={id}
+                                  className="border-0 font-black text-[11px] rounded-lg px-2.5 py-1 flex items-center gap-1.5 cursor-default"
+                                  style={{ backgroundColor: `${primaryColor}15`, color: primaryColor }}
+                                >
+                                  <Buildings size={12} weight="fill" />
+                                  {ind.name}
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    className="ml-0.5 rounded-full hover:bg-black/10 p-0.5 cursor-pointer"
+                                    onClick={(e) => { e.stopPropagation(); removeIndustry(id); }}
+                                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); removeIndustry(id); } }}
+                                  >
+                                    <XIcon size={10} weight="bold" />
+                                  </span>
+                                </Badge>
+                              );
+                            })
+                          )}
+                          <CaretDown size={16} className="ml-auto text-slate-400 flex-shrink-0" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-2 rounded-xl shadow-xl border-slate-100" align="start">
+                        <div className="space-y-1 max-h-[200px] overflow-y-auto">
+                          {industries.map((industry: any) => {
+                            const isChecked = selectedIndustryIds.includes(industry.id);
+                            return (
+                              <label
+                                key={industry.id}
+                                className={cn("flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors", isChecked ? "bg-slate-50" : "hover:bg-slate-50")}
+                              >
+                                <Checkbox
+                                  checked={isChecked}
+                                  onCheckedChange={() => toggleIndustry(industry.id)}
+                                  className="rounded-md border-slate-300 data-[state=checked]:border-transparent"
+                                  style={isChecked ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
+                                />
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <Buildings size={14} weight={isChecked ? "fill" : "regular"} style={{ color: isChecked ? primaryColor : "#94a3b8" }} />
+                                  <span className={cn("text-sm truncate", isChecked ? "font-black text-slate-800" : "font-bold text-slate-600")}>{industry.name}</span>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase ml-1">
+                      {selectedIndustryIds.length > 0
+                        ? `${selectedIndustryIds.length} indústria(s) selecionada(s).`
+                        : "Opcional. Selecione as indústrias parceiras deste lote."}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-400 font-bold">Nenhuma indústria cadastrada.</p>
+                )}
               </div>
 
               {/* Seleção de Propriedade */}

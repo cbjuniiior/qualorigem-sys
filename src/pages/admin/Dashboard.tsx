@@ -555,7 +555,7 @@ const Dashboard = () => {
                 setIsBlendMode={() => {}}
                 currentStep={lotCurrentStep}
                 setCurrentStep={setLotCurrentStep}
-                totalSteps={5}
+                totalSteps={6}
                 branding={branding}
               />
             </div>

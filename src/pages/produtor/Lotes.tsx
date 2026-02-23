@@ -15,7 +15,8 @@ import {
   ArrowRight, 
   DotsThreeOutlineVertical, 
   Export, 
-  Scales
+  Scales,
+  Copy
 } from "@phosphor-icons/react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ProducerLayout } from "@/components/layout/ProducerLayout";
 import { useAuth } from "@/hooks/use-auth";
-import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotCharacteristicsApi, productLotSensoryApi, brandsApi } from "@/services/api";
+import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotCharacteristicsApi, productLotSensoryApi, brandsApi, lotIndustriesApi, lotAssociationsApi, certificationsApi, internalProducersApi } from "@/services/api";
 import { toast } from "sonner";
 import { LotForm, LOT_STEPS } from "@/components/lots/LotForm";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -85,7 +86,11 @@ export const ProducerLotes = () => {
     producer_id: "",
     brand_id: "",
     industry_id: "",
+    industry_ids: [] as string[],
     association_id: "",
+    association_ids: [] as string[],
+    certification_ids: [] as string[],
+    internal_producer_ids: [] as string[],
     sensory_type: "nota",
     fragrance_score: 5,
     flavor_score: 5,
@@ -116,6 +121,7 @@ export const ProducerLotes = () => {
 
   const [isBlendMode, setIsBlendMode] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [isDuplicating, setIsDuplicating] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -172,7 +178,11 @@ export const ProducerLotes = () => {
         producer_id: user?.id || "",
         brand_id: "",
         industry_id: "",
+        industry_ids: [],
         association_id: "",
+        association_ids: [],
+        certification_ids: [],
+        internal_producer_ids: [],
         sensory_type: "nota",
         fragrance_score: 5,
         flavor_score: 5,
@@ -203,6 +213,7 @@ export const ProducerLotes = () => {
       setIsBlendMode(false);
       setCurrentStep(1);
       setEditingLot(null);
+      setIsDuplicating(false);
     } catch (e) {}
   };
 
@@ -211,10 +222,45 @@ export const ProducerLotes = () => {
     setIsSheetOpen(true);
   };
 
-  const handleEdit = (lot: any) => {
+  const handleEdit = async (lot: any) => {
+    setIsDuplicating(false);
     setEditingLot(lot);
+    let lotAssociationIds: string[] = [];
+    let lotIndustryIds: string[] = [];
+    if (tenant?.id) {
+      try {
+        const [assocs, industries] = await Promise.all([
+          lotAssociationsApi.getByLot(lot.id, tenant.id),
+          lotIndustriesApi.getByLot(lot.id, tenant.id),
+        ]);
+        lotAssociationIds = (assocs || []).map((a: any) => a.id);
+        lotIndustryIds = (industries || []).map((i: any) => i.id);
+      } catch (e) {
+        console.error("Erro ao carregar associações/indústrias do lote:", e);
+      }
+      if (lotAssociationIds.length === 0 && (lot as any).association_id) {
+        lotAssociationIds = [(lot as any).association_id];
+      }
+      if (lotIndustryIds.length === 0 && (lot as any).industry_id) {
+        lotIndustryIds = [(lot as any).industry_id];
+      }
+    }
     const rawCharacteristics = (lot as any).characteristics || [];
     const rawSensory = (lot as any).sensory_analysis || [];
+    let lotCertificationIds: string[] = [];
+    let lotInternalProducerIds: string[] = [];
+    try {
+      if (tenant?.id && lot.id) {
+        const [certs, prods] = await Promise.all([
+          certificationsApi.getPublicByLot(lot.id),
+          internalProducersApi.getByLot(lot.id, tenant.id),
+        ]);
+        lotCertificationIds = (certs || []).map((c: any) => c.id);
+        lotInternalProducerIds = (prods || []).map((p: any) => p.id);
+      }
+    } catch (e) {
+      console.error("Erro ao carregar certificações/produtores do lote:", e);
+    }
     setFormData({
       ...lot,
       quantity: lot.quantity?.toString() || "",
@@ -232,6 +278,10 @@ export const ProducerLotes = () => {
       cep: lot.cep || "",
       address_internal_only: lot.address_internal_only || false,
       photos: lot.photos || [],
+      association_ids: lotAssociationIds,
+      industry_ids: lotIndustryIds,
+      certification_ids: lotCertificationIds,
+      internal_producer_ids: lotInternalProducerIds,
       characteristics: rawCharacteristics.map((c: any) => ({
         characteristic_id: c.characteristic_id,
         value: c.value
@@ -268,6 +318,76 @@ export const ProducerLotes = () => {
     setIsSheetOpen(true);
   };
 
+  const handleDuplicate = async (lot: any) => {
+    setIsDuplicating(true);
+    setEditingLot(null);
+    let lotAssociationIds: string[] = [];
+    let lotIndustryIds: string[] = [];
+    let lotCertificationIds: string[] = [];
+    let lotInternalProducerIds: string[] = [];
+    if (tenant?.id) {
+      try {
+        const [assocs, industries, certs, ips] = await Promise.all([
+          lotAssociationsApi.getByLot(lot.id, tenant.id),
+          lotIndustriesApi.getByLot(lot.id, tenant.id),
+          certificationsApi.getPublicByLot(lot.id),
+          internalProducersApi.getByLot(lot.id, tenant.id),
+        ]);
+        lotAssociationIds = (assocs || []).map((a: any) => a.id);
+        lotIndustryIds = (industries || []).map((i: any) => i.id);
+        lotCertificationIds = (certs || []).map((c: any) => c.id);
+        lotInternalProducerIds = (ips || []).map((p: any) => p.id);
+      } catch (e) {
+        console.error("Erro ao carregar dados do lote para duplicar:", e);
+      }
+      if (lotAssociationIds.length === 0 && (lot as any).association_id) lotAssociationIds = [(lot as any).association_id];
+      if (lotIndustryIds.length === 0 && (lot as any).industry_id) lotIndustryIds = [(lot as any).industry_id];
+    }
+    const rawCharacteristics = (lot as any).characteristics || [];
+    const rawSensory = (lot as any).sensory_analysis || [];
+    const rawComponents = (lot as any).lot_components || [];
+    setFormData({
+      ...lot,
+      code: `${lot.code}-copia`,
+      quantity: lot.quantity?.toString() || "",
+      seals_quantity: lot.seals_quantity?.toString() || "",
+      latitude: lot.latitude?.toString() || "",
+      longitude: lot.longitude?.toString() || "",
+      altitude: lot.altitude?.toString() || "",
+      average_temperature: lot.average_temperature?.toString() || "",
+      association_ids: lotAssociationIds,
+      industry_ids: lotIndustryIds,
+      certification_ids: lotCertificationIds,
+      internal_producer_ids: lotInternalProducerIds,
+      characteristics: rawCharacteristics.map((c: any) => ({ characteristic_id: c.characteristic_id, value: c.value })),
+      sensory_analysis: rawSensory.map((s: any) => ({ sensory_attribute_id: s.sensory_attribute_id, value: Number(s.value) })),
+      components: rawComponents.map((c: any) => ({
+        component_name: c.component_name || "",
+        component_variety: c.component_variety || "",
+        component_percentage: c.component_percentage || 0,
+        component_quantity: c.component_quantity || 0,
+        component_unit: c.component_unit || "g",
+        component_origin: c.component_origin || "",
+        producer_id: c.producer_id,
+        component_harvest_year: c.component_harvest_year || "",
+        association_id: c.association_id,
+        latitude: c.latitude,
+        longitude: c.longitude,
+        altitude: c.altitude,
+        property_name: c.property_name,
+        property_description: c.property_description,
+        photos: c.photos || [],
+        address: c.address,
+        city: c.city,
+        state: c.state,
+        cep: c.cep
+      })),
+    });
+    setIsBlendMode(rawComponents.length > 0);
+    setCurrentStep(1);
+    setIsSheetOpen(true);
+  };
+
   const handleSubmit = async () => {
     if (!tenant) return;
     try {
@@ -289,7 +409,8 @@ export const ProducerLotes = () => {
       };
 
       const { 
-        components, characteristics, sensory_analysis, 
+        components, characteristics, sensory_analysis, industry_ids,
+        certification_ids, internal_producer_ids, association_ids,
         selectedPropertyId, user_has_set_coordinates, location_reference,
         ...cleanLotData 
       } = lotData;
@@ -316,6 +437,11 @@ export const ProducerLotes = () => {
           if (sensory_analysis && sensory_analysis.length > 0) {
             await Promise.all(sensory_analysis.map(s => productLotSensoryApi.create({ ...s, lot_id: editingLot.id, tenant_id: tenant.id })));
           }
+
+          await lotIndustriesApi.syncLotIndustries(editingLot.id, industry_ids || [], tenant.id);
+          await lotAssociationsApi.syncLotAssociations(editingLot.id, association_ids || [], tenant.id);
+          await certificationsApi.syncLotCertifications(editingLot.id, certification_ids || [], tenant.id);
+          await internalProducersApi.syncLotProducers(editingLot.id, internal_producer_ids || [], tenant.id);
         }
         toast.success("Lote atualizado!");
       } else {
@@ -356,6 +482,16 @@ export const ProducerLotes = () => {
         // Criar análise sensorial
         if (sensory_analysis && sensory_analysis.length > 0) {
           await Promise.all(sensory_analysis.map(s => productLotSensoryApi.create({ ...s, lot_id: newLot.id, tenant_id: tenant.id })));
+        }
+        if (industry_ids && industry_ids.length > 0) {
+          await lotIndustriesApi.syncLotIndustries(newLot.id, industry_ids, tenant.id);
+        }
+        await lotAssociationsApi.syncLotAssociations(newLot.id, association_ids || [], tenant.id);
+        if (certification_ids && certification_ids.length > 0) {
+          await certificationsApi.syncLotCertifications(newLot.id, certification_ids, tenant.id);
+        }
+        if (internal_producer_ids && internal_producer_ids.length > 0) {
+          await internalProducersApi.syncLotProducers(newLot.id, internal_producer_ids, tenant.id);
         }
         toast.success("Lote registrado!");
       }
@@ -524,6 +660,9 @@ export const ProducerLotes = () => {
                             <DropdownMenuItem onClick={() => handleEdit(lote)} className="rounded-lg py-2.5 font-bold text-slate-600 cursor-pointer focus:bg-slate-50">
                               <PencilSimple size={18} weight="bold" style={{ color: primaryColor }} className="mr-2" /> Editar Lote
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDuplicate(lote)} className="rounded-lg py-2.5 font-bold text-slate-600 cursor-pointer focus:bg-slate-50">
+                              <Copy size={18} weight="bold" className="mr-2" /> Duplicar Lote
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setLotToDelete(lote.id)} className="rounded-lg py-2.5 font-bold text-rose-600 cursor-pointer focus:bg-rose-50 focus:text-rose-600">
                               <Trash size={18} weight="bold" className="mr-2" /> Excluir Lote
                             </DropdownMenuItem>
@@ -538,7 +677,7 @@ export const ProducerLotes = () => {
           )}
         </div>
 
-        <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <Sheet open={isSheetOpen} onOpenChange={(open) => { setIsSheetOpen(open); if (!open) setIsDuplicating(false); }}>
           <SheetContent className="w-full sm:max-w-[80vw] sm:rounded-l-[2.5rem] border-0 p-0 overflow-hidden shadow-2xl">
             <div className="h-full flex flex-col bg-white">
               <SheetHeader className="p-8 border-b border-slate-50 bg-slate-50/30">
@@ -573,7 +712,7 @@ export const ProducerLotes = () => {
                   setIsBlendMode={setIsBlendMode}
                   currentStep={currentStep}
                   setCurrentStep={setCurrentStep}
-                  totalSteps={5}
+                  totalSteps={6}
                   onSubmit={handleSubmit}
                   onCancel={() => setIsSheetOpen(false)}
                   isEditing={!!editingLot}

@@ -1959,6 +1959,41 @@ export const lotIndustriesApi = {
   }
 };
 
+// Serviços para Múltiplas Associações por Lote
+export const lotAssociationsApi = {
+  async getByLot(lotId: string, tenantId: string) {
+    const { data, error } = await supabase
+      .from("product_lot_associations")
+      .select(`
+        association_id,
+        associations (*)
+      `)
+      .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId);
+    if (error) throw error;
+    return (data || []).map((d: any) => d.associations).filter(Boolean);
+  },
+  async syncLotAssociations(lotId: string, associationIds: string[], tenantId: string) {
+    await supabase
+      .from("product_lot_associations")
+      .delete()
+      .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId);
+    const validIds = associationIds.filter(id => id && String(id).trim().length > 0);
+    if (validIds.length > 0) {
+      const inserts = validIds.map(aid => ({
+        lot_id: lotId,
+        association_id: aid,
+        tenant_id: tenantId,
+      }));
+      const { error } = await supabase
+        .from("product_lot_associations")
+        .insert(inserts);
+      if (error) throw error;
+    }
+  }
+};
+
 // Serviços para Configuração de Campos por Tenant
 export const fieldSettingsApi = {
   async getAll(tenantId: string) {
