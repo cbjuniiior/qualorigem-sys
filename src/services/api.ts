@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { sanitizeUuidFields } from "@/lib/sanitize-uuid";
 
@@ -886,7 +887,18 @@ export const usersApi = {
       });
 
       if (error) {
-        throw new Error(error.message || 'Erro ao chamar serviço de usuários.');
+        let message = error.message || 'Erro ao criar usuário';
+        if (error instanceof FunctionsHttpError && error.context) {
+          try {
+            const body = await error.context.json();
+            if (body?.error) {
+              message = typeof body.error === 'string' ? body.error : (body.error?.message ?? message);
+            }
+          } catch (_) {
+            // ignore parse failure, use message above
+          }
+        }
+        throw new Error(message);
       }
 
       const errMsg = data?.error;

@@ -46,8 +46,18 @@ Deno.serve(async (req) => {
     }
 
     const { method } = req;
-    const body = method !== 'GET' ? await req.json() : {};
-    const action = body.action || new URL(req.url).searchParams.get('action');
+    let body: Record<string, unknown> = {};
+    if (method !== 'GET') {
+      try {
+        body = (await req.json()) as Record<string, unknown> ?? {};
+      } catch {
+        return new Response(
+          JSON.stringify({ error: 'Corpo da requisição inválido' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+    const action = (body.action as string) || new URL(req.url).searchParams.get('action');
 
     // Helper to check permissions
     const checkPermission = async (targetTenantId: string | null) => {
@@ -110,16 +120,20 @@ Deno.serve(async (req) => {
 
     // POST - Create user
     if (method === 'POST' && action === 'create') {
-      const { email, password, full_name, tenant_id, role } = body;
+      const email = typeof body.email === 'string' ? body.email.trim() : '';
+      const password = body.password;
+      const full_name = typeof body.full_name === 'string' ? body.full_name.trim() : '';
+      const tenantId = typeof body.tenant_id === 'string' ? String(body.tenant_id).trim() : '';
+      const role = body.role;
 
-      if (!email || !password || !tenant_id) {
+      if (!email || !password || !tenantId) {
         return new Response(
           JSON.stringify({ error: 'Email, senha e ID do tenant são obrigatórios' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      if (!await checkPermission(tenant_id)) {
+      if (!await checkPermission(tenantId)) {
         return new Response(
           JSON.stringify({ error: 'Permissão negada para criar usuário neste tenant' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -150,15 +164,15 @@ Deno.serve(async (req) => {
           id: data.user.id,
           email: email,
           full_name: full_name || '',
-          tenant_id: tenant_id,
+          tenant_id: tenantId,
           is_active: true
         });
 
         // 2. Membership
         await supabaseAdmin.from('tenant_memberships').insert({
-          tenant_id: tenant_id,
+          tenant_id: tenantId,
           user_id: data.user.id,
-          role: role || 'viewer'
+          role: typeof role === 'string' ? role : 'viewer'
         });
       }
 
