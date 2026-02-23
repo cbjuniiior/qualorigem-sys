@@ -59,36 +59,34 @@ Deno.serve(async (req) => {
     }
     const action = (body.action as string) || new URL(req.url).searchParams.get('action');
 
-    // Helper to check permissions
+    // Helper to check permissions (limit(1) avoids single/maybeSingle behavior differences)
     const checkPermission = async (targetTenantId: string | null) => {
-      // 1. Check if platform admin
-      const { data: platformAdmin } = await supabaseAdmin
+      const { data: platformRows } = await supabaseAdmin
         .from('platform_admins')
         .select('role')
         .eq('user_id', user.id)
-        .single();
-      
-      if (platformAdmin) return true;
+        .limit(1);
+      if (platformRows?.length) return true;
 
-      // 2. If targetTenantId provided, check if tenant admin
       if (targetTenantId) {
-        const { data: membership } = await supabaseAdmin
+        const { data: membershipRows } = await supabaseAdmin
           .from('tenant_memberships')
           .select('role')
           .eq('user_id', user.id)
           .eq('tenant_id', targetTenantId)
           .eq('role', 'tenant_admin')
-          .single();
-        
-        if (membership) return true;
+          .limit(1);
+        if (membershipRows?.length) return true;
       }
-
       return false;
     };
 
-    // GET - List all users (filtered by tenant if not platform admin)
-    if (method === 'GET' && action === 'list') {
-      const tenantId = new URL(req.url).searchParams.get('tenantId');
+    // GET or POST - List all users (filtered by tenant if not platform admin)
+    const isListAction = (method === 'GET' && action === 'list') || (method === 'POST' && action === 'list');
+    if (isListAction) {
+      const tenantId = method === 'POST' && body.tenant_id != null
+        ? String(body.tenant_id).trim() || null
+        : new URL(req.url).searchParams.get('tenantId');
       
       if (!await checkPermission(tenantId)) {
         return new Response(
@@ -97,25 +95,34 @@ Deno.serve(async (req) => {
         );
       }
 
-      // We can't easily filter listUsers by tenant_id in Auth, so we query user_profiles
-      let query = supabaseAdmin.from('user_profiles').select('*');
-      if (tenantId) {
-        query = query.eq('tenant_id', tenantId);
-      }
-      
-      const { data: profiles, error } = await query;
-      
-      if (error) {
+      try {
+        // We can't easily filter listUsers by tenant_id in Auth, so we query user_profiles
+        let query = supabaseAdmin.from('user_profiles').select('*').eq('is_active', true);
+        if (tenantId) {
+          query = query.eq('tenant_id', tenantId);
+        }
+        query = query.order('created_at', { ascending: false });
+
+        const { data: profiles, error } = await query;
+
+        if (error) {
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         return new Response(
-          JSON.stringify({ error: error.message }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          JSON.stringify(profiles),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (listError) {
+        const message = listError instanceof Error ? listError.message : String(listError);
+        return new Response(
+          JSON.stringify({ error: message }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-
-      return new Response(
-        JSON.stringify(profiles),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
 
     // POST - Create user
@@ -160,20 +167,36 @@ Deno.serve(async (req) => {
       // Create Profile and Membership
       if (data.user) {
         // 1. Profile
-        await supabaseAdmin.from('user_profiles').upsert({
+        const roleValue = typeof role === 'string' ? role : 'tenant_admin';
+        const { error: profileError } = await supabaseAdmin.from('user_profiles').upsert({
           id: data.user.id,
           email: email,
           full_name: full_name || '',
           tenant_id: tenantId,
+          role: roleValue,
           is_active: true
         });
 
+        if (profileError) {
+          return new Response(
+            JSON.stringify({ error: profileError.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         // 2. Membership
-        await supabaseAdmin.from('tenant_memberships').insert({
+        const { error: membershipError } = await supabaseAdmin.from('tenant_memberships').insert({
           tenant_id: tenantId,
           user_id: data.user.id,
-          role: typeof role === 'string' ? role : 'viewer'
+          role: typeof role === 'string' ? role : 'tenant_admin'
         });
+
+        if (membershipError) {
+          return new Response(
+            JSON.stringify({ error: membershipError.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
 
       return new Response(

@@ -853,21 +853,36 @@ export const productLotsApi = {
 // Serviços para Gerenciamento de Usuários (Admin)
 export const usersApi = {
   async getAll(tenantId: string) {
-    const { data, error } = await supabase
-      .from("user_profiles")
-      .select("*")
-      .eq("is_active", true)
-      .eq("tenant_id", tenantId)
-      .order("created_at", { ascending: false });
+    const { data, error } = await supabase.functions.invoke('manage-users', {
+      method: 'POST',
+      body: { action: 'list', tenant_id: tenantId },
+    });
 
-    if (error) throw error;
+    if (error) {
+      // Fallback: listagem direta em user_profiles quando a Edge Function falha (ex.: 500)
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('is_active', true)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false });
+      if (fallbackError) throw fallbackError;
+      return (fallbackData || []).map((user: any) => ({
+        id: user.id,
+        email: user.email,
+        full_name: user.full_name,
+        created_at: user.created_at,
+        email_confirmed_at: user.created_at ?? user.created_at,
+      }));
+    }
 
-    return (data || []).map((user: any) => ({
+    const list = Array.isArray(data) ? data : [];
+    return list.map((user: any) => ({
       id: user.id,
       email: user.email,
       full_name: user.full_name,
       created_at: user.created_at,
-      email_confirmed_at: user.created_at,
+      email_confirmed_at: user.created_at ?? user.created_at,
     }));
   },
 
@@ -881,7 +896,7 @@ export const usersApi = {
           password: userData.password,
           full_name: userData.full_name?.trim() ?? '',
           tenant_id: tenantId,
-          role: 'viewer',
+          role: 'tenant_admin',
         },
       });
 
@@ -922,7 +937,7 @@ export const usersApi = {
         } catch (_) {}
         if (extractedMessage) throw new Error(extractedMessage);
       }
-      if (err.status === 500 || err.message?.includes('500')) {
+      if (!extractedMessage && (err.status === 500 || err.message?.includes('500'))) {
         throw new Error('Erro no servidor de autenticação.');
       }
       throw err;
