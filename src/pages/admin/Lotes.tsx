@@ -585,7 +585,8 @@ const Lotes = () => {
         harvest_year: formData.harvest_year || null,
         unit: formData.unit || null,
         variety: formData.variety || null,
-        tenant_id: tenant.id
+        tenant_id: tenant.id,
+        is_blend: isBlendMode && (formData.components?.length ?? 0) > 0
       };
 
       // Remover campos que não existem na tabela product_lots
@@ -1064,9 +1065,9 @@ const Lotes = () => {
                           </div>
                           <div 
                             className="absolute -top-2 -left-2 text-white text-[10px] font-black px-2 py-1 rounded-lg shadow-lg uppercase tracking-tighter"
-                            style={{ backgroundColor: (lot as any).lot_components?.length > 0 ? '#7c3aed' : primaryColor }}
+                            style={{ backgroundColor: ((lot as any).is_blend === true || (lot as any).lot_components?.length > 0) ? '#7c3aed' : primaryColor }}
                           >
-                            {(lot as any).lot_components?.length > 0 ? 'BLEND' : 'UNICO'}
+                            {((lot as any).is_blend === true || (lot as any).lot_components?.length > 0) ? 'BLEND' : 'UNICO'}
                           </div>
                         </div>
                         <div className="space-y-1">
@@ -1311,14 +1312,14 @@ const Lotes = () => {
                               <Eye size={14} weight="fill" />
                               {lotDetails.views || 0} visualizações
                             </Badge>
-                            {(lotDetails.components || lotDetails.lot_components) && (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0) && (
+                            {(lotDetails.is_blend === true || (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0)) ? (
                               <Badge 
                                 className="text-white border-0 font-black px-4 py-1.5 rounded-full shadow-sm"
                                 style={{ backgroundColor: hexToRgba(primaryColor, 0.9) }}
                               >
                                 BLEND
                               </Badge>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                         
@@ -1637,7 +1638,7 @@ const Lotes = () => {
                           )}
 
                           {/* Composição do Blend */}
-                          {(lotDetails.components || lotDetails.lot_components) && (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0) && (
+                          {(lotDetails.is_blend === true || (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0)) && (
                             <div className="p-8 rounded-[2.5rem] bg-slate-50 border border-slate-100 space-y-6">
                               <div className="flex items-center gap-3">
                                 <div 

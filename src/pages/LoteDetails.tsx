@@ -35,6 +35,7 @@ interface LoteData {
   video_delay_seconds?: number | null;
   components?: LotComponent[];
   lot_components?: LotComponent[];
+  is_blend?: boolean;
   producers?: {
     id: string;
     name: string;
@@ -733,8 +734,8 @@ const LoteDetails = () => {
   };
 
   // Detectar se é um blend (precisa estar antes de qualquer return)
-  const isBlend = loteData && ((loteData.components && loteData.components.length > 0) || (loteData.lot_components && loteData.lot_components.length > 0));
   const blendComponents = loteData ? (loteData.components || loteData.lot_components || []) : [];
+  const isBlend = loteData && (loteData.is_blend === true || blendComponents.length > 0) && blendComponents.length > 0;
   
   // Garantir que temos o produtor correto (prioridade para o estado carregado ou do lote)
   const currentProducer = producer || loteData?.producers;
@@ -1054,22 +1055,29 @@ const LoteDetails = () => {
         <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12 max-w-7xl">
           {/* Referência para scroll - Seção de informações do produto */}
           <div ref={productDetailsRef} className="scroll-mt-20 sm:scroll-mt-24 space-y-8 sm:space-y-12">
-            {/* 1. De onde veio / Quem plantou - Seção de Produtores */}
-            <ProducersSection 
-              isBlend={isBlend}
-              blendComponents={blendComponents}
-              producer={currentProducer}
-              loteData={loteData}
-              branding={branding || undefined}
-            />
-
-            {/* 2. Composição do Blend (se houver) */}
-            {isBlend && (
-              <BlendComposition 
+            {isBlend ? (
+              <>
+                <BlendComposition 
+                  blendComponents={blendComponents}
+                  harvestYear={loteData.harvest_year}
+                  quantity={loteData.quantity}
+                  unit={loteData.unit}
+                  branding={branding || undefined}
+                />
+                <ProducersSection 
+                  isBlend={isBlend}
+                  blendComponents={blendComponents}
+                  producer={currentProducer}
+                  loteData={loteData}
+                  branding={branding || undefined}
+                />
+              </>
+            ) : (
+              <ProducersSection 
+                isBlend={isBlend}
                 blendComponents={blendComponents}
-                harvestYear={loteData.harvest_year}
-                quantity={loteData.quantity}
-                unit={loteData.unit}
+                producer={currentProducer}
+                loteData={loteData}
                 branding={branding || undefined}
               />
             )}

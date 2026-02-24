@@ -757,14 +757,14 @@ export default function ProducerDetails() {
                               <Eye size={14} weight="fill" />
                               {lotDetails.views || 0} visualizações
                             </Badge>
-                            {(lotDetails.components || lotDetails.lot_components) && (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0) && (
+                            {(lotDetails as any).is_blend === true || (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0) ? (
                               <Badge 
                                 className="text-white border-0 font-black px-4 py-1.5 rounded-full shadow-sm"
                                 style={{ backgroundColor: hexToRgba(primaryColor, 0.9) }}
                               >
                                 BLEND
                               </Badge>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                         
@@ -1083,7 +1083,7 @@ export default function ProducerDetails() {
                           )}
 
                           {/* Composição do Blend */}
-                          {(lotDetails.components || lotDetails.lot_components) && (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0) && (
+                          {((lotDetails as any).is_blend === true || (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0)) && (
                             <div className="p-8 rounded-[2.5rem] bg-slate-50 border border-slate-100 space-y-6">
                               <div className="flex items-center gap-3">
                                 <div 

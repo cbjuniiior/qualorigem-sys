@@ -10,6 +10,7 @@ export interface ProductLot {
   seals_quantity?: number | null;
   image_url: string | null;
   producer_id: string | null; // Pode ser null para blends
+  is_blend?: boolean;
   fragrance_score: number | null;
   flavor_score: number | null;
   finish_score: number | null;

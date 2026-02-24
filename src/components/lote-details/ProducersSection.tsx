@@ -91,7 +91,7 @@ export const ProducersSection = ({ isBlend, blendComponents, producer, loteData,
               {blendComponents.map((component, index) => (
                 <TabsContent key={component.id} value={index.toString()} className="mt-0 animate-fade-in">
                   <ProducerDetailsContent 
-                    data={component} 
+                    data={component.producers ? { ...component.producers, ...component } : component} 
                     producer={component.producers}
                     primaryColor={primaryColor} 
                     secondaryColor={secondaryColor} 

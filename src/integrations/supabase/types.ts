@@ -682,8 +682,8 @@ export type Database = {
           views: number
           youtube_video_url: string | null
           tenant_id: string
+          is_blend: boolean
         }
-        Insert: {
           acidity_score?: number | null
           address?: string | null
           address_internal_only?: boolean | null
@@ -725,6 +725,7 @@ export type Database = {
           views?: number
           youtube_video_url?: string | null
           tenant_id: string
+          is_blend?: boolean
         }
         Update: {
           acidity_score?: number | null
@@ -768,6 +769,7 @@ export type Database = {
           views?: number
           youtube_video_url?: string | null
           tenant_id?: string
+          is_blend?: boolean
         }
         Relationships: [
           {

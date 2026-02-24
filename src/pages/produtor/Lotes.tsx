@@ -414,7 +414,8 @@ export const ProducerLotes = () => {
         altitude: formData.altitude ? parseInt(formData.altitude) : null,
         average_temperature: formData.average_temperature ? parseFloat(formData.average_temperature) : null,
         producer_id: user?.id,
-        tenant_id: tenant.id
+        tenant_id: tenant.id,
+        is_blend: isBlendMode && (formData.components?.length ?? 0) > 0
       };
 
       const { 
@@ -646,9 +647,9 @@ export const ProducerLotes = () => {
                           <img src={lote.image_url || "/placeholder.svg"} className="h-16 w-16 rounded-2xl object-cover shadow-sm group-hover:scale-105 transition-transform" />
                           <div 
                             className="absolute -top-2 -left-2 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md shadow-lg uppercase"
-                            style={{ backgroundColor: (lote.lot_components?.length || 0) > 0 ? '#7c3aed' : primaryColor }}
+                            style={{ backgroundColor: ((lote as any).is_blend === true || (lote.lot_components?.length || 0) > 0) ? '#7c3aed' : primaryColor }}
                           >
-                            {(lote.lot_components?.length || 0) > 0 ? 'BLEND' : 'UNICO'}
+                            {((lote as any).is_blend === true || (lote.lot_components?.length || 0) > 0) ? 'BLEND' : 'UNICO'}
                           </div>
                         </div>
                         <div className="space-y-1">
