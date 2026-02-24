@@ -614,9 +614,8 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
   const validateCurrentStep = () => {
     if (currentStep === 1) {
       const name = watch("name");
-      const email = watch("email");
-      if (!name || !email) {
-        toast.error("Preencha nome e e-mail");
+      if (!name) {
+        toast.error("Preencha o nome");
         return false;
       }
     }
@@ -673,7 +672,7 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
                 </div>
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                    <At size={16} style={{ color: primaryColor }} /> E-mail de Contato *
+                    <At size={16} style={{ color: primaryColor }} /> E-mail de Contato
                   </Label>
                   <Input {...register("email")} placeholder="joao@fazenda.com" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
                 </div>
