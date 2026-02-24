@@ -8,7 +8,6 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { BlendComposition } from "../BlendComposition";
 import { LocationPicker } from "@/components/ui/location-picker";
 import { useState, useEffect, useCallback } from "react";
 import { brandsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotsApi, internalProducersApi } from "@/services/api";
@@ -33,7 +32,7 @@ interface ProductionStepProps {
   tenantId: string;
   formData: any;
   setFormData: (data: any) => void;
-  isBlendMode: boolean;
+  isBlendMode?: boolean;
   producers: Producer[];
   associations: any[];
   industries: any[];
@@ -69,7 +68,7 @@ const FormSection = ({ title, icon: Icon, children, description, primaryColor }:
   </div>
 );
 
-export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, producers, associations, industries, branding, qrValue }: ProductionStepProps) => {
+export const ProductionStep = ({ tenantId, formData, setFormData, producers, associations, industries, branding, qrValue }: ProductionStepProps) => {
   const [brands, setBrands] = useState<any[]>([]);
   const [loadingBrands, setLoadingBrands] = useState(false);
   const [filteredAssociations, setFilteredAssociations] = useState<any[]>([]);
@@ -339,17 +338,6 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
 
   return (
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
-      {isBlendMode ? (
-        <FormSection title="Composição do Blend" icon={Users} description="Mistura de diferentes origens e lotes" primaryColor={primaryColor}>
-          <BlendComposition 
-            formData={formData}
-            setFormData={setFormData}
-            producers={producers}
-            associations={associations}
-            branding={branding}
-          />
-        </FormSection>
-      ) : (
         <>
           {/* Vínculos e Propriedade */}
           <FormSection title="Vínculos e Propriedade" icon={Buildings} description="Associações e localização do cultivo" primaryColor={primaryColor}>
@@ -824,7 +812,6 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
             />
           )}
         </>
-      )}
     </div>
   );
 };

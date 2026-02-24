@@ -34,7 +34,7 @@ import { ProducerLayout } from "@/components/layout/ProducerLayout";
 import { useAuth } from "@/hooks/use-auth";
 import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotCharacteristicsApi, productLotSensoryApi, brandsApi, lotIndustriesApi, lotAssociationsApi, certificationsApi, internalProducersApi } from "@/services/api";
 import { toast } from "sonner";
-import { LotForm, LOT_STEPS } from "@/components/lots/LotForm";
+import { LotForm, LOT_STEPS, LOT_STEPS_BLEND } from "@/components/lots/LotForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FormStepIndicator } from "@/components/ui/step-indicator";
 import {
@@ -263,6 +263,7 @@ export const ProducerLotes = () => {
     }
     setFormData({
       ...lot,
+      unit: lot.unit || "Kg",
       quantity: lot.quantity?.toString() || "",
       seals_quantity: lot.seals_quantity?.toString() || "",
       video_description: (lot as any).video_description || "",
@@ -349,6 +350,7 @@ export const ProducerLotes = () => {
     setFormData({
       ...lot,
       code: `${lot.code}-copia`,
+      unit: lot.unit || "Kg",
       quantity: lot.quantity?.toString() || "",
       seals_quantity: lot.seals_quantity?.toString() || "",
       latitude: lot.latitude?.toString() || "",
@@ -697,7 +699,7 @@ export const ProducerLotes = () => {
                     </div>
                   </div>
 
-                  <FormStepIndicator steps={LOT_STEPS} currentStep={currentStep} primaryColor={primaryColor} />
+                  <FormStepIndicator steps={isBlendMode ? LOT_STEPS_BLEND : LOT_STEPS} currentStep={currentStep} primaryColor={primaryColor} />
                 </div>
               </SheetHeader>
               <div className="flex-1 relative flex flex-col min-h-0">

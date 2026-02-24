@@ -83,7 +83,7 @@ export const VolumeStep = ({ formData, setFormData, isBlendMode, producers, bran
               <Tag size={16} style={{ color: primaryColor }} /> Unidade de Medida *
             </Label>
             <Select 
-              value={formData.unit || ""} 
+              value={formData.unit || "Kg"} 
               onValueChange={value => setFormData((prev: any) => ({ ...prev, unit: value }))}
             >
               <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus:ring-primary font-bold shadow-sm" style={{ '--primary': primaryColor } as any}>

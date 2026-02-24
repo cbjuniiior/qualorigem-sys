@@ -43,7 +43,7 @@ import 'leaflet/dist/leaflet.css';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LotForm, LOT_STEPS } from "@/components/lots/LotForm";
+import { LotForm, LOT_STEPS, LOT_STEPS_BLEND } from "@/components/lots/LotForm";
 import { ProductLot } from "@/types/lot";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -379,7 +379,7 @@ const Lotes = () => {
       category: lot.category || "",
       harvest_year: lot.harvest_year || "",
       quantity: lot.quantity?.toString() || "",
-      unit: lot.unit || "",
+      unit: lot.unit || "Kg",
       seals_quantity: (lot as any).seals_quantity?.toString() || "",
       producer_id: lot.producer_id || "",
       brand_id: (lot as any).brand_id || "",
@@ -484,7 +484,7 @@ const Lotes = () => {
       category: lot.category || "",
       harvest_year: lot.harvest_year || "",
       quantity: lot.quantity?.toString() || "",
-      unit: lot.unit || "",
+      unit: lot.unit || "Kg",
       seals_quantity: (lot as any).seals_quantity?.toString() || "",
       producer_id: lot.producer_id || "",
       brand_id: (lot as any).brand_id || "",
@@ -1178,7 +1178,7 @@ const Lotes = () => {
                     </div>
                   </div>
 
-                  <FormStepIndicator steps={LOT_STEPS} currentStep={currentStep} primaryColor={primaryColor} />
+                  <FormStepIndicator steps={isBlendMode ? LOT_STEPS_BLEND : LOT_STEPS} currentStep={currentStep} primaryColor={primaryColor} />
                 </div>
               </SheetHeader>
               <div className="flex-1 relative flex flex-col min-h-0">

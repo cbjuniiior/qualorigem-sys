@@ -1,13 +1,16 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { CaretLeft, CaretRight, Check, Package, Medal, Eye, Quotes, X, ArrowRight, CheckCircle, Certificate } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { BasicInfoStep } from "./steps/BasicInfoStep";
 import { ProductionStep } from "./steps/ProductionStep";
+import { BlendProducersStep } from "./steps/BlendProducersStep";
+import { BlendCompositionStep } from "./steps/BlendCompositionStep";
 import { VolumeStep } from "./steps/VolumeStep";
 import { SensoryAnalysisStep } from "./steps/SensoryAnalysisStep";
 import { NotesStep } from "./steps/NotesStep";
 import CertificationsStep from "./steps/CertificationsStep";
+import { VinculosStep } from "./steps/VinculosStep";
 
 interface Producer {
   id: string;
@@ -49,6 +52,15 @@ export const LOT_STEPS = [
   { id: 6, title: "História", description: "Relatos e mídia", icon: Quotes }
 ];
 
+export const LOT_STEPS_BLEND = [
+  { id: 1, title: "Identificação", description: "Dados básicos", icon: Package },
+  { id: 2, title: "Produtores", description: "Selecionar produtores e propriedades", icon: Medal },
+  { id: 3, title: "Composição", description: "Montar o blend e quantidades", icon: Package },
+  { id: 4, title: "Vínculos", description: "Associações, indústrias, certificações e outros", icon: Certificate },
+  { id: 5, title: "Análise", description: "Perfil sensorial", icon: Eye },
+  { id: 6, title: "História", description: "Relatos e mídia", icon: Quotes }
+];
+
 export const LotForm = ({
   tenantId,
   formData,
@@ -69,6 +81,26 @@ export const LotForm = ({
   const primaryColor = branding?.primaryColor || '#16a34a';
 
   const qrValue = `${window.location.origin}/lote/${formData.code}`;
+
+  // Garantir pelo menos um participante ao entrar no passo 2 em Blend (para exibir o card com select de Produtor)
+  useEffect(() => {
+    if (currentStep !== 2 || !isBlendMode) return;
+    const components = formData.components || [];
+    if (components.length > 0) return;
+    const initialComponent = {
+      id: crypto.randomUUID(),
+      component_name: "",
+      component_variety: "",
+      component_percentage: 0,
+      component_quantity: 0,
+      component_unit: "g",
+      component_origin: "",
+      producer_id: undefined,
+      component_harvest_year: "",
+      association_id: undefined
+    };
+    setFormData((prev: any) => ({ ...prev, components: [initialComponent] }));
+  }, [currentStep, isBlendMode, setFormData]);
 
   const nextStep = () => { if (currentStep < totalSteps) setCurrentStep(currentStep + 1); };
   const prevStep = () => { if (currentStep > 1) setCurrentStep(currentStep - 1); };
@@ -94,31 +126,61 @@ export const LotForm = ({
           )}
 
           {currentStep === 2 && (
-            <ProductionStep
-              tenantId={tenantId}
-              formData={formData}
-              setFormData={setFormData}
-              isBlendMode={isBlendMode}
-              producers={producers}
-              associations={associations}
-              industries={industries}
-              qrValue={qrValue}
-              branding={branding}
-            />
+            isBlendMode ? (
+              <BlendProducersStep
+                tenantId={tenantId}
+                formData={formData}
+                setFormData={setFormData}
+                producers={producers}
+                branding={branding}
+              />
+            ) : (
+              <ProductionStep
+                tenantId={tenantId}
+                formData={formData}
+                setFormData={setFormData}
+                isBlendMode={isBlendMode}
+                producers={producers}
+                associations={associations}
+                industries={industries}
+                qrValue={qrValue}
+                branding={branding}
+              />
+            )
           )}
 
           {currentStep === 3 && (
-            <VolumeStep
-              formData={formData}
-              setFormData={setFormData}
-              isBlendMode={isBlendMode}
-              producers={producers}
-              branding={branding}
-            />
+            isBlendMode ? (
+              <BlendCompositionStep
+                formData={formData}
+                setFormData={setFormData}
+                producers={producers}
+                branding={branding}
+              />
+            ) : (
+              <VolumeStep
+                formData={formData}
+                setFormData={setFormData}
+                isBlendMode={isBlendMode}
+                producers={producers}
+                branding={branding}
+              />
+            )
           )}
 
           {currentStep === 4 && (
-            <CertificationsStep formData={formData} setFormData={setFormData} primaryColor={primaryColor} />
+            isBlendMode ? (
+              <VinculosStep
+                formData={formData}
+                setFormData={setFormData}
+                primaryColor={primaryColor}
+                associations={associations}
+                industries={industries}
+                tenantId={tenantId}
+              />
+            ) : (
+              <CertificationsStep formData={formData} setFormData={setFormData} primaryColor={primaryColor} />
+            )
           )}
 
           {currentStep === 5 && (
