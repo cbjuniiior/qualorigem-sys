@@ -7,6 +7,7 @@ interface HeroSectionProps {
     code: string;
     image_url: string | null;
     harvest_year: string;
+    created_at?: string | null;
     youtube_video_url?: string | null;
   };
   isBlend: boolean;
@@ -116,9 +117,9 @@ export const HeroSection = ({ loteData, isBlend, blendComponentsCount, producerN
                   <div className="w-12 h-px bg-white/10 sm:w-px sm:h-10"></div>
                   
                   <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40 mb-1">Temporada</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40 mb-1">Ano do lote</span>
                     <span className="text-lg md:text-2xl font-bold text-white tracking-tight">
-                      Safra {loteData.harvest_year}
+                      {loteData.created_at ? new Date(loteData.created_at).getFullYear() : loteData.harvest_year || "—"}
                     </span>
                   </div>
                 </div>

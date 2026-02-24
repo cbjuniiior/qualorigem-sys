@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Package, Leaf, User, Medal, Calendar, Tag, Scales, MapPin } from "@phosphor-icons/react";
+import { getComponentLocationDisplay } from "@/lib/lot-location";
 
 interface BlendComponent {
   id: string;
@@ -12,8 +13,14 @@ interface BlendComponent {
   component_quantity?: number;
   component_unit?: string;
   component_origin?: string;
+  city?: string | null;
+  state?: string | null;
+  property_name?: string | null;
   producers?: {
     name: string;
+    city?: string | null;
+    state?: string | null;
+    property_name?: string | null;
   };
   associations?: {
     name: string;
@@ -35,6 +42,15 @@ interface BlendCompositionProps {
 export const BlendComposition = ({ blendComponents, harvestYear, quantity, unit, branding }: BlendCompositionProps) => {
   if (!blendComponents || blendComponents.length === 0) return null;
   
+  const totalQty = Number(quantity) || blendComponents.reduce((s, c) => s + (Number(c.component_quantity) || 0), 0);
+  const componentsWithPct = blendComponents.map((c) => {
+    const storedPct = c.component_percentage;
+    const qty = Number(c.component_quantity) || 0;
+    const computedPct = totalQty > 0 && qty > 0 ? Math.round((qty / totalQty) * 1000) / 10 : 0;
+    const displayPct = (storedPct != null && storedPct > 0) ? storedPct : computedPct;
+    return { ...c, _displayPercentage: displayPct };
+  });
+
   const primaryColor = branding?.primaryColor || '#16a34a';
   const secondaryColor = branding?.secondaryColor || '#22c55e';
   const accentColor = branding?.accentColor || '#10b981';
@@ -78,8 +94,14 @@ export const BlendComposition = ({ blendComponents, harvestYear, quantity, unit,
 
         {/* Componentes - Grid Premium */}
         <div className="p-6 sm:p-10 bg-slate-50/30">
-          <div className="grid gap-6 sm:gap-8 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-            {blendComponents.map((component) => (
+          <div 
+            className={`grid gap-6 sm:gap-8 w-full grid-cols-1 ${
+              blendComponents.length >= 2 ? 'sm:grid-cols-2' : ''
+            } ${blendComponents.length >= 3 ? 'lg:grid-cols-3' : ''} ${
+              blendComponents.length >= 4 ? 'xl:grid-cols-4' : ''
+            }`}
+          >
+            {componentsWithPct.map((component) => (
               <div key={component.id} className="group bg-white border border-slate-100 rounded-[2rem] p-6 sm:p-8 hover:shadow-xl transition-all duration-500 relative overflow-hidden flex flex-col">
                 {/* Indicador de Porcentagem Minimalista */}
                 <div className="flex items-start justify-between mb-8">
@@ -93,7 +115,7 @@ export const BlendComposition = ({ blendComponents, harvestYear, quantity, unit,
                     className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center border-2 border-white shadow-lg transition-transform duration-500 group-hover:scale-110"
                     style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
                   >
-                    <span className="text-lg font-black leading-none">{component.component_percentage}</span>
+                    <span className="text-lg font-black leading-none">{(component as any)._displayPercentage ?? component.component_percentage ?? 0}</span>
                     <span className="text-[8px] font-black uppercase tracking-tighter">%</span>
                   </div>
                 </div>
@@ -103,7 +125,7 @@ export const BlendComposition = ({ blendComponents, harvestYear, quantity, unit,
                   <div 
                     className="h-full rounded-full transition-all duration-1000 ease-out"
                     style={{ 
-                      width: `${component.component_percentage}%`,
+                      width: `${(component as any)._displayPercentage ?? component.component_percentage ?? 0}%`,
                       backgroundColor: primaryColor
                     }}
                   ></div>
@@ -111,12 +133,21 @@ export const BlendComposition = ({ blendComponents, harvestYear, quantity, unit,
               
                 {/* Detalhes do componente */}
                 <div className="space-y-4 mt-auto">
-                  {component.producer_id && component.producers && (
+                  {(component.producers?.name || component.producer_id) && (
                     <DetailRow 
                       icon={<User weight="duotone" />} 
                       label="Produtor" 
-                      value={component.producers.name} 
+                      value={component.producers?.name || "Produtor vinculado"} 
                       color={primaryColor}
+                    />
+                  )}
+
+                  {getComponentLocationDisplay(component, "") && (
+                    <DetailRow 
+                      icon={<MapPin weight="duotone" />} 
+                      label="Localização da propriedade" 
+                      value={getComponentLocationDisplay(component, "")} 
+                      color={accentColor}
                     />
                   )}
                   

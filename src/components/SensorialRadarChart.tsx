@@ -1,4 +1,4 @@
-import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from "recharts";
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from "recharts";
 
 interface SensorialRadarChartProps {
   data: Record<string, number>;
@@ -28,14 +28,37 @@ function splitLabelIntoTwoLines(label: string, maxCharsPerLine: number = 14): [s
   return [line1, line2];
 }
 
-/** Tick customizado para quebrar labels em 2 linhas e evitar corte. */
-function PolarAngleTick({ payload, x, y, textAnchor }: { payload?: { value?: string; atributo?: string }; x?: number; y?: number; textAnchor?: string }) {
+/** Tick customizado: 2 linhas + tooltip com nota (porcentagem em escala 0-10). */
+function PolarAngleTick({
+  payload,
+  x,
+  y,
+  textAnchor,
+  chartData,
+  index,
+}: {
+  payload?: { value?: string; atributo?: string; valor?: number };
+  x?: number;
+  y?: number;
+  textAnchor?: string;
+  chartData?: { atributo: string; valor: number }[];
+  index?: number;
+}) {
   const label = (payload?.value ?? payload?.atributo ?? "") as string;
+  const nota =
+    payload?.valor ??
+    (typeof index === "number" && chartData?.[index]?.valor != null
+      ? chartData[index].valor
+      : chartData?.find((d) => d.atributo === label || d.atributo?.toLowerCase() === label?.toLowerCase())?.valor);
   const [line1, line2] = splitLabelIntoTwoLines(label);
   const fill = "#94a3b8";
   const fontSize = 9;
+  // Escala 0-10 → porcentagem para exibição
+  const pct = nota != null ? Math.round((Number(nota) / 10) * 100) : null;
+  const tooltipText = pct != null ? `${label}: ${pct}%` : nota != null ? `${label}: ${Number(nota).toFixed(1)}` : label;
   return (
-    <g className="recharts-layer recharts-polar-angle-axis-tick">
+    <g className="recharts-layer recharts-polar-angle-axis-tick" style={{ cursor: "pointer" }}>
+      <title>{tooltipText}</title>
       <text x={x} y={y} textAnchor={textAnchor} fill={fill} fontSize={fontSize} fontWeight={900}>
         <tspan x={x} dy="0em">{line1}</tspan>
         {line2 ? <tspan x={x} dy="1.1em">{line2}</tspan> : null}
@@ -68,14 +91,20 @@ export const SensorialRadarChart = ({ data, branding, showAverage = true }: Sens
   const values = Object.values(data);
   const average = values.length > 0 ? (values.reduce((a, b) => a + b, 0) / values.length) : 0;
 
+  const chartHeight = 380;
+
   return (
-    <div className="w-full relative">
-      <ResponsiveContainer width="100%" height={350}>
+    <div className="w-full h-full min-h-[320px] relative">
+      <ResponsiveContainer width="100%" height="100%" minHeight={chartHeight}>
         <RadarChart data={chartData} margin={{ top: 28, right: 38, bottom: 28, left: 38 }}>
           <PolarGrid stroke="#e5e7eb" />
           <PolarAngleAxis 
             dataKey="atributo" 
-            tick={<PolarAngleTick />}
+            tick={(props) => {
+              const label = (props.payload?.value ?? props.payload?.atributo) as string | undefined;
+              const idx = label != null ? chartData.findIndex((d) => d.atributo === label || d.atributo?.toLowerCase() === label?.toLowerCase()) : -1;
+              return <PolarAngleTick {...props} chartData={chartData} index={idx >= 0 ? idx : undefined} />;
+            }}
           />
           <PolarRadiusAxis 
             angle={90} 
@@ -91,6 +120,19 @@ export const SensorialRadarChart = ({ data, branding, showAverage = true }: Sens
             fillOpacity={0.2}
             strokeWidth={3}
             dot={{ fill: primaryColor, strokeWidth: 2, r: 4, stroke: '#fff' }}
+          />
+          <Tooltip
+            content={({ active, payload }) => {
+              if (!active || !payload?.length) return null;
+              const item = payload[0].payload as { atributo: string; valor: number };
+              const pct = Math.round((item.valor / 10) * 100);
+              return (
+                <div className="bg-slate-900 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-lg border border-slate-700">
+                  {item.atributo}: {pct}%
+                </div>
+              );
+            }}
+            cursor={false}
           />
         </RadarChart>
       </ResponsiveContainer>

@@ -1091,9 +1091,9 @@ const LoteDetails = () => {
                   </div>
                   <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Certificações do Lote</h2>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+                <div className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto">
                   {lotCertifications.map((cert: any) => (
-                    <div key={cert.id} className="bg-white rounded-2xl border border-slate-100 p-5 flex items-start gap-3 shadow-sm">
+                    <div key={cert.id} className="w-full sm:min-w-[240px] sm:max-w-[320px] bg-white rounded-2xl border border-slate-100 p-5 flex items-start gap-3 shadow-sm">
                       <div className="p-2 bg-emerald-50 rounded-xl shrink-0">
                         <FileText size={20} className="text-emerald-600" weight="fill" />
                       </div>
@@ -1152,11 +1152,11 @@ const LoteDetails = () => {
                 </div>
 
                 <div className="max-w-6xl mx-auto px-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  <div className="flex flex-wrap justify-center gap-8">
                     {/* Selos de Rastreabilidade */}
                     {loteData.seals_quantity && (
-                      <div className="lg:col-span-1">
-                        <div className="h-full bg-slate-950 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center relative overflow-hidden group shadow-2xl">
+                      <div className="w-full sm:min-w-[280px] sm:max-w-[340px]">
+                        <div className="h-full min-h-[200px] bg-slate-950 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center relative overflow-hidden group shadow-2xl">
                           <div 
                             className="absolute inset-0 opacity-20 pointer-events-none transition-opacity duration-700 group-hover:opacity-30"
                             style={{ background: `radial-gradient(circle at center, ${branding?.primaryColor || '#16a34a'} 0%, transparent 70%)` }}
@@ -1182,10 +1182,10 @@ const LoteDetails = () => {
                     )}
 
                     {/* Associações e Indústria */}
-                    <div className={`${loteData.seals_quantity ? 'lg:col-span-2' : 'lg:col-span-3'} grid grid-cols-1 sm:grid-cols-2 gap-6`}>
+                    <>
                       {/* Associações */}
                       {associations.map((assoc: any) => (
-                        <div key={assoc.id} className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-6 group">
+                        <div key={assoc.id} className="w-full sm:min-w-[280px] sm:max-w-[340px] bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-6 group">
                           <div className="w-20 h-20 flex-shrink-0 rounded-2xl bg-slate-50 border border-slate-50 flex items-center justify-center p-3 transition-transform duration-500 group-hover:scale-105">
                             {assoc.logo_url ? (
                               <img src={assoc.logo_url} alt={assoc.name} className="w-full h-full object-contain filter grayscale group-hover:grayscale-0 transition-all duration-500" />
@@ -1207,7 +1207,7 @@ const LoteDetails = () => {
 
                       {/* Indústrias */}
                       {industries.map((ind: any) => (
-                        <div key={ind.id} className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-6 group">
+                        <div key={ind.id} className="w-full sm:min-w-[280px] sm:max-w-[340px] bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-6 group">
                           <div className="w-20 h-20 flex-shrink-0 rounded-2xl bg-slate-50 border border-slate-50 flex items-center justify-center p-3 transition-transform duration-500 group-hover:scale-105">
                             {ind.logo_url ? (
                               <img src={ind.logo_url} alt={ind.name} className="w-full h-full object-contain filter grayscale group-hover:grayscale-0 transition-all duration-500" />
@@ -1228,7 +1228,7 @@ const LoteDetails = () => {
                           </div>
                         </div>
                       ))}
-                    </div>
+                    </>
                   </div>
                 </div>
               </div>

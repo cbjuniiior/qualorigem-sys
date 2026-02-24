@@ -28,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { getLotLocationDisplay } from "@/lib/lot-location";
 import { 
   BarChart, 
   Bar, 
@@ -191,11 +192,9 @@ const Relatorios = () => {
       .sort((a, b) => b.lots - a.lots)
       .slice(0, 5);
 
-    // Cidades ativas (baseado nos lotes, pois o rastreio/localização hoje é do lote)
+    // Cidades ativas (lote direto ou primeiro componente com localização para blend)
     const cityCount = filteredLots.reduce((acc: any, lot: any) => {
-      const city = (lot.city || lot.property_city || "").toString().trim();
-      const state = (lot.state || lot.property_state || "").toString().trim();
-      const label = city ? (state ? `${city}, ${state}` : city) : "N/A";
+      const label = getLotLocationDisplay(lot, "N/A");
       acc[label] = (acc[label] || 0) + 1;
       return acc;
     }, {});

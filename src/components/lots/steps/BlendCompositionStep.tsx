@@ -174,12 +174,22 @@ export const BlendCompositionStep = ({ formData, setFormData, producers, brandin
                         )}
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div className="space-y-2 lg:col-span-2">
+                        <div className="space-y-2">
                           <Label className="font-black text-slate-700 text-xs">Identificação do item *</Label>
                           <Input
                             value={comp.component_name || ""}
                             onChange={(e) => updateComponent(index, "component_name", e.target.value)}
                             placeholder="Ex: Grão tipo A"
+                            className="h-12 rounded-xl bg-white border border-slate-200 font-bold"
+                            style={{ '--primary': primaryColor } as any}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="font-black text-slate-700 text-xs">Variedade (opcional)</Label>
+                          <Input
+                            value={comp.component_variety || ""}
+                            onChange={(e) => updateComponent(index, "component_variety", e.target.value)}
+                            placeholder="Ex: Bourbon, Catuai"
                             className="h-12 rounded-xl bg-white border border-slate-200 font-bold"
                             style={{ '--primary': primaryColor } as any}
                           />

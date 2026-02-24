@@ -65,6 +65,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { sanitizeUuidFields } from "@/lib/sanitize-uuid";
+import { getLotLocationDisplay, getComponentLocationDisplay } from "@/lib/lot-location";
 
 interface Producer {
   id: string;
@@ -444,8 +445,8 @@ const Lotes = () => {
         property_description: c.property_description,
         photos: c.photos || [],
         address: c.address,
-        city: c.city,
-        state: c.state,
+        city: c.city ?? c.producers?.city ?? "",
+        state: c.state ?? c.producers?.state ?? "",
         cep: c.cep
       })),
     });
@@ -543,8 +544,8 @@ const Lotes = () => {
         property_description: c.property_description,
         photos: c.photos || [],
         address: c.address,
-        city: c.city,
-        state: c.state,
+        city: c.city ?? c.producers?.city ?? "",
+        state: c.state ?? c.producers?.state ?? "",
         cep: c.cep
       })),
     });
@@ -586,7 +587,8 @@ const Lotes = () => {
         unit: formData.unit || null,
         variety: formData.variety || null,
         tenant_id: tenant.id,
-        is_blend: isBlendMode && (formData.components?.length ?? 0) > 0
+        is_blend: isBlendMode && (formData.components?.length ?? 0) > 0,
+        video_delay_seconds: Number(formData.video_delay_seconds) || 10
       };
 
       // Remover campos que não existem na tabela product_lots
@@ -627,6 +629,10 @@ const Lotes = () => {
       if (cleanLotData.average_temperature !== null && cleanLotData.average_temperature !== undefined && isNaN(Number(cleanLotData.average_temperature))) {
         cleanLotData.average_temperature = null;
       }
+      if (cleanLotData.video_delay_seconds !== null && cleanLotData.video_delay_seconds !== undefined && 
+          (isNaN(Number(cleanLotData.video_delay_seconds)) || cleanLotData.video_delay_seconds === "")) {
+        cleanLotData.video_delay_seconds = 10;
+      }
 
       const sanitizedLotData = sanitizeUuidFields(cleanLotData as Record<string, unknown>, ["producer_id", "brand_id", "association_id", "industry_id"]);
 
@@ -636,7 +642,15 @@ const Lotes = () => {
           // Atualizar componentes
           await productLotsApi.deleteComponentsByLot(editingLot.id, tenant.id);
           if (isBlendMode && components.length > 0) {
-            await Promise.all(components.map(c => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: editingLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
+            const totalQty = components.reduce((s: number, c: any) => s + (parseFloat(c.component_quantity) || 0), 0);
+            const preparedComponents = components.map((c: any) => ({
+              ...c,
+              component_percentage: totalQty > 0 ? Math.round(((parseFloat(c.component_quantity) || 0) / totalQty) * 1000) / 10 : 0,
+              component_harvest_year: c.component_harvest_year || formData.harvest_year || null,
+              city: c.city ?? c.producers?.city ?? null,
+              state: c.state ?? c.producers?.state ?? null
+            }));
+            await Promise.all(preparedComponents.map((c: any) => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: editingLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
           }
 
           // Atualizar características
@@ -708,7 +722,15 @@ const Lotes = () => {
         const newLot = await productLotsApi.create({ ...sanitizedLotData, code: finalCode } as any);
         // Criar componentes
         if (isBlendMode && components.length > 0) {
-          await Promise.all(components.map(c => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: newLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
+          const totalQty = components.reduce((s: number, c: any) => s + (parseFloat(c.component_quantity) || 0), 0);
+          const preparedComponents = components.map((c: any) => ({
+            ...c,
+            component_percentage: totalQty > 0 ? Math.round(((parseFloat(c.component_quantity) || 0) / totalQty) * 1000) / 10 : 0,
+            component_harvest_year: c.component_harvest_year || formData.harvest_year || null,
+            city: c.city ?? c.producers?.city ?? null,
+            state: c.state ?? c.producers?.state ?? null
+          }));
+          await Promise.all(preparedComponents.map((c: any) => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: newLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
         }
         // Criar características
         if (characteristics && characteristics.length > 0) {
@@ -1082,7 +1104,27 @@ const Lotes = () => {
                           </div>
                           <p className="text-slate-400 text-sm font-bold flex items-center gap-1.5">
                             <Users size={16} weight="fill" className="text-slate-300" />
-                            {lot.producers?.name || `${labels.producer} não vinculado(a)`}
+                            {((lot as any).is_blend === true || (lot as any).lot_components?.length > 0) ? (
+                              (() => {
+                                const comps = (lot as any).lot_components || [];
+                                const n = comps.length;
+                                if (n === 0) return 'Blend — edite para cadastrar componentes';
+                                const names = comps.slice(0, 2).map((c: any) => c.producers?.name).filter(Boolean);
+                                const rest = n - names.length;
+                                return (
+                                  <>
+                                    {n} produtor{n !== 1 ? 'es' : ''}
+                                    {names.length > 0 && (
+                                      <span className="text-slate-500 font-normal">
+                                        {' — '}{names.join(', ')}{rest > 0 ? ` +${rest} mais` : ''}
+                                      </span>
+                                    )}
+                                  </>
+                                );
+                              })()
+                            ) : (
+                              lot.producers?.name || `${labels.producer} não vinculado(a)`
+                            )}
                           </p>
                           <div className="flex items-center gap-4 pt-1 flex-wrap">
                             <span className="bg-slate-50 text-slate-500 text-[10px] font-black px-2 py-1 rounded-md border border-slate-100 uppercase tracking-widest font-mono">
@@ -1090,7 +1132,7 @@ const Lotes = () => {
                             </span>
                             <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
                               <MapPin size={14} weight="fill" className="text-slate-300" />
-                              {lot.city && lot.state ? `${lot.city}, ${lot.state}` : lot.city || lot.state || "Local não inf."}
+                              {getLotLocationDisplay(lot as any)}
                             </span>
                             {lot.created_at && (
                               <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
@@ -1649,6 +1691,11 @@ const Lotes = () => {
                                 </div>
                                 <h3 className="text-xl font-black text-slate-900">Composição (Blend)</h3>
                               </div>
+                              {(lotDetails.components || lotDetails.lot_components || []).length === 0 ? (
+                                <p className="text-sm text-slate-500 italic">
+                                  Nenhum componente cadastrado. Edite o lote para adicionar os produtores do blend.
+                                </p>
+                              ) : (
                               <div className="grid grid-cols-1 gap-4">
                                 {(lotDetails.components || lotDetails.lot_components || []).map((component: any, index: number) => (
                                   <div key={component.id || index} className="p-6 bg-white rounded-3xl border border-slate-100 hover:border-slate-200 transition-all hover:shadow-md group">
@@ -1671,21 +1718,24 @@ const Lotes = () => {
                                       </div>
                                     </div>
                                     
-                                    {component.producers && (
+                                    {(component.producers || component.producer_id) && (
                                       <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                           <Users size={20} className="text-slate-300" />
-                                          <span className="text-xs font-black text-slate-600 truncate max-w-[150px]">{component.producers.name}</span>
+                                          <span className="text-xs font-black text-slate-600 truncate max-w-[150px]">{component.producers?.name || "Produtor vinculado"}</span>
                                         </div>
                                         <div className="flex items-center gap-1 text-slate-400">
                                           <MapPin size={14} />
-                                          <span className="text-[10px] font-bold">{component.producers.city || "Região não inf."}</span>
+                                          <span className="text-[10px] font-bold">
+                                            {getComponentLocationDisplay(component, "Região não inf.")}
+                                          </span>
                                         </div>
                                       </div>
                                     )}
                                   </div>
                                 ))}
                               </div>
+                              )}
                             </div>
                           )}
 

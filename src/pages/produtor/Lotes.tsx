@@ -415,7 +415,8 @@ export const ProducerLotes = () => {
         average_temperature: formData.average_temperature ? parseFloat(formData.average_temperature) : null,
         producer_id: user?.id,
         tenant_id: tenant.id,
-        is_blend: isBlendMode && (formData.components?.length ?? 0) > 0
+        is_blend: isBlendMode && (formData.components?.length ?? 0) > 0,
+        video_delay_seconds: Number(formData.video_delay_seconds) || 10
       };
 
       const { 
@@ -425,6 +426,11 @@ export const ProducerLotes = () => {
         ...cleanLotData 
       } = lotData;
 
+      if (cleanLotData.video_delay_seconds !== null && cleanLotData.video_delay_seconds !== undefined && 
+          (isNaN(Number(cleanLotData.video_delay_seconds)) || cleanLotData.video_delay_seconds === "")) {
+        cleanLotData.video_delay_seconds = 10;
+      }
+
       const sanitizedLotData = sanitizeUuidFields(cleanLotData as Record<string, unknown>, ["producer_id", "brand_id", "association_id", "industry_id"]);
 
       if (editingLot) {
@@ -433,7 +439,15 @@ export const ProducerLotes = () => {
           // Atualizar componentes
           await productLotsApi.deleteComponentsByLot(editingLot.id, tenant.id);
           if (isBlendMode && components.length > 0) {
-            await Promise.all(components.map(c => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: editingLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
+            const totalQty = components.reduce((s: number, c: any) => s + (parseFloat(c.component_quantity) || 0), 0);
+            const preparedComponents = components.map((c: any) => ({
+              ...c,
+              component_percentage: totalQty > 0 ? Math.round(((parseFloat(c.component_quantity) || 0) / totalQty) * 1000) / 10 : 0,
+              component_harvest_year: c.component_harvest_year || formData.harvest_year || null,
+              city: c.city ?? c.producers?.city ?? null,
+              state: c.state ?? c.producers?.state ?? null
+            }));
+            await Promise.all(preparedComponents.map((c: any) => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: editingLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
           }
 
           // Atualizar características
@@ -483,7 +497,15 @@ export const ProducerLotes = () => {
         const newLot = await productLotsApi.create({ ...sanitizedLotData, code: finalCode } as any);
         // Criar componentes
         if (isBlendMode && components.length > 0) {
-          await Promise.all(components.map(c => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: newLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
+          const totalQty = components.reduce((s: number, c: any) => s + (parseFloat(c.component_quantity) || 0), 0);
+          const preparedComponents = components.map((c: any) => ({
+            ...c,
+            component_percentage: totalQty > 0 ? Math.round(((parseFloat(c.component_quantity) || 0) / totalQty) * 1000) / 10 : 0,
+            component_harvest_year: c.component_harvest_year || formData.harvest_year || null,
+            city: c.city ?? c.producers?.city ?? null,
+            state: c.state ?? c.producers?.state ?? null
+          }));
+          await Promise.all(preparedComponents.map((c: any) => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: newLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
         }
         // Criar características
         if (characteristics && characteristics.length > 0) {

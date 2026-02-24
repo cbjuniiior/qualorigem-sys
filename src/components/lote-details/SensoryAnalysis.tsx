@@ -88,7 +88,7 @@ export const SensoryAnalysis = ({ loteData, branding }: SensoryAnalysisProps) =>
             
             {/* Gráfico Radar Centralizado */}
             {showRadar && hasQuantitative && (
-              <div className="w-full max-w-[400px] aspect-square relative mb-6">
+              <div className="w-full max-w-[400px] md:max-w-[600px] h-[380px] md:h-[520px] relative mb-6">
                 <SensorialRadarChart 
                   data={useFallback ? fallbackSensorialData : radarData} 
                   branding={branding} 
@@ -99,26 +99,28 @@ export const SensoryAnalysis = ({ loteData, branding }: SensoryAnalysisProps) =>
 
             {/* Atributos Qualitativos (Escalas Sensoriais) */}
             {qualitative.length > 0 && (
-              <div className="w-full space-y-6 pt-8 border-t border-slate-50">
+              <div className="w-full space-y-6 pt-8 border-t border-slate-50 flex flex-col items-center">
                 <div className="flex items-center justify-center gap-3 mb-2">
                   <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Percepções Sensoriais</h4>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 max-w-4xl mx-auto w-full">
+                <div className="flex flex-wrap justify-center items-stretch gap-x-12 gap-y-8 w-full">
                   {qualitative.map(s => (
-                    <div key={s.id} className="space-y-2 group">
-                      <div className="flex justify-between items-center px-1">
-                        <span className="text-xs font-black text-slate-700 uppercase tracking-tight group-hover:text-primary transition-colors" style={{ '--primary': primaryColor } as any}>{s.sensory_attributes.name}</span>
-                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ color: primaryColor, backgroundColor: `${primaryColor}10` }}>{s.value}%</span>
-                      </div>
-                      <div className="relative h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div 
-                          className="absolute top-0 left-0 h-full transition-all duration-1000 ease-out rounded-full"
-                          style={{ width: `${s.value}%`, backgroundColor: primaryColor }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-widest px-1">
-                        <span>Sutil</span>
-                        <span>Intenso</span>
+                    <div key={s.id} className="flex flex-col items-center justify-center w-full max-w-[320px] min-w-[260px] px-4 py-5 rounded-2xl bg-slate-50/50 border border-slate-100">
+                      <div className="space-y-4 group flex flex-col items-center text-center w-full">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <span className="text-sm font-black text-slate-700 uppercase tracking-tight group-hover:text-primary transition-colors" style={{ '--primary': primaryColor } as any}>{s.sensory_attributes.name}</span>
+                          <span className="text-xs font-black px-2 py-1 rounded-full" style={{ color: primaryColor, backgroundColor: `${primaryColor}12` }}>{s.value}%</span>
+                        </div>
+                        <div className="relative h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                          <div 
+                            className="absolute top-0 left-0 h-full transition-all duration-1000 ease-out rounded-full"
+                            style={{ width: `${s.value}%`, backgroundColor: primaryColor }}
+                          />
+                        </div>
+                        <div className="flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase tracking-widest w-full pt-0.5">
+                          <span>Sutil</span>
+                          <span>Intenso</span>
+                        </div>
                       </div>
                     </div>
                   ))}

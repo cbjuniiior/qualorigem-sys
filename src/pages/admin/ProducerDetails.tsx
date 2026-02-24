@@ -32,6 +32,7 @@ import {
   CheckCircle
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
+import { getComponentLocationDisplay } from "@/lib/lot-location";
 import { ProducerForm } from "./Produtores";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
@@ -1116,15 +1117,17 @@ export default function ProducerDetails() {
                                       </div>
                                     </div>
                                     
-                                    {component.producers && (
+                                    {(component.producers || component.producer_id) && (
                                       <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                           <UserCircle size={20} className="text-slate-300" />
-                                          <span className="text-xs font-black text-slate-600 truncate max-w-[150px]">{component.producers.name}</span>
+                                          <span className="text-xs font-black text-slate-600 truncate max-w-[150px]">{component.producers?.name || "Produtor vinculado"}</span>
                                         </div>
                                         <div className="flex items-center gap-1 text-slate-400">
                                           <MapPin size={14} />
-                                          <span className="text-[10px] font-bold">{component.producers.city || "Região não inf."}</span>
+                                          <span className="text-[10px] font-bold">
+                                            {getComponentLocationDisplay(component, "Região não inf.")}
+                                          </span>
                                         </div>
                                       </div>
                                     )}
