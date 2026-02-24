@@ -772,7 +772,7 @@ const LoteDetails = () => {
       {loteData.youtube_video_url && videoConfig?.enabled && (
         <div 
           ref={videoSectionRef}
-          className={`w-full h-screen max-h-screen relative flex flex-col overflow-hidden transition-all duration-700 ${
+          className={`w-full min-h-svh h-svh max-h-svh relative flex flex-col overflow-hidden transition-all duration-700 ${
             !showInfoMessage ? 'fixed inset-0 z-50' : 'relative z-10'
           }`}
           style={{ 
@@ -798,7 +798,7 @@ const LoteDetails = () => {
           </div>
 
           {/* Container de Conteúdo - Mobile First */}
-          <div className="flex-1 flex flex-col items-center relative z-10 py-8 px-4 sm:px-6 sm:py-16 sm:px-10 h-full w-full overflow-hidden">
+          <div className="flex-1 min-h-0 flex flex-col items-center relative z-10 py-6 px-4 sm:px-6 sm:py-8 md:py-16 sm:px-10 h-full w-full overflow-y-auto overflow-x-hidden">
             {/* Topo - Logo ou Identificação sutil */}
             <div className="w-full flex justify-center opacity-80 mb-auto">
               {branding?.logoUrl && (
@@ -817,7 +817,7 @@ const LoteDetails = () => {
             </div>
 
             {/* Centro - Bloco de Conteúdo Centralizado */}
-            <div className="w-full max-w-4xl flex flex-col items-center gap-8 sm:gap-12 flex-grow justify-center">
+            <div className="w-full max-w-4xl flex flex-col items-center gap-6 sm:gap-8 md:gap-12 flex-grow justify-center">
               {/* Texto Dinâmico do Lote */}
               <div className="text-center space-y-4 px-4 max-w-2xl mx-auto animate-fade-in">
                 <h2 className="text-white text-3xl sm:text-5xl font-black tracking-tight leading-tight drop-shadow-2xl">

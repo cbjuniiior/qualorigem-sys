@@ -141,8 +141,19 @@ export const SensoryAnalysisStep = ({ tenantId, formData, setFormData, branding 
                   </button>
 
                   <div className="flex justify-between items-center pr-6">
-                    <div className="flex flex-col">
-                      <Label className="text-xs font-black text-slate-700 uppercase tracking-widest">{attr.name}</Label>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Label className="text-xs font-black text-slate-700 uppercase tracking-widest">{attr.name}</Label>
+                        {attr.type === 'quantitative' ? (
+                          <Badge className="text-[10px] font-black border-0" style={{ backgroundColor: `${primaryColor}20`, color: primaryColor }}>
+                            Nota
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[10px] font-black border-0 bg-slate-200 text-slate-700">
+                            Escala sensorial
+                          </Badge>
+                        )}
+                      </div>
                       {attr.description && <span className="text-[9px] text-slate-400 font-medium">{attr.description}</span>}
                     </div>
                     <Badge 

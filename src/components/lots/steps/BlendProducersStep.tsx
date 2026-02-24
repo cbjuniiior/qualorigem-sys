@@ -470,6 +470,32 @@ export const BlendProducersStep = ({ tenantId, formData, setFormData, producers,
                             }}
                             primaryColor={primaryColor}
                           />
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            <div className="space-y-2">
+                              <Label className="font-black text-slate-700 text-xs">Latitude</Label>
+                              <Input
+                                type="number"
+                                step="any"
+                                value={comp.latitude ?? ""}
+                                onChange={(e) => updateComponent(index, "latitude", e.target.value)}
+                                placeholder="Ex: -3.7172"
+                                className="h-12 rounded-xl bg-slate-50 border border-slate-200 font-bold"
+                                style={{ '--primary': primaryColor } as any}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="font-black text-slate-700 text-xs">Longitude</Label>
+                              <Input
+                                type="number"
+                                step="any"
+                                value={comp.longitude ?? ""}
+                                onChange={(e) => updateComponent(index, "longitude", e.target.value)}
+                                placeholder="Ex: -38.5433"
+                                className="h-12 rounded-xl bg-slate-50 border border-slate-200 font-bold"
+                                style={{ '--primary': primaryColor } as any}
+                              />
+                            </div>
+                          </div>
                         </div>
 
                         <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/50">

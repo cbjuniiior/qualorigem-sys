@@ -41,6 +41,8 @@ interface LotFormProps {
     accentColor: string;
     logoUrl?: string | null;
   } | null;
+  saveErrorField?: { step: number; field: string } | null;
+  onClearSaveError?: () => void;
 }
 
 export const LOT_STEPS = [
@@ -76,7 +78,9 @@ export const LotForm = ({
   onSubmit,
   onCancel,
   isEditing = false,
-  branding
+  branding,
+  saveErrorField,
+  onClearSaveError
 }: LotFormProps) => {
   const primaryColor = branding?.primaryColor || '#16a34a';
 
@@ -122,6 +126,8 @@ export const LotForm = ({
               associations={associations}
               industries={industries}
               isEditing={isEditing}
+              focusField={saveErrorField?.step === 1 ? saveErrorField.field : undefined}
+              fieldError={saveErrorField?.step === 1 && saveErrorField.field === "code" ? "Este código já está em uso. Escolha outro." : undefined}
             />
           )}
 

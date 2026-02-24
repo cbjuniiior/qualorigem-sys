@@ -56,6 +56,9 @@ export const BlendCompositionStep = ({ formData, setFormData, producers, brandin
     setFormData((prev: any) => {
       const newComponents = [...(prev.components || [])];
       newComponents[index] = { ...newComponents[index], [field]: value };
+      if (field === "component_quantity") {
+        newComponents[index].component_unit = prev.unit || "Kg";
+      }
       const total = newComponents.reduce((sum: number, c: any) => sum + (parseFloat(c.component_quantity) || 0), 0);
       return { ...prev, components: newComponents, quantity: total.toString() };
     });
@@ -99,7 +102,13 @@ export const BlendCompositionStep = ({ formData, setFormData, producers, brandin
             <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
               <Tag size={16} style={{ color: primaryColor }} /> Unidade de Medida *
             </Label>
-            <Select value={formData.unit || "Kg"} onValueChange={(v) => setFormData((prev: any) => ({ ...prev, unit: v }))}>
+            <Select value={formData.unit || "Kg"} onValueChange={(v) => setFormData((prev: any) => {
+              const next = { ...prev, unit: v };
+              if ((prev.components || []).length > 0) {
+                next.components = prev.components.map((c: any) => ({ ...c, component_unit: v }));
+              }
+              return next;
+            })}>
               <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus:ring-primary font-bold shadow-sm" style={{ '--primary': primaryColor } as any}>
                 <SelectValue placeholder="Selecione a unidade" />
               </SelectTrigger>
@@ -164,7 +173,7 @@ export const BlendCompositionStep = ({ formData, setFormData, producers, brandin
                           </Badge>
                         )}
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div className="space-y-2 lg:col-span-2">
                           <Label className="font-black text-slate-700 text-xs">Identificação do item *</Label>
                           <Input
@@ -177,32 +186,20 @@ export const BlendCompositionStep = ({ formData, setFormData, producers, brandin
                         </div>
                         <div className="space-y-2">
                           <Label className="font-black text-slate-700 text-xs">Quantidade *</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={comp.component_quantity ?? ""}
-                            onChange={(e) => updateComponent(index, "component_quantity", parseFloat(e.target.value) || 0)}
-                            placeholder="Ex: 250"
-                            className="h-12 rounded-xl bg-white border border-slate-200 font-bold"
-                            style={{ '--primary': primaryColor } as any}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label className="font-black text-slate-700 text-xs">Unidade</Label>
-                          <Select
-                            value={comp.component_unit || "g"}
-                            onValueChange={(v) => updateComponent(index, "component_unit", v)}
-                          >
-                            <SelectTrigger className="h-12 rounded-xl bg-white border border-slate-200 font-bold" style={{ '--primary': primaryColor } as any}>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl font-bold">
-                              <SelectItem value="Kg">Kg</SelectItem>
-                              <SelectItem value="L">L</SelectItem>
-                              <SelectItem value="g">g</SelectItem>
-                              <SelectItem value="ml">ml</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="relative flex items-center">
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={comp.component_quantity ?? ""}
+                              onChange={(e) => updateComponent(index, "component_quantity", parseFloat(e.target.value) || 0)}
+                              placeholder={`Ex: 250 ${formData.unit || "Kg"}`}
+                              className="h-12 rounded-xl bg-white border border-slate-200 font-bold pr-14"
+                              style={{ '--primary': primaryColor } as any}
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 font-black text-sm pointer-events-none">
+                              {formData.unit || "Kg"}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>

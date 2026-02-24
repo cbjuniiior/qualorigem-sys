@@ -218,6 +218,7 @@ const Lotes = () => {
   const [isBlendMode, setIsBlendMode] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [saveErrorField, setSaveErrorField] = useState<{ step: number; field: string } | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -232,6 +233,10 @@ const Lotes = () => {
     };
     loadData();
   }, [tenant]);
+
+  useEffect(() => {
+    setSaveErrorField(null);
+  }, [formData.code]);
 
   const fetchData = async () => {
     if (!tenant) return;
@@ -302,6 +307,7 @@ const Lotes = () => {
     setCurrentStep(1);
     setEditingLot(null);
     setIsDuplicating(false);
+    setSaveErrorField(null);
   };
 
   const handleOpenSheet = async () => {
@@ -444,6 +450,7 @@ const Lotes = () => {
       })),
     });
     setIsBlendMode(rawComponents.length > 0);
+    setSaveErrorField(null);
     setCurrentStep(1);
     setIsSheetOpen(true);
   };
@@ -542,6 +549,7 @@ const Lotes = () => {
       })),
     });
     setIsBlendMode(rawComponents.length > 0);
+    setSaveErrorField(null);
     setCurrentStep(1);
     setIsSheetOpen(true);
   };
@@ -730,8 +738,22 @@ const Lotes = () => {
       fetchData();
     } catch (error: any) {
       console.error("Erro ao salvar lote:", error);
-      const errorMessage = error?.message || error?.error?.message || "Erro desconhecido ao salvar lote";
-      toast.error(`Erro ao salvar lote: ${errorMessage}`);
+      const msg = typeof error?.message === "string" ? error.message : "";
+      const errMsg = typeof error?.error?.message === "string" ? error.error.message : "";
+      const fullMsg = `${msg} ${errMsg}`.toLowerCase();
+      const isDuplicateCode =
+        error?.code === "23505" ||
+        (error?.status !== undefined && Number(error.status) === 409) ||
+        fullMsg.includes("idx_product_lots_tenant_code") ||
+        fullMsg.includes("duplicate key");
+      if (isDuplicateCode) {
+        toast.error("Este código do lote já está em uso. Escolha outro código.");
+        setCurrentStep(1);
+        setSaveErrorField({ step: 1, field: "code" });
+      } else {
+        const errorMessage = error?.message || error?.error?.message || "Erro desconhecido ao salvar lote";
+        toast.error(`Erro ao salvar lote: ${errorMessage}`);
+      }
     }
   };
 
@@ -1195,9 +1217,11 @@ const Lotes = () => {
                   setCurrentStep={setCurrentStep}
                   totalSteps={6}
                   onSubmit={handleSubmit}
-                  onCancel={() => setIsSheetOpen(false)}
+                  onCancel={() => { setSaveErrorField(null); setIsSheetOpen(false); }}
                   isEditing={!!editingLot}
                   branding={branding}
+                  saveErrorField={saveErrorField}
+                  onClearSaveError={() => setSaveErrorField(null)}
                 />
               </div>
             </div>
