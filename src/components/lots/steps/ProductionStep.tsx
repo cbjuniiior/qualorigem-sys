@@ -1,4 +1,4 @@
-import { Medal, Users, Calendar, Package, MapPin, Tag, Buildings, CheckCircle, WarningCircle, CircleNotch, Mountains, Thermometer, MapTrifold, Camera, Trash, Plus, ChatCircleText, CaretDown, MagnifyingGlass, Check, X as XIcon } from "@phosphor-icons/react";
+import { Medal, Users, Calendar, Package, MapPin, Tag, Buildings, CheckCircle, WarningCircle, CircleNotch, Mountains, Thermometer, MapTrifold, Camera, Trash, Plus, ChatCircleText, CaretDown, X as XIcon } from "@phosphor-icons/react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -79,14 +79,6 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
   const [cities, setCities] = useState<any[]>([]);
   const [loadingCities, setLoadingCities] = useState(false);
   const [showAltTemp, setShowAltTemp] = useState(!!(formData.altitude || formData.average_temperature));
-  const [cityPopoverOpen, setCityPopoverOpen] = useState(false);
-  const [citySearchTerm, setCitySearchTerm] = useState("");
-  
-  // Filtrar cidades baseado no termo de busca
-  const filteredCities = cities.filter(city => 
-    city.nome.toLowerCase().includes(citySearchTerm.toLowerCase())
-  );
-  
   // Estados para propriedades salvas
   const [savedProperties, setSavedProperties] = useState<any[]>([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>("new");
@@ -153,21 +145,30 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
     fetchCities();
   }, [formData.state]);
 
-  // Geocodificar quando cidade+estado mudam para pré-localizar o mapa
-  const geocodeAddress = useCallback(async (city: string, state: string) => {
-    if (!city || !state) return;
-    
+  // Geocodificar para pré-localizar o mapa: cidade+estado ou apenas estado (fallback)
+  const geocodeAddress = useCallback(async (city: string | null, state: string) => {
+    if (!state) return;
+
+    const setLatLng = (lat: string, lon: string) => {
+      setFormData((prev: any) => ({ ...prev, latitude: lat, longitude: lon }));
+    };
+
     try {
-      const query = `${city}, ${state}, Brasil`;
-      const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
-      
+      if (city && city.trim()) {
+        const query = `${city.trim()}, ${state}, Brasil`;
+        const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+        if (response.data && response.data.length > 0) {
+          const { lat, lon } = response.data[0];
+          setLatLng(lat, lon);
+          return;
+        }
+      }
+      // Fallback: apenas estado (cidade não informada ou não encontrada)
+      const stateQuery = `${state}, Brasil`;
+      const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(stateQuery)}&limit=1`);
       if (response.data && response.data.length > 0) {
         const { lat, lon } = response.data[0];
-        setFormData((prev: any) => ({
-          ...prev,
-          latitude: lat,
-          longitude: lon
-        }));
+        setLatLng(lat, lon);
       }
     } catch (error) {
       console.error("Erro na geocodificação:", error);
@@ -180,13 +181,6 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
       geocodeAddress(formData.city, formData.state);
     }
   }, [formData.state, formData.city, geocodeAddress]);
-
-  // Limpar busca quando o popover fechar
-  useEffect(() => {
-    if (!cityPopoverOpen) {
-      setCitySearchTerm("");
-    }
-  }, [cityPopoverOpen]);
 
   // Carregar propriedades salvas e dados do produtor
   useEffect(() => {
@@ -226,9 +220,15 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
               }
             }
           });
-          
-          setSavedProperties(Array.from(uniqueProperties.values()));
-          
+
+          const propertiesArray = Array.from(uniqueProperties.values());
+          setSavedProperties(propertiesArray);
+          if (propertiesArray.length >= 1) {
+            setSelectedPropertyId(propertiesArray[0].id);
+          } else {
+            setSelectedPropertyId("new");
+          }
+
           // Auto-selecionar associação se houver apenas uma
           if (producerAssocs.length === 1 && !(formData.association_ids?.length)) {
             setFormData((prev: any) => ({ ...prev, association_id: producerAssocs[0].id, association_ids: [producerAssocs[0].id] }));
@@ -585,10 +585,8 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
                       value={formData.state} 
                       onValueChange={v => {
                         setFormData((prev: any) => ({ ...prev, state: v, city: "" }));
-                        // Se editar localização, considerar como nova propriedade
-                        if (selectedPropertyId !== "new") {
-                          setSelectedPropertyId("new");
-                        }
+                        if (selectedPropertyId !== "new") setSelectedPropertyId("new");
+                        geocodeAddress("", v);
                       }}
                     >
                       <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus:ring-primary font-bold shadow-sm" style={{ '--primary': primaryColor } as any}>
@@ -601,117 +599,29 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
                   </div>
 
                   <div>
-                    <Popover open={cityPopoverOpen} onOpenChange={setCityPopoverOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={cityPopoverOpen}
-                          className="w-full h-12 justify-between rounded-xl bg-slate-50 border border-slate-200 focus:ring-primary font-bold shadow-sm hover:bg-slate-50"
-                          style={{ '--primary': primaryColor } as any}
-                          disabled={!formData.state || loadingCities}
-                        >
-                          <span className="font-bold">
-                            {formData.city
-                              ? cities.find((city) => city.nome === formData.city)?.nome || formData.city
-                              : loadingCities ? "Carregando cidades..." : "Cidade"}
-                          </span>
-                          <CaretDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent 
-                        className="w-[var(--radix-popover-trigger-width)] p-0 rounded-xl border bg-white text-popover-foreground shadow-lg z-[9999]" 
-                        align="start"
-                        onOpenAutoFocus={(e) => e.preventDefault()}
-                      >
-                        <div className="flex flex-col max-h-[384px]">
-                          {/* Campo de busca */}
-                          <div className="px-3 py-2 border-b sticky top-0 bg-white z-10">
-                            <div className="flex items-center gap-2 px-2 py-1.5 border rounded-lg">
-                              <MagnifyingGlass className="h-4 w-4 text-slate-400" />
-                              <Input
-                                placeholder="Buscar cidade..."
-                                value={citySearchTerm}
-                                onChange={(e) => setCitySearchTerm(e.target.value)}
-                                className="h-8 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-0 text-sm"
-                                autoFocus
-                              />
-                            </div>
-                          </div>
-                          
-                          {/* Lista de cidades */}
-                          <div 
-                            className="overflow-y-auto overflow-x-hidden max-h-[300px]"
-                            onWheel={(e) => {
-                              e.stopPropagation();
-                            }}
-                          >
-                            {filteredCities.length === 0 ? (
-                              <div className="py-6 text-center text-sm text-slate-400">Nenhuma cidade encontrada.</div>
-                            ) : (
-                              <div className="p-1">
-                                {filteredCities.map((city) => {
-                                  const isSelected = formData.city === city.nome;
-                                  
-                                  return (
-                                    <div
-                                      key={city.id}
-                                      onClick={() => {
-                                        const cityName = city.nome;
-                                        const currentState = formData.state;
-                                        
-                                        // Atualizar o estado do formulário
-                                        setFormData((prev: any) => ({ 
-                                          ...prev, 
-                                          city: cityName 
-                                        }));
-                                        
-                                        // Fechar o popover
-                                        setCityPopoverOpen(false);
-                                        
-                                        // Limpar busca
-                                        setCitySearchTerm("");
-                                        
-                                        // Geocodificar para pré-localizar o mapa
-                                        if (cityName && currentState) {
-                                          setTimeout(() => {
-                                            geocodeAddress(cityName, currentState);
-                                          }, 100);
-                                        }
-                                        
-                                        // Se editar localização, considerar como nova propriedade
-                                        if (selectedPropertyId !== "new") {
-                                          setSelectedPropertyId("new");
-                                        }
-                                      }}
-                                      className={cn(
-                                        "relative flex w-full cursor-pointer select-none items-center rounded-sm py-2 px-3 text-sm outline-none transition-colors",
-                                        isSelected 
-                                          ? "text-white" 
-                                          : "text-slate-700 hover:bg-slate-100"
-                                      )}
-                                      style={isSelected ? { 
-                                        backgroundColor: primaryColor
-                                      } : {}}
-                                    >
-                                      <span className="absolute left-2 flex h-4 w-4 items-center justify-center">
-                                        {isSelected && (
-                                          <Check className="h-4 w-4" style={{ color: 'white' }} weight="bold" />
-                                        )}
-                                      </span>
-                                      <span className="font-bold pl-6">{city.nome}</span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                    <Select
+                      value={formData.city || ""}
+                      onValueChange={(cityName) => {
+                        setFormData((prev: any) => ({ ...prev, city: cityName }));
+                        if (selectedPropertyId !== "new") setSelectedPropertyId("new");
+                        geocodeAddress(cityName, formData.state);
+                      }}
+                      disabled={!formData.state || loadingCities}
+                    >
+                      <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus:ring-primary font-bold shadow-sm" style={{ '--primary': primaryColor } as any}>
+                        <SelectValue placeholder={loadingCities ? "Carregando cidades..." : "Selecione a cidade"} />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl font-bold max-h-[300px]">
+                        {cities.map((city) => (
+                          <SelectItem key={city.id} value={city.nome} className="font-bold">
+                            {city.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-400 font-bold uppercase ml-1">Selecione o estado e cidade para pré-localizar o mapa</p>
+                <p className="text-[10px] text-slate-400 font-bold uppercase ml-1">Selecione o estado e em seguida a cidade para pré-localizar o mapa.</p>
               </div>
 
               {/* Altitude e Temperatura (Opcional) */}
@@ -853,21 +763,17 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
                   <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
                     <MapPin size={18} style={{ color: primaryColor }} weight="fill" /> Localização Exata
                   </h4>
-                  <p className="text-xs text-slate-400 font-bold">Clique no mapa para marcar o pin exato da colheita</p>
+                  <p className="text-xs text-slate-400 font-bold">Clique no mapa para marcar o pin exato da colheita. Você pode reposicionar o PIN clicando na região desejada no mapa.</p>
                 </div>
               </div>
               <LocationPicker 
                 value={formData.latitude && formData.longitude ? { lat: parseFloat(formData.latitude), lng: parseFloat(formData.longitude) } : null}
                 onChange={(coords) => {
-                  setFormData((prev: any) => ({ 
-                    ...prev, 
-                    latitude: coords.lat.toString(), 
-                    longitude: coords.lng.toString() 
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    latitude: coords.lat.toString(),
+                    longitude: coords.lng.toString()
                   }));
-                  // Se ajustar o PIN, considerar como nova propriedade
-                  if (selectedPropertyId !== "new") {
-                    setSelectedPropertyId("new");
-                  }
                 }}
                 primaryColor={primaryColor}
               />
