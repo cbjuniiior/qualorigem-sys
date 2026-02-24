@@ -794,9 +794,24 @@ export const productLotsApi = {
   },
 
   async createComponent(component: LotComponentInsert) {
+    // Apenas colunas existentes em lot_components (temperatura/altitude do produtor não existem na tabela)
+    const lotComponentInsertKeys = [
+      "address", "altitude", "association_id", "cep", "city", "component_harvest_year",
+      "component_name", "component_origin", "component_percentage", "component_quantity",
+      "component_unit", "component_variety", "created_at", "id", "latitude", "longitude",
+      "lot_id", "photos", "producer_id", "property_description", "property_name",
+      "state", "updated_at", "tenant_id"
+    ] as const;
+    const payload = lotComponentInsertKeys.reduce((acc, key) => {
+      if (key in component && (component as Record<string, unknown>)[key] !== undefined) {
+        (acc as Record<string, unknown>)[key] = (component as Record<string, unknown>)[key];
+      }
+      return acc;
+    }, {} as Record<string, unknown>) as LotComponentInsert;
+
     const { data, error } = await supabase
       .from("lot_components")
-      .insert(component)
+      .insert(payload)
       .select()
       .single();
 
