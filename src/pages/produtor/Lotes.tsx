@@ -32,7 +32,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { ProducerLayout } from "@/components/layout/ProducerLayout";
 import { useAuth } from "@/hooks/use-auth";
-import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotCharacteristicsApi, productLotSensoryApi, brandsApi, lotIndustriesApi, lotAssociationsApi, certificationsApi, internalProducersApi } from "@/services/api";
+import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotCharacteristicsApi, productLotSensoryApi, brandsApi, lotIndustriesApi, lotAssociationsApi, certificationsApi, internalProducersApi, lotParticipatingProducersApi } from "@/services/api";
 import { toast } from "sonner";
 import { LotForm, LOT_STEPS } from "@/components/lots/LotForm";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -91,6 +91,7 @@ export const ProducerLotes = () => {
     association_ids: [] as string[],
     certification_ids: [] as string[],
     internal_producer_ids: [] as string[],
+    participating_producer_ids: [] as string[],
     sensory_type: "nota",
     fragrance_score: 5,
     flavor_score: 5,
@@ -183,6 +184,7 @@ export const ProducerLotes = () => {
         association_ids: [],
         certification_ids: [],
         internal_producer_ids: [],
+        participating_producer_ids: [],
         sensory_type: "nota",
         fragrance_score: 5,
         flavor_score: 5,
@@ -249,14 +251,17 @@ export const ProducerLotes = () => {
     const rawSensory = (lot as any).sensory_analysis || [];
     let lotCertificationIds: string[] = [];
     let lotInternalProducerIds: string[] = [];
+    let lotParticipatingProducerIds: string[] = [];
     try {
       if (tenant?.id && lot.id) {
-        const [certs, prods] = await Promise.all([
+        const [certs, prods, participants] = await Promise.all([
           certificationsApi.getPublicByLot(lot.id),
           internalProducersApi.getByLot(lot.id, tenant.id),
+          lotParticipatingProducersApi.getByLot(lot.id, tenant.id),
         ]);
         lotCertificationIds = (certs || []).map((c: any) => c.id);
         lotInternalProducerIds = (prods || []).map((p: any) => p.id);
+        lotParticipatingProducerIds = (participants || []).map((p: any) => p.id || p.producer_id);
       }
     } catch (e) {
       console.error("Erro ao carregar certificações/produtores do lote:", e);
@@ -282,6 +287,7 @@ export const ProducerLotes = () => {
       industry_ids: lotIndustryIds,
       certification_ids: lotCertificationIds,
       internal_producer_ids: lotInternalProducerIds,
+      participating_producer_ids: lotParticipatingProducerIds,
       characteristics: rawCharacteristics.map((c: any) => ({
         characteristic_id: c.characteristic_id,
         value: c.value
@@ -325,18 +331,21 @@ export const ProducerLotes = () => {
     let lotIndustryIds: string[] = [];
     let lotCertificationIds: string[] = [];
     let lotInternalProducerIds: string[] = [];
+    let lotParticipatingProducerIds: string[] = [];
     if (tenant?.id) {
       try {
-        const [assocs, industries, certs, ips] = await Promise.all([
+        const [assocs, industries, certs, ips, participants] = await Promise.all([
           lotAssociationsApi.getByLot(lot.id, tenant.id),
           lotIndustriesApi.getByLot(lot.id, tenant.id),
           certificationsApi.getPublicByLot(lot.id),
           internalProducersApi.getByLot(lot.id, tenant.id),
+          lotParticipatingProducersApi.getByLot(lot.id, tenant.id),
         ]);
         lotAssociationIds = (assocs || []).map((a: any) => a.id);
         lotIndustryIds = (industries || []).map((i: any) => i.id);
         lotCertificationIds = (certs || []).map((c: any) => c.id);
         lotInternalProducerIds = (ips || []).map((p: any) => p.id);
+        lotParticipatingProducerIds = (participants || []).map((p: any) => p.id || p.producer_id);
       } catch (e) {
         console.error("Erro ao carregar dados do lote para duplicar:", e);
       }
@@ -359,6 +368,7 @@ export const ProducerLotes = () => {
       industry_ids: lotIndustryIds,
       certification_ids: lotCertificationIds,
       internal_producer_ids: lotInternalProducerIds,
+      participating_producer_ids: lotParticipatingProducerIds,
       characteristics: rawCharacteristics.map((c: any) => ({ characteristic_id: c.characteristic_id, value: c.value })),
       sensory_analysis: rawSensory.map((s: any) => ({ sensory_attribute_id: s.sensory_attribute_id, value: Number(s.value) })),
       components: rawComponents.map((c: any) => ({
@@ -410,7 +420,7 @@ export const ProducerLotes = () => {
 
       const { 
         components, characteristics, sensory_analysis, industry_ids,
-        certification_ids, internal_producer_ids, association_ids,
+        certification_ids, internal_producer_ids, participating_producer_ids, association_ids,
         selectedPropertyId, user_has_set_coordinates, location_reference,
         ...cleanLotData 
       } = lotData;
@@ -442,6 +452,7 @@ export const ProducerLotes = () => {
           await lotAssociationsApi.syncLotAssociations(editingLot.id, association_ids || [], tenant.id);
           await certificationsApi.syncLotCertifications(editingLot.id, certification_ids || [], tenant.id);
           await internalProducersApi.syncLotProducers(editingLot.id, internal_producer_ids || [], tenant.id);
+          await lotParticipatingProducersApi.syncLotProducers(editingLot.id, participating_producer_ids || [], tenant.id);
         }
         toast.success("Lote atualizado!");
       } else {
@@ -492,6 +503,9 @@ export const ProducerLotes = () => {
         }
         if (internal_producer_ids && internal_producer_ids.length > 0) {
           await internalProducersApi.syncLotProducers(newLot.id, internal_producer_ids, tenant.id);
+        }
+        if (participating_producer_ids && participating_producer_ids.length > 0) {
+          await lotParticipatingProducersApi.syncLotProducers(newLot.id, participating_producer_ids, tenant.id);
         }
         toast.success("Lote registrado!");
       }
@@ -614,7 +628,12 @@ export const ProducerLotes = () => {
             </Card>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {filteredLotes.map((lote) => (
+              {filteredLotes.map((lote) => {
+                const benefitedFamilies = ((lote as any).participating_producers || []).reduce(
+                  (acc: number, producer: any) => acc + Number(producer.family_members || 1),
+                  0
+                );
+                return (
                 <Card key={lote.id} className="group border-0 shadow-sm bg-white rounded-2xl hover:shadow-xl transition-all duration-300 overflow-hidden">
                   <CardContent className="p-5">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -641,6 +660,9 @@ export const ProducerLotes = () => {
                           <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
                             <span className="font-mono bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">#{lote.code}</span>
                             <span className="flex items-center gap-1"><Scales size={14} /> {lote.quantity} {lote.unit}</span>
+                            {benefitedFamilies > 0 && (
+                              <span className="text-emerald-600">Beneficiadas {benefitedFamilies} famílias</span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -672,7 +694,7 @@ export const ProducerLotes = () => {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              )})}
             </div>
           )}
         </div>

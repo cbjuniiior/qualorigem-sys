@@ -52,6 +52,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { useTenant } from "@/hooks/use-tenant";
+import { useTenantLabels } from "@/hooks/use-tenant-labels";
 
 interface IndustryFormData {
   id?: string;
@@ -124,6 +125,8 @@ export default function Industria() {
   const [industryToDelete, setIndustryToDelete] = useState<string | null>(null);
   const [branding, setBranding] = useState<any>(null);
   const { tenant } = useTenant();
+  const labels = useTenantLabels();
+  const processingLabel = labels.isIG ? "Processamento" : "Indústria";
 
   const { searchCEP } = useCEP((data) => {
     setForm((prev: any) => ({
@@ -273,7 +276,7 @@ export default function Industria() {
           <div className="space-y-1">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
               <Tag size={32} style={{ color: primaryColor }} weight="fill" />
-              Indústria & Processamento
+              {processingLabel} & Processamento
             </h2>
             <p className="text-slate-500 font-medium text-sm">Gerencie os parceiros de industrialização e processamento.</p>
           </div>
@@ -286,7 +289,7 @@ export default function Industria() {
               className="rounded-xl font-bold text-white hover:opacity-90 shadow-lg gap-2"
               style={{ backgroundColor: primaryColor }}
             >
-              <Plus size={20} weight="bold" /> Nova Indústria
+              <Plus size={20} weight="bold" /> Nova {processingLabel}
             </Button>
           </div>
         </div>
@@ -358,7 +361,7 @@ export default function Industria() {
 
                   <div className="space-y-4">
                     <p className="text-sm text-slate-500 font-medium line-clamp-2 min-h-[40px]">
-                      {item.description || "Indústria parceira de processamento e embalagem."}
+                      {item.description || `${processingLabel} parceira de processamento e embalagem.`}
                     </p>
                     
                     <div className="flex flex-col gap-2 pt-4 border-t border-slate-50">
@@ -392,7 +395,7 @@ export default function Industria() {
                     </div>
                     <div>
                       <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight">
-                        {editingIndustry ? "Editar Indústria" : "Nova Indústria"}
+                        {editingIndustry ? `Editar ${processingLabel}` : `Nova ${processingLabel}`}
                       </SheetTitle>
                       <SheetDescription className="text-slate-500 font-bold text-base">
                         {editingIndustry ? `Gestão de ${editingIndustry.name}` : "Configure os dados da indústria parceira."}
@@ -406,7 +409,7 @@ export default function Industria() {
               
               <div className="flex-1 overflow-y-auto p-8 space-y-12 pb-10 min-h-0">
                 <FormSection
-                  title="Dados da Indústria"
+                  title={`Dados de ${processingLabel}`}
                   icon={IdentificationCard}
                   description="Identificação e imagem oficial"
                   active={currentStep === 1}
@@ -438,7 +441,7 @@ export default function Industria() {
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       <div className="space-y-2 lg:col-span-2">
                         <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                          <IdentificationCard size={16} style={{ color: primaryColor }} /> Nome da Indústria *
+                          <IdentificationCard size={16} style={{ color: primaryColor }} /> Nome da {processingLabel} *
                         </Label>
                         <Input 
                           value={form.name} 

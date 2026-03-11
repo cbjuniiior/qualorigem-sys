@@ -22,6 +22,7 @@ import {
   FunnelSimple,
   CheckCircle,
   UsersThree,
+  CircleNotch,
 } from "@phosphor-icons/react";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -42,6 +43,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { CsvImporter } from "@/components/csv/CsvImporter";
 import type { InternalProducer } from "@/services/api";
+import axios from "axios";
 
 const internalProducerSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -49,6 +51,7 @@ const internalProducerSchema = z.object({
   city: z.string().optional(),
   state: z.string().optional(),
   cooperativa_id: z.string().optional(),
+  family_members: z.coerce.number().int().min(1, "Informe ao menos 1 pessoa").optional(),
 });
 
 type InternalProducerFormData = z.infer<typeof internalProducerSchema>;
@@ -73,11 +76,41 @@ const ProdutoresInternos = () => {
   const [editing, setEditing] = useState<any | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [cities, setCities] = useState<any[]>([]);
+  const [loadingCities, setLoadingCities] = useState(false);
 
   const form = useForm<InternalProducerFormData>({
     resolver: zodResolver(internalProducerSchema),
-    defaultValues: { name: "", document: "", city: "", state: "", cooperativa_id: "" },
+    defaultValues: { name: "", document: "", city: "", state: "", cooperativa_id: "", family_members: 1 },
   });
+  const selectedState = form.watch("state");
+
+  useEffect(() => {
+    const loadCities = async () => {
+      if (!selectedState) {
+        setCities([]);
+        return;
+      }
+
+      setLoadingCities(true);
+      try {
+        const response = await axios.get(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${selectedState}/municipios`);
+        const sortedCities = (response.data || []).sort((a: any, b: any) => a.nome.localeCompare(b.nome));
+        setCities(sortedCities);
+
+        const currentCity = form.getValues("city");
+        if (currentCity && !sortedCities.some((city: any) => city.nome === currentCity)) {
+          form.setValue("city", "", { shouldDirty: true });
+        }
+      } catch {
+        setCities([]);
+      } finally {
+        setLoadingCities(false);
+      }
+    };
+
+    loadCities();
+  }, [selectedState, form]);
 
   useEffect(() => {
     if (tenant?.id) loadData();
@@ -102,7 +135,7 @@ const ProdutoresInternos = () => {
 
   const openNew = () => {
     setEditing(null);
-    form.reset({ name: "", document: "", city: "", state: "", cooperativa_id: "" });
+    form.reset({ name: "", document: "", city: "", state: "", cooperativa_id: "", family_members: 1 });
     setIsSheetOpen(true);
   };
 
@@ -114,6 +147,7 @@ const ProdutoresInternos = () => {
       city: producer.city || "",
       state: producer.state || "",
       cooperativa_id: producer.cooperativa_id || "",
+      family_members: producer.family_members || 1,
     });
     setIsSheetOpen(true);
   };
@@ -129,6 +163,7 @@ const ProdutoresInternos = () => {
         city: data.city || null,
         state: data.state || null,
         cooperativa_id: data.cooperativa_id || null,
+        family_members: labels.isMarcaColetiva ? Number(data.family_members || 1) : 1,
       };
 
       if (editing) {
@@ -169,6 +204,9 @@ const ProdutoresInternos = () => {
       city: row.cidade || row.city || null,
       state: row.estado || row.state || row.uf || null,
       cooperativa_id: null as string | null,
+      family_members: labels.isMarcaColetiva
+        ? Number(row.pessoas_familia || row.family_members || row.familia || 1)
+        : 1,
     })).filter(r => r.name.trim() !== "");
 
     if (inserts.length === 0) {
@@ -393,102 +431,176 @@ const ProdutoresInternos = () => {
 
       {/* Form Sheet */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent className="overflow-y-auto sm:max-w-lg">
-          <SheetHeader className="border-b border-slate-100 pb-4">
-            <SheetTitle>{editing ? "Editar Produtor Interno" : "Novo Produtor Interno"}</SheetTitle>
-            <SheetDescription>
-              Dados do produtor associado
-            </SheetDescription>
-          </SheetHeader>
-
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 mt-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome completo *</Label>
-              <Input
-                id="name"
-                {...form.register("name")}
-                placeholder="Nome do produtor"
-                className={`h-12 rounded-xl bg-slate-50 border-0 focus-visible:ring-primary ${form.formState.errors.name ? "border border-red-500" : ""}`}
-                style={{ "--primary": primaryColor } as React.CSSProperties}
-              />
-              {form.formState.errors.name && (
-                <p className="text-xs text-red-500">{form.formState.errors.name.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="document">CPF / Documento</Label>
-              <Input
-                id="document"
-                {...form.register("document")}
-                placeholder="000.000.000-00"
-                className="h-12 rounded-xl bg-slate-50 border-0 focus-visible:ring-primary"
-                style={{ "--primary": primaryColor } as React.CSSProperties}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="city">Cidade</Label>
-                <Input
-                  id="city"
-                  {...form.register("city")}
-                  placeholder="Cidade"
-                  className="h-12 rounded-xl bg-slate-50 border-0 focus-visible:ring-primary"
-                  style={{ "--primary": primaryColor } as React.CSSProperties}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="state">Estado</Label>
-                <Select
-                  value={form.watch("state") || ""}
-                  onValueChange={v => form.setValue("state", v)}
+        <SheetContent className="w-full sm:max-w-[80vw] sm:rounded-l-[2.5rem] border-0 p-0 overflow-hidden shadow-2xl">
+          <div className="h-full flex flex-col bg-white">
+            <SheetHeader className="p-8 border-b border-slate-50 bg-slate-50/30">
+              <div className="flex items-center gap-4 text-left">
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm text-white"
+                  style={{ backgroundColor: primaryColor }}
                 >
-                  <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-0">
-                    <SelectValue placeholder="UF" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    {BRAZILIAN_STATES.map(uf => (
-                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {cooperativas.length > 0 && (
-              <div className="space-y-2">
-                <Label>{labels.producer} vinculado(a)</Label>
-                <Select
-                  value={form.watch("cooperativa_id") || ""}
-                  onValueChange={v => form.setValue("cooperativa_id", v)}
-                >
-                  <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-0">
-                    <SelectValue placeholder={`Selecione ${labels.producer.toLowerCase()}`} />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    {cooperativas.map(c => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <Button
-              type="submit"
-              className="w-full h-12 rounded-xl font-bold text-white hover:opacity-90"
-              style={{ backgroundColor: primaryColor }}
-              disabled={saving}
-            >
-              {saving ? (
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Salvando...
+                  <Users size={30} weight="fill" />
                 </div>
-              ) : editing ? "Atualizar" : "Cadastrar"}
-            </Button>
-          </form>
+                <div>
+                  <SheetTitle className="text-3xl font-black text-slate-900 tracking-tight">
+                    {editing ? "Editar Produtor Interno" : "Novo Produtor Interno"}
+                  </SheetTitle>
+                  <SheetDescription className="text-slate-500 font-bold text-base">
+                    Dados do produtor associado para composição dos lotes.
+                  </SheetDescription>
+                </div>
+              </div>
+            </SheetHeader>
+
+            <form
+              id="internal-producer-form"
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="flex-1 min-h-0 flex flex-col"
+            >
+              <div className="flex-1 overflow-y-auto p-6 sm:p-8 space-y-8">
+                <div className="bg-white border border-slate-100 rounded-[2rem] p-8 shadow-sm space-y-8">
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="font-black text-slate-700 ml-1 mb-1">Nome completo *</Label>
+                    <Input
+                      id="name"
+                      {...form.register("name")}
+                      placeholder="Nome do produtor"
+                      className={`h-12 rounded-xl bg-slate-50 border border-slate-200 focus-visible:ring-primary ${form.formState.errors.name ? "border-red-500" : ""}`}
+                      style={{ "--primary": primaryColor } as React.CSSProperties}
+                    />
+                    {form.formState.errors.name && (
+                      <p className="text-xs text-red-500">{form.formState.errors.name.message}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="document" className="font-black text-slate-700 ml-1 mb-1">CPF / Documento</Label>
+                    <Input
+                      id="document"
+                      {...form.register("document")}
+                      placeholder="000.000.000-00"
+                      className="h-12 rounded-xl bg-slate-50 border border-slate-200 focus-visible:ring-primary"
+                      style={{ "--primary": primaryColor } as React.CSSProperties}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="state" className="font-black text-slate-700 ml-1 mb-1">Estado (UF)</Label>
+                      <Select
+                        value={form.watch("state") || ""}
+                        onValueChange={v => {
+                          form.setValue("state", v, { shouldDirty: true });
+                          form.setValue("city", "", { shouldDirty: true });
+                        }}
+                      >
+                        <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200">
+                          <SelectValue placeholder="Selecione o estado" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {BRAZILIAN_STATES.map(uf => (
+                            <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="city" className="font-black text-slate-700 ml-1 mb-1">Cidade</Label>
+                      <Select
+                        value={form.watch("city") || ""}
+                        onValueChange={v => form.setValue("city", v, { shouldDirty: true })}
+                        disabled={!selectedState || loadingCities}
+                      >
+                        <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200">
+                          <SelectValue
+                            placeholder={
+                              !selectedState
+                                ? "Selecione o estado primeiro"
+                                : loadingCities
+                                  ? "Carregando cidades..."
+                                  : "Selecione a cidade"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl max-h-64">
+                          {cities.map((city: any) => (
+                            <SelectItem key={city.id} value={city.nome}>{city.nome}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {labels.isMarcaColetiva && (
+                    <div className="space-y-2">
+                      <Label htmlFor="family_members" className="font-black text-slate-700 ml-1 mb-1">Pessoas da família *</Label>
+                      <Input
+                        id="family_members"
+                        type="number"
+                        min={1}
+                        {...form.register("family_members", { valueAsNumber: true })}
+                        placeholder="1"
+                        className={`h-12 rounded-xl bg-slate-50 border border-slate-200 focus-visible:ring-primary ${
+                          form.formState.errors.family_members ? "border-red-500" : ""
+                        }`}
+                        style={{ "--primary": primaryColor } as React.CSSProperties}
+                      />
+                      {form.formState.errors.family_members && (
+                        <p className="text-xs text-red-500">{form.formState.errors.family_members.message}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {cooperativas.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="font-black text-slate-700 ml-1 mb-1">{labels.producer} vinculado(a)</Label>
+                      <Select
+                        value={form.watch("cooperativa_id") || ""}
+                        onValueChange={v => form.setValue("cooperativa_id", v)}
+                      >
+                        <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200">
+                          <SelectValue placeholder={`Selecione ${labels.producer.toLowerCase()}`} />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {cooperativas.map(c => (
+                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-6 bg-white border-t border-slate-100 shadow-[0_-10px_40px_rgba(0,0,0,0.03)]">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 rounded-2xl h-14 font-black border-slate-200 text-slate-500 hover:bg-slate-50 transition-all"
+                    onClick={() => setIsSheetOpen(false)}
+                    disabled={saving}
+                  >
+                    Descartar
+                  </Button>
+                  <Button
+                    type="submit"
+                    form="internal-producer-form"
+                    className="flex-[2] rounded-2xl h-14 font-black text-white hover:opacity-90 shadow-2xl transition-all gap-3"
+                    style={{ backgroundColor: primaryColor }}
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <>
+                        <CircleNotch size={20} className="animate-spin" weight="bold" />
+                        Salvando...
+                      </>
+                    ) : editing ? "Atualizar" : "Cadastrar"}
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </div>
         </SheetContent>
       </Sheet>
 
@@ -498,7 +610,7 @@ const ProdutoresInternos = () => {
         onOpenChange={setIsCsvOpen}
         onImport={handleCsvImport}
         requiredColumns={["nome"]}
-        optionalColumns={["documento", "cidade", "estado"]}
+        optionalColumns={["documento", "cidade", "estado", "pessoas_familia"]}
         title="Importar Produtores Internos"
         description="Faça upload de um arquivo CSV com os dados dos produtores internos."
       />

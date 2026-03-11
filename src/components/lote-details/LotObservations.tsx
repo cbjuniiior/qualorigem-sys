@@ -47,7 +47,7 @@ export const LotObservations = ({ expertNotes, lotObservations }: LotObservation
     <div className="mb-8 md:mb-12 space-y-8 md:space-y-12">
       {hasExpert && (
         <ObservationBlock
-          title="Notas do Especialista / Observações Sensoriais"
+          title="Notas da Avaliação Sensorial"
           content={expertNotes!}
           icon={ChatCircleText}
         />

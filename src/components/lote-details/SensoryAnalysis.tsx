@@ -66,7 +66,31 @@ export const SensoryAnalysis = ({ loteData, branding }: SensoryAnalysisProps) =>
     corpo: loteData?.body_score ?? 0,
   };
 
-  const hasQuantitative = quantitativeRadar.length > 0 || quantitativeOthers.length > 0 || (useFallback && Object.values(fallbackSensorialData).some(v => v > 0));
+  const hasDynamicQuantitativeValues =
+    [...quantitativeRadar, ...quantitativeOthers].some((s) => Number(s.value || 0) > 0);
+  const legacyScores = [
+    loteData?.fragrance_score,
+    loteData?.flavor_score,
+    loteData?.finish_score,
+    loteData?.acidity_score,
+    loteData?.body_score,
+  ];
+  const hasAnyLegacyScore = legacyScores.some((score) => score !== null && score !== undefined);
+  // Formulário legado inicia em 5; evita exibir radar sem análise realmente preenchida.
+  const allLegacyAreDefault = hasAnyLegacyScore && legacyScores.every((score) => Number(score ?? 5) === 5);
+  const hasLegacyQuantitativeValues =
+    hasAnyLegacyScore &&
+    !allLegacyAreDefault &&
+    Object.values(fallbackSensorialData).some((v) => Number(v) > 0);
+  const hasQuantitative =
+    (dynamicSensory.length > 0 && hasDynamicQuantitativeValues) ||
+    (useFallback && hasLegacyQuantitativeValues);
+  const qualitativeWithValues = qualitative.filter((s) => Number(s.value || 0) > 0);
+  const hasSensoryData = hasQuantitative || qualitativeWithValues.length > 0;
+
+  if (!hasSensoryData) {
+    return null;
+  }
 
   return (
     <div className="mb-12 text-left">
@@ -78,7 +102,7 @@ export const SensoryAnalysis = ({ loteData, branding }: SensoryAnalysisProps) =>
             </div>
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Análise Sensorial</h2>
-              <p className="text-slate-400 font-bold uppercase text-[9px] tracking-widest">Perfil de qualidade e características do lote</p>
+              <p className="text-slate-500 font-medium text-xs tracking-[0.04em]">Perfil de qualidade e características sensoriais do lote</p>
             </div>
           </div>
         </div>
@@ -98,17 +122,17 @@ export const SensoryAnalysis = ({ loteData, branding }: SensoryAnalysisProps) =>
             )}
 
             {/* Atributos Qualitativos (Escalas Sensoriais) */}
-            {qualitative.length > 0 && (
+            {qualitativeWithValues.length > 0 && (
               <div className="w-full space-y-6 pt-8 border-t border-slate-50">
                 <div className="flex items-center justify-center gap-3 mb-2">
-                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Percepções Sensoriais</h4>
+                  <h4 className="text-xs font-semibold text-slate-500 tracking-[0.04em]">Percepções sensoriais</h4>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 max-w-4xl mx-auto w-full">
-                  {qualitative.map(s => (
+                  {qualitativeWithValues.map(s => (
                     <div key={s.id} className="space-y-2 group">
                       <div className="flex justify-between items-center px-1">
-                        <span className="text-xs font-black text-slate-700 uppercase tracking-tight group-hover:text-primary transition-colors" style={{ '--primary': primaryColor } as any}>{s.sensory_attributes.name}</span>
-                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full" style={{ color: primaryColor, backgroundColor: `${primaryColor}10` }}>{s.value}%</span>
+                        <span className="text-xs font-black text-slate-700 tracking-tight group-hover:text-primary transition-colors" style={{ '--primary': primaryColor } as any}>{s.sensory_attributes.name}</span>
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ color: primaryColor, backgroundColor: `${primaryColor}10` }}>{s.value}%</span>
                       </div>
                       <div className="relative h-1.5 bg-slate-100 rounded-full overflow-hidden">
                         <div 
@@ -116,7 +140,7 @@ export const SensoryAnalysis = ({ loteData, branding }: SensoryAnalysisProps) =>
                           style={{ width: `${s.value}%`, backgroundColor: primaryColor }}
                         />
                       </div>
-                      <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase tracking-widest px-1">
+                      <div className="flex justify-between text-[10px] font-medium text-slate-400 tracking-[0.04em] px-1">
                         <span>Sutil</span>
                         <span>Intenso</span>
                       </div>
@@ -126,12 +150,6 @@ export const SensoryAnalysis = ({ loteData, branding }: SensoryAnalysisProps) =>
               </div>
             )}
 
-            {!hasQuantitative && qualitative.length === 0 && (
-              <div className="flex flex-col items-center justify-center p-12 text-center space-y-4">
-                <ChartPieSlice size={48} weight="thin" className="text-slate-200" />
-                <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">Nenhuma análise sensorial registrada</p>
-              </div>
-            )}
           </div>
         </div>
       </div>

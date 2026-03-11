@@ -27,6 +27,9 @@ interface Producer {
   property_name: string;
   city?: string;
   state?: string;
+  primary_association_id?: string | null;
+  coop_role?: "principal" | "singular" | null;
+  parent_producer_id?: string | null;
 }
 
 interface ProductionStepProps {
@@ -93,10 +96,26 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
   const [loadingProperties, setLoadingProperties] = useState(false);
   const [industryPopoverOpen, setIndustryPopoverOpen] = useState(false);
   const [associationPopoverOpen, setAssociationPopoverOpen] = useState(false);
+  const [associationProducers, setAssociationProducers] = useState<any[]>([]);
+  const [loadingAssociationProducers, setLoadingAssociationProducers] = useState(false);
 
   const labels = useTenantLabels();
   const selectedIndustryIds: string[] = formData.industry_ids || [];
   const selectedAssociationIds: string[] = formData.association_ids || [];
+  const selectedParticipatingProducerIds: string[] = formData.participating_producer_ids || [];
+
+  const toggleParticipatingProducer = (producerId: string) => {
+    setFormData((prev: any) => {
+      const current = prev.participating_producer_ids || [];
+      const isSelected = current.includes(producerId);
+      return {
+        ...prev,
+        participating_producer_ids: isSelected
+          ? current.filter((id: string) => id !== producerId)
+          : [...current, producerId],
+      };
+    });
+  };
   const toggleAssociation = (associationId: string) => {
     setFormData((prev: any) => {
       const current = prev.association_ids || [];
@@ -188,6 +207,64 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
     }
   }, [cityPopoverOpen]);
 
+  useEffect(() => {
+    const loadAssociationProducers = async () => {
+      if (!tenantId) {
+        setAssociationProducers([]);
+        return;
+      }
+
+      if (labels.isMarcaColetiva) {
+        if (!formData.producer_id) {
+          setAssociationProducers([]);
+          return;
+        }
+        try {
+          setLoadingAssociationProducers(true);
+          const internal = await internalProducersApi.getByCooperativa(formData.producer_id, tenantId);
+          const normalized = (internal || []).map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            city: item.city,
+            state: item.state,
+            family_members: item.family_members,
+          }));
+          setAssociationProducers(normalized);
+        } finally {
+          setLoadingAssociationProducers(false);
+        }
+        return;
+      }
+
+      if (selectedAssociationIds.length === 0) {
+        setAssociationProducers([]);
+        return;
+      }
+
+      try {
+        setLoadingAssociationProducers(true);
+        const producersByAssociation = await Promise.all(
+          selectedAssociationIds.map((associationId: string) =>
+            associationsApi.getProducers(associationId, tenantId).catch(() => [])
+          )
+        );
+
+        const merged = producersByAssociation.flat().reduce((acc: any[], producer: any) => {
+          if (!producer?.id) return acc;
+          if (acc.some((item) => item.id === producer.id)) return acc;
+          acc.push(producer);
+          return acc;
+        }, []);
+
+        setAssociationProducers(merged);
+      } finally {
+        setLoadingAssociationProducers(false);
+      }
+    };
+
+    loadAssociationProducers();
+  }, [tenantId, selectedAssociationIds, labels.isMarcaColetiva, formData.producer_id]);
+
   // Carregar propriedades salvas e dados do produtor
   useEffect(() => {
     const loadProducerData = async () => {
@@ -233,6 +310,19 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
           if (producerAssocs.length === 1 && !(formData.association_ids?.length)) {
             setFormData((prev: any) => ({ ...prev, association_id: producerAssocs[0].id, association_ids: [producerAssocs[0].id] }));
           }
+
+          // Mantém fallback legado para associação em MC apenas quando houver configuração antiga.
+          if (labels.isMarcaColetiva && !(formData.association_ids?.length)) {
+            const selectedProducer = (producers || []).find((p: any) => p.id === formData.producer_id);
+            const preferredAssociationId = selectedProducer?.primary_association_id;
+            if (preferredAssociationId && producerAssocs.some((a: any) => a.id === preferredAssociationId)) {
+              setFormData((prev: any) => ({
+                ...prev,
+                association_id: preferredAssociationId,
+                association_ids: [preferredAssociationId],
+              }));
+            }
+          }
         } catch (error) {
           console.error("Erro ao carregar dados do produtor:", error);
         } finally {
@@ -248,7 +338,32 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
     };
     
     loadProducerData();
-  }, [formData.producer_id, tenantId, setFormData]);
+  }, [formData.producer_id, tenantId, setFormData, labels.isMarcaColetiva, formData.association_ids, producers]);
+
+  useEffect(() => {
+    if (!labels.isMarcaColetiva) return;
+    if (!formData.producer_id) return;
+    if (associationProducers.length === 0) return;
+    if ((formData.participating_producer_ids || []).length > 0) return;
+
+    // Pré-seleciona todos para agilizar; usuário pode desmarcar manualmente.
+    setFormData((prev: any) => ({
+      ...prev,
+      participating_producer_ids: associationProducers.map((producer: any) => producer.id),
+    }));
+  }, [labels.isMarcaColetiva, formData.producer_id, associationProducers, formData.participating_producer_ids, setFormData]);
+
+  useEffect(() => {
+    const validProducerIds = new Set(associationProducers.map((producer: any) => producer.id));
+    const currentIds: string[] = formData.participating_producer_ids || [];
+    const filteredIds = currentIds.filter((id) => validProducerIds.has(id));
+    if (filteredIds.length !== currentIds.length) {
+      setFormData((prev: any) => ({
+        ...prev,
+        participating_producer_ids: filteredIds,
+      }));
+    }
+  }, [associationProducers, formData.participating_producer_ids, setFormData]);
   
   // Carregar dados da propriedade selecionada
   useEffect(() => {
@@ -432,7 +547,7 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
 
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                  <Tag size={16} style={{ color: primaryColor }} /> Indústrias Parceiras
+                  <Tag size={16} style={{ color: primaryColor }} /> {labels.isIG ? "Parceiros de Processamento" : "Indústrias Parceiras"}
                 </Label>
                 {industries.length > 0 ? (
                   <>
@@ -508,6 +623,82 @@ export const ProductionStep = ({ tenantId, formData, setFormData, isBlendMode, p
                   <p className="text-sm text-slate-400 font-bold">Nenhuma indústria cadastrada.</p>
                 )}
               </div>
+
+              {labels.isMarcaColetiva && (
+                <div className="space-y-2 md:col-span-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                      <Users size={16} style={{ color: primaryColor }} /> Produtores Participantes do Lote
+                    </Label>
+                    {associationProducers.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-8 rounded-lg text-xs font-bold border-slate-200"
+                          onClick={() =>
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              participating_producer_ids: associationProducers.map((producer: any) => producer.id),
+                            }))
+                          }
+                        >
+                          Todos
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-8 rounded-lg text-xs font-bold border-slate-200"
+                          onClick={() =>
+                            setFormData((prev: any) => ({
+                              ...prev,
+                              participating_producer_ids: [],
+                            }))
+                          }
+                        >
+                          Limpar
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+
+                  {loadingAssociationProducers ? (
+                    <p className="text-sm text-slate-500 font-bold py-2">Carregando produtores...</p>
+                  ) : associationProducers.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {associationProducers.map((producer: any) => {
+                        const isSelected = selectedParticipatingProducerIds.includes(producer.id);
+                        return (
+                          <label
+                            key={producer.id}
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors",
+                              isSelected ? "bg-slate-50 border-slate-300" : "bg-white border-slate-200 hover:bg-slate-50"
+                            )}
+                          >
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleParticipatingProducer(producer.id)}
+                              className="rounded-md border-slate-300 data-[state=checked]:border-transparent"
+                              style={isSelected ? { backgroundColor: primaryColor, borderColor: primaryColor } : {}}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-black text-slate-700 truncate">{producer.name}</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase">{producer.city || "Cidade N/A"}{producer.state ? `, ${producer.state}` : ""}</p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500 font-bold py-2">
+                      {labels.isMarcaColetiva
+                        ? `Selecione uma ${labels.producer.toLowerCase()} para listar os produtores participantes.`
+                        : "Selecione ao menos uma associação/cooperativa para listar os produtores participantes."}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Seleção de Propriedade */}
               {formData.producer_id && (

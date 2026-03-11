@@ -26,6 +26,7 @@ export type TenantMembership = Tables<"tenant_memberships">;
 export type Certification = Tables<"certifications">;
 export type CertificationEntity = Tables<"certification_entities">;
 export type InternalProducer = Tables<"internal_producers">;
+export type ProductLotParticipatingProducer = Tables<"product_lot_participating_producers">;
 export type TenantFieldSetting = Tables<"tenant_field_settings">;
 export type PlatformSettings = Tables<"platform_settings">;
 
@@ -45,6 +46,22 @@ export type ProductLotSensoryInsert = TablesInsert<"product_lot_sensory">;
 export type CertificationInsert = TablesInsert<"certifications">;
 export type CertificationEntityInsert = TablesInsert<"certification_entities">;
 export type InternalProducerInsert = TablesInsert<"internal_producers">;
+export type ProductLotParticipatingProducerInsert = TablesInsert<"product_lot_participating_producers">;
+
+function normalizeComponentLocation(c: Record<string, unknown>): Record<string, unknown> {
+  try {
+    if (c == null || typeof c !== "object") return c ?? {};
+    const producerFromObject = (c as any).producer;
+    const producers = (c as any).producers;
+    const producerFromRelation = Array.isArray(producers) ? producers[0] : producers;
+    const producer = producerFromObject ?? producerFromRelation ?? null;
+    const city = ((c as any).city ?? producer?.city ?? null) as string | null;
+    const state = ((c as any).state ?? producer?.state ?? null) as string | null;
+    return { ...c, city: city ?? null, state: state ?? null };
+  } catch {
+    return { ...c, city: null, state: null };
+  }
+}
 
 export type ProducerUpdate = TablesUpdate<"producers">;
 export type ProductLotUpdate = TablesUpdate<"product_lots">;
@@ -429,6 +446,31 @@ export const producersApi = {
     return data;
   },
 
+  async getPrincipals(tenantId: string) {
+    const { data, error } = await supabase
+      .from("producers")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("coop_role", "principal")
+      .order("name");
+
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  async getChildrenByPrincipal(principalProducerId: string, tenantId: string) {
+    const { data, error } = await supabase
+      .from("producers")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("parent_producer_id", principalProducerId)
+      .eq("coop_role", "singular")
+      .order("name");
+
+    if (error) throw error;
+    return data ?? [];
+  },
+
   async getById(id: string, tenantId: string) {
     const { data, error } = await supabase
       .from("producers")
@@ -484,7 +526,7 @@ export const productLotsApi = {
       .from("product_lots")
       .select(`
         *,
-        producers (
+        producers:producers!product_lots_producer_id_fkey (
           id,
           name,
           property_name,
@@ -512,6 +554,19 @@ export const productLotsApi = {
           sensory_attribute_id,
           value,
           sensory_attributes (*)
+        ),
+        product_lot_participating_producers (
+          producer_id,
+          is_primary,
+          role,
+          producers (
+            id,
+            name,
+            family_members,
+            city,
+            state,
+            property_name
+          )
         )
       `)
       .eq("tenant_id", tenantId)
@@ -522,7 +577,7 @@ export const productLotsApi = {
     // Buscar componentes separadamente (mantendo lógica antiga, mas filtrando por tenant se possível, 
     // embora lot_id já filtre implicitamente)
     const lotsWithComponents = await Promise.all(
-      data.map(async (lot) => {
+      (data ?? []).map(async (lot) => {
         const { data: components } = await supabase
           .from("lot_components")
           .select(`
@@ -566,11 +621,22 @@ export const productLotsApi = {
           .eq("lot_id", lot.id)
           .eq("tenant_id", tenantId); // Garantia extra
 
+        const normalizedComponents = (components || []).map((c: any) => normalizeComponentLocation(c as Record<string, unknown>));
+        const participatingProducers = ((lot as any).product_lot_participating_producers || [])
+          .map((row: any) => ({
+            ...(row.producers || {}),
+            producer_id: row.producer_id,
+            is_primary: row.is_primary ?? false,
+            role: row.role ?? null,
+          }))
+          .filter((p: any) => p?.id || p?.producer_id);
+
         return {
           ...lot,
-          lot_components: components || [],
+          lot_components: normalizedComponents,
           characteristics: lot.product_lot_characteristics || [],
-          sensory_analysis: lot.product_lot_sensory || []
+          sensory_analysis: lot.product_lot_sensory || [],
+          participating_producers: participatingProducers,
         };
       })
     );
@@ -584,7 +650,7 @@ export const productLotsApi = {
       .from("product_lots")
       .select(`
         *,
-        producers (
+        producers:producers!product_lots_producer_id_fkey (
           id,
           name,
           property_name,
@@ -612,6 +678,19 @@ export const productLotsApi = {
           sensory_attribute_id,
           value,
           sensory_attributes (*)
+        ),
+        product_lot_participating_producers (
+          producer_id,
+          is_primary,
+          role,
+          producers (
+            id,
+            name,
+            family_members,
+            city,
+            state,
+            property_name
+          )
         )
       `)
       .eq("code", code)
@@ -631,11 +710,22 @@ export const productLotsApi = {
       .eq("tenant_id", tenantId)
       .order("created_at");
 
+    const normalizedComponents = (components || []).map((c: any) => normalizeComponentLocation(c as Record<string, unknown>));
+    const participatingProducers = ((data as any).product_lot_participating_producers || [])
+      .map((row: any) => ({
+        ...(row.producers || {}),
+        producer_id: row.producer_id,
+        is_primary: row.is_primary ?? false,
+        role: row.role ?? null,
+      }))
+      .filter((p: any) => p?.id || p?.producer_id);
+
     return {
       ...data,
-      components: components || [],
+      components: normalizedComponents,
       characteristics: data.product_lot_characteristics || [],
-      sensory_analysis: data.product_lot_sensory || []
+      sensory_analysis: data.product_lot_sensory || [],
+      participating_producers: participatingProducers,
     };
   },
 
@@ -644,7 +734,7 @@ export const productLotsApi = {
       .from("product_lots")
       .select(`
         *,
-        producers (
+        producers:producers!product_lots_producer_id_fkey (
           id,
           name,
           property_name,
@@ -672,6 +762,19 @@ export const productLotsApi = {
           sensory_attribute_id,
           value,
           sensory_attributes (*)
+        ),
+        product_lot_participating_producers (
+          producer_id,
+          is_primary,
+          role,
+          producers (
+            id,
+            name,
+            family_members,
+            city,
+            state,
+            property_name
+          )
         )
       `)
       .eq("id", id)
@@ -690,11 +793,22 @@ export const productLotsApi = {
       .eq("lot_id", id)
       .eq("tenant_id", tenantId);
 
+    const normalizedComponents = (components || []).map((c: any) => normalizeComponentLocation(c as Record<string, unknown>));
+    const participatingProducers = ((data as any).product_lot_participating_producers || [])
+      .map((row: any) => ({
+        ...(row.producers || {}),
+        producer_id: row.producer_id,
+        is_primary: row.is_primary ?? false,
+        role: row.role ?? null,
+      }))
+      .filter((p: any) => p?.id || p?.producer_id);
+
     return {
       ...data,
-      components: components || [],
+      components: normalizedComponents,
       characteristics: data.product_lot_characteristics || [],
-      sensory_analysis: data.product_lot_sensory || []
+      sensory_analysis: data.product_lot_sensory || [],
+      participating_producers: participatingProducers,
     };
   },
 
@@ -703,7 +817,7 @@ export const productLotsApi = {
       .from("product_lots")
       .select(`
         *,
-        producers (
+        producers:producers!product_lots_producer_id_fkey (
           id,
           name,
           property_name,
@@ -717,14 +831,37 @@ export const productLotsApi = {
           photos,
           profile_picture_url
         ),
-        lot_components (*)
+        lot_components (*),
+        product_lot_participating_producers (
+          producer_id,
+          is_primary,
+          role,
+          producers (
+            id,
+            name,
+            family_members,
+            city,
+            state,
+            property_name
+          )
+        )
       `)
       .eq("producer_id", producerId)
       .eq("tenant_id", tenantId)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return data;
+    return (data || []).map((lot: any) => ({
+      ...lot,
+      participating_producers: (lot.product_lot_participating_producers || [])
+        .map((row: any) => ({
+          ...(row.producers || {}),
+          producer_id: row.producer_id,
+          is_primary: row.is_primary ?? false,
+          role: row.role ?? null,
+        }))
+        .filter((p: any) => p?.id || p?.producer_id),
+    }));
   },
 
   async create(lot: ProductLotInsert) {
@@ -733,7 +870,7 @@ export const productLotsApi = {
       .insert(lot)
       .select(`
         *,
-        producers (
+        producers:producers!product_lots_producer_id_fkey (
           id,
           name,
           property_name,
@@ -762,7 +899,7 @@ export const productLotsApi = {
       .eq("tenant_id", tenantId)
       .select(`
         *,
-        producers (
+        producers:producers!product_lots_producer_id_fkey (
           id,
           name,
           property_name,
@@ -819,7 +956,7 @@ export const productLotsApi = {
       .from("product_lots")
       .select(`
         *,
-        producers (
+        producers:producers!product_lots_producer_id_fkey (
           id,
           name,
           property_name,
@@ -1278,6 +1415,26 @@ export const associationsApi = {
     if (error) throw error;
     return data;
   },
+  async getPrincipals(tenantId: string) {
+    const { data, error } = await supabase
+      .from("associations")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("partner_kind", "cooperativa_principal")
+      .order("name");
+    if (error) throw error;
+    return data ?? [];
+  },
+  async getChildren(principalAssociationId: string, tenantId: string) {
+    const { data, error } = await supabase
+      .from("associations")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("parent_association_id", principalAssociationId)
+      .order("name");
+    if (error) throw error;
+    return data ?? [];
+  },
   async getProducerCount(associationId: string, tenantId: string) {
     const { count, error } = await supabase
       .from("producers_associations")
@@ -1333,6 +1490,9 @@ export const associationsApi = {
           id,
           name,
           type,
+          partner_kind,
+          parent_association_id,
+          partner_group_key,
           city,
           state,
           description,
@@ -1821,7 +1981,9 @@ export const certificationsApi = {
       .eq("entity_id", lotId)
       .eq("tenant_id", tenantId);
     // Filtrar IDs inválidos (evita erro UUID com string vazia)
-    const validIds = certificationIds.filter(id => id && String(id).trim().length > 0);
+    const validIds = certificationIds
+      .filter(id => id && String(id).trim().length > 0)
+      .slice(0, 2);
     if (validIds.length > 0) {
       const inserts = validIds.map(cid => ({
         certification_id: cid,
@@ -1835,6 +1997,61 @@ export const certificationsApi = {
       if (error) throw error;
     }
   }
+};
+
+export const lotParticipatingProducersApi = {
+  async getByLot(lotId: string, tenantId: string) {
+    const { data, error } = await supabase
+      .from("product_lot_participating_producers")
+      .select(`
+        producer_id,
+        is_primary,
+        role,
+        producers (
+          id,
+          name,
+          family_members,
+          city,
+          state,
+          property_name
+        )
+      `)
+      .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId);
+
+    if (error) throw error;
+    return (data || [])
+      .map((row: any) => ({
+        ...(row.producers || {}),
+        producer_id: row.producer_id,
+        is_primary: row.is_primary ?? false,
+        role: row.role ?? null,
+      }))
+      .filter((p: any) => p?.id || p?.producer_id);
+  },
+  async syncLotProducers(lotId: string, producerIds: string[], tenantId: string) {
+    await supabase
+      .from("product_lot_participating_producers")
+      .delete()
+      .eq("lot_id", lotId)
+      .eq("tenant_id", tenantId);
+
+    const validIds = producerIds.filter(id => id && String(id).trim().length > 0);
+    if (validIds.length === 0) return;
+
+    const inserts = validIds.map((id, index) => ({
+      lot_id: lotId,
+      producer_id: id,
+      tenant_id: tenantId,
+      is_primary: index === 0,
+      role: index === 0 ? "responsavel" : "participante",
+    }));
+
+    const { error } = await supabase
+      .from("product_lot_participating_producers")
+      .insert(inserts);
+    if (error) throw error;
+  },
 };
 
 // Serviços para Produtores Internos

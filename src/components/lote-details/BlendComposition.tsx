@@ -50,8 +50,8 @@ export const BlendComposition = ({ blendComponents, harvestYear, quantity, unit,
                 <Package className="h-8 w-8" weight="duotone" />
               </div>
               <div>
-                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-slate-50 text-slate-400 text-[9px] font-black uppercase tracking-widest mb-2">
-                  Mix Exclusivo
+                <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-slate-50 text-slate-500 text-[11px] font-semibold tracking-[0.04em] mb-2">
+                  Composição do lote
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
                   Composição do Blend
@@ -65,12 +65,12 @@ export const BlendComposition = ({ blendComponents, harvestYear, quantity, unit,
             <div className="flex gap-10 items-center bg-slate-50/50 px-8 py-4 rounded-[1.5rem] border border-slate-100 self-start md:self-auto">
               <div className="text-center">
                 <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter">100%</div>
-                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Composição</div>
+                <div className="text-[11px] font-semibold text-slate-500 tracking-[0.04em]">Composição</div>
               </div>
               <div className="w-px h-8 bg-slate-200"></div>
               <div className="text-center">
                 <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tighter">{blendComponents.length}</div>
-                <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Origens</div>
+                <div className="text-[11px] font-semibold text-slate-500 tracking-[0.04em]">Origens</div>
               </div>
             </div>
           </div>
@@ -84,8 +84,8 @@ export const BlendComposition = ({ blendComponents, harvestYear, quantity, unit,
                 {/* Indicador de Porcentagem Minimalista */}
                 <div className="flex items-start justify-between mb-8">
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Componente</span>
-                    <h3 className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
+                    <span className="text-[11px] font-semibold text-slate-500 tracking-[0.04em] mb-1">Componente</span>
+                    <h3 className="text-lg sm:text-xl font-black text-slate-900 leading-tight break-words">
                       {component.component_name}
                     </h3>
                   </div>
@@ -94,7 +94,7 @@ export const BlendComposition = ({ blendComponents, harvestYear, quantity, unit,
                     style={{ backgroundColor: `${primaryColor}10`, color: primaryColor }}
                   >
                     <span className="text-lg font-black leading-none">{component.component_percentage}</span>
-                    <span className="text-[8px] font-black uppercase tracking-tighter">%</span>
+                    <span className="text-[9px] font-semibold tracking-[0.04em]">%</span>
                   </div>
                 </div>
                 
@@ -166,8 +166,8 @@ const DetailRow = ({ icon, label, value, color }: { icon: React.ReactNode, label
       <div className="scale-90">{icon}</div>
     </div>
     <div className="flex-1 min-w-0">
-      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
-      <p className="text-xs font-black text-slate-900 truncate" title={value}>{value}</p>
+      <p className="text-[11px] font-semibold text-slate-500 tracking-[0.04em] mb-0.5">{label}</p>
+      <p className="text-xs font-black text-slate-900 break-words" title={value}>{value}</p>
     </div>
   </div>
 );

@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotCharacteristicsApi, productLotSensoryApi, brandsApi, lotIndustriesApi, lotAssociationsApi, certificationsApi, internalProducersApi } from "@/services/api";
+import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotCharacteristicsApi, productLotSensoryApi, brandsApi, lotIndustriesApi, lotAssociationsApi, certificationsApi, internalProducersApi, lotParticipatingProducersApi } from "@/services/api";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
@@ -185,6 +185,7 @@ const Lotes = () => {
     industry_ids: [] as string[],
     certification_ids: [] as string[],
     internal_producer_ids: [] as string[],
+    participating_producer_ids: [] as string[],
     association_id: "",
     association_ids: [] as string[],
     sensory_type: "nota",
@@ -247,8 +248,19 @@ const Lotes = () => {
       setProducers(producersData);
       setAssociations(associationsData || []);
       setIndustries(industriesData || []);
-    } catch (error) {
-      toast.error("Erro ao carregar lotes");
+    } catch (error: any) {
+      console.error("Erro ao carregar lotes (fetchData):", {
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+        raw: error,
+      });
+      const errorMessage =
+        error?.message ||
+        error?.details ||
+        "Falha ao consultar lotes no banco";
+      toast.error(`Erro ao carregar lotes: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -269,6 +281,7 @@ const Lotes = () => {
       industry_ids: [],
       certification_ids: [],
       internal_producer_ids: [],
+      participating_producer_ids: [],
       association_id: "",
       association_ids: [],
       sensory_type: "nota",
@@ -364,10 +377,15 @@ const Lotes = () => {
 
     // Load internal producers linked to this lot
     let lotInternalProducerIds: string[] = [];
+    let lotParticipatingProducerIds: string[] = [];
     try {
       if (tenant?.id) {
-        const lotIps = await internalProducersApi.getByLot(lot.id, tenant.id);
+        const [lotIps, lotParticipants] = await Promise.all([
+          internalProducersApi.getByLot(lot.id, tenant.id),
+          lotParticipatingProducersApi.getByLot(lot.id, tenant.id),
+        ]);
         lotInternalProducerIds = (lotIps || []).map((ip: any) => ip.id);
+        lotParticipatingProducerIds = (lotParticipants || []).map((p: any) => p.id || p.producer_id);
       }
     } catch (e) {
       console.error("Erro ao carregar produtores internos do lote:", e);
@@ -387,6 +405,7 @@ const Lotes = () => {
       industry_ids: lotIndustryIds,
       certification_ids: lotCertificationIds,
       internal_producer_ids: lotInternalProducerIds,
+      participating_producer_ids: lotParticipatingProducerIds,
       association_id: (lot as any).association_id || "",
       association_ids: lotAssociationIds,
       sensory_type: (lot as any).sensory_type || "nota",
@@ -459,18 +478,21 @@ const Lotes = () => {
     let lotAssociationIds: string[] = [];
     let lotCertificationIds: string[] = [];
     let lotInternalProducerIds: string[] = [];
+    let lotParticipatingProducerIds: string[] = [];
     if (tenant?.id) {
       try {
-        const [industries, assocs, certs, ips] = await Promise.all([
+        const [industries, assocs, certs, ips, participants] = await Promise.all([
           lotIndustriesApi.getByLot(lot.id, tenant.id),
           lotAssociationsApi.getByLot(lot.id, tenant.id),
           certificationsApi.getPublicByLot(lot.id),
           internalProducersApi.getByLot(lot.id, tenant.id),
+          lotParticipatingProducersApi.getByLot(lot.id, tenant.id),
         ]);
         lotIndustryIds = (industries || []).map((i: any) => i.id);
         lotAssociationIds = (assocs || []).map((a: any) => a.id);
         lotCertificationIds = (certs || []).map((c: any) => c.id);
         lotInternalProducerIds = (ips || []).map((p: any) => p.id);
+        lotParticipatingProducerIds = (participants || []).map((p: any) => p.id || p.producer_id);
       } catch (e) {
         console.error("Erro ao carregar dados do lote para duplicar:", e);
       }
@@ -492,6 +514,7 @@ const Lotes = () => {
       industry_ids: lotIndustryIds,
       certification_ids: lotCertificationIds,
       internal_producer_ids: lotInternalProducerIds,
+      participating_producer_ids: lotParticipatingProducerIds,
       association_id: (lot as any).association_id || "",
       association_ids: lotAssociationIds,
       sensory_type: (lot as any).sensory_type || "nota",
@@ -583,7 +606,7 @@ const Lotes = () => {
       // Remover campos que não existem na tabela product_lots
       const { 
         components, characteristics, sensory_analysis, industry_ids,
-        certification_ids, internal_producer_ids, association_ids,
+        certification_ids, internal_producer_ids, participating_producer_ids, association_ids,
         selectedPropertyId, user_has_set_coordinates, location_reference,
         ...cleanLotData 
       } = lotData;
@@ -665,6 +688,11 @@ const Lotes = () => {
             internal_producer_ids || [],
             tenant.id
           );
+          await lotParticipatingProducersApi.syncLotProducers(
+            editingLot.id,
+            participating_producer_ids || [],
+            tenant.id
+          );
         }
         toast.success("Lote atualizado com sucesso!");
       } else {
@@ -722,6 +750,9 @@ const Lotes = () => {
         // Sincronizar produtores internos vinculados
         if (internal_producer_ids && internal_producer_ids.length > 0) {
           await internalProducersApi.syncLotProducers(newLot.id, internal_producer_ids, tenant.id);
+        }
+        if (participating_producer_ids && participating_producer_ids.length > 0) {
+          await lotParticipatingProducersApi.syncLotProducers(newLot.id, participating_producer_ids, tenant.id);
         }
         toast.success("Lote registrado com sucesso!");
       }
@@ -923,6 +954,19 @@ const Lotes = () => {
 
   const categories = Array.from(new Set(lots.map(l => l.category).filter(Boolean)));
 
+  const getBenefitedFamilies = (lot: any) => {
+    const participants = lot.participating_producers || [];
+    if (participants.length > 0) {
+      return participants.reduce((acc: number, producer: any) => acc + Number(producer.family_members || 1), 0);
+    }
+    const components = lot.lot_components || lot.components || [];
+    if (components.length > 0) {
+      const uniqueProducerIds = new Set(components.map((c: any) => c.producer_id).filter(Boolean));
+      return uniqueProducerIds.size;
+    }
+    return lot.producer_id ? 1 : 0;
+  };
+
   const TableSkeleton = () => (
     <div className="space-y-4">
       {Array(6).fill(0).map((_, i) => (
@@ -1021,7 +1065,9 @@ const Lotes = () => {
             </Card>
           ) : (
             <div className="grid grid-cols-1 gap-4">
-              {filteredLots.map((lot) => (
+              {filteredLots.map((lot) => {
+                const benefitedFamilies = getBenefitedFamilies(lot);
+                return (
                 <Card 
                   key={lot.id} 
                   className="group border-0 shadow-sm bg-white rounded-2xl hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 overflow-hidden cursor-pointer"
@@ -1067,12 +1113,20 @@ const Lotes = () => {
                             </span>
                             <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
                               <MapPin size={14} weight="fill" className="text-slate-300" />
-                              {lot.city && lot.state ? `${lot.city}, ${lot.state}` : lot.city || lot.state || "Local não inf."}
+                              {labels.isMarcaColetiva && (lot as any).associations?.[0]
+                                ? `${(lot as any).associations[0].city || "N/A"}, ${(lot as any).associations[0].state || "N/A"}`
+                                : lot.city && lot.state ? `${lot.city}, ${lot.state}` : lot.city || lot.state || "Local não inf."}
                             </span>
                             {lot.created_at && (
                               <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
                                 <Calendar size={14} weight="fill" className="text-slate-300" />
                                 {new Date(lot.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                              </span>
+                            )}
+                            {benefitedFamilies > 0 && (
+                              <span className="flex items-center gap-1 text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
+                                <Users size={12} weight="fill" />
+                                Beneficiadas {benefitedFamilies} famílias
                               </span>
                             )}
                           </div>
@@ -1151,7 +1205,7 @@ const Lotes = () => {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              )})}
             </div>
           )}
         </div>

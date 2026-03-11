@@ -64,6 +64,9 @@ interface AssociationFormData {
   id?: string;
   name: string;
   type: string;
+  partner_kind: string;
+  parent_association_id?: string;
+  partner_group_key?: string;
   city: string;
   state: string;
   cep: string;
@@ -79,7 +82,10 @@ interface AssociationFormData {
 
 const defaultForm: AssociationFormData = {
   name: "",
-  type: "associacao",
+  type: "parceiro",
+  partner_kind: "parceiro",
+  parent_association_id: "",
+  partner_group_key: "",
   city: "",
   state: "",
   cep: "",
@@ -139,6 +145,19 @@ export default function Associacoes() {
   const [branding, setBranding] = useState<any>(null);
   const { tenant } = useTenant();
   const labels = useTenantLabels();
+  const partnerKindLabel = (kind?: string | null) => {
+    switch (kind) {
+      case "cooperativa_principal":
+        return "Cooperativa Principal";
+      case "cooperativa_singular":
+        return "Cooperativa Singular";
+      case "empresa_participante":
+        return "Empresa Participante";
+      case "parceiro":
+      default:
+        return labels.isMarcaColetiva ? "Outros Parceiros" : "Parceiro";
+    }
+  };
 
   const { searchCEP } = useCEP((data) => {
     setForm((prev: any) => ({
@@ -183,7 +202,7 @@ export default function Associacoes() {
       );
       setItems(dataWithCounts);
     } catch (e) {
-      toast.error("Erro ao carregar associações");
+      toast.error("Erro ao carregar parceiros");
     } finally {
       setLoading(false);
     }
@@ -195,7 +214,10 @@ export default function Associacoes() {
     setForm({
       id: item.id,
       name: item.name || "",
-      type: item.type || "associacao",
+      type: item.type || "parceiro",
+      partner_kind: item.partner_kind || "parceiro",
+      parent_association_id: item.parent_association_id || "",
+      partner_group_key: item.partner_group_key || "",
       city: item.city || "",
       state: item.state || "",
       cep: contactInfo.cep || item.cep || "",
@@ -241,10 +263,18 @@ export default function Associacoes() {
         return;
       }
       
+      if (["cooperativa_singular", "empresa_participante"].includes(form.partner_kind) && !form.parent_association_id) {
+        toast.error("Selecione a cooperativa principal para este parceiro.");
+        return;
+      }
+
       // Preparar dados para envio - mover cep para contact_info
       const dataToSend = {
         name: form.name,
         type: form.type,
+        partner_kind: form.partner_kind,
+        parent_association_id: form.parent_association_id || null,
+        partner_group_key: form.partner_group_key || null,
         city: form.city,
         state: form.state,
         description: form.description || null,
@@ -289,9 +319,11 @@ export default function Associacoes() {
   };
 
   const filteredItems = items.filter(item => {
+    const isCoopRole = ["cooperativa_principal", "cooperativa_singular"].includes(item.partner_kind || item.type);
+    if (labels.isMarcaColetiva && isCoopRole) return false;
     const search = searchTerm.toLowerCase();
     const matchesSearch = item.name.toLowerCase().includes(search) || item.city?.toLowerCase().includes(search);
-    const matchesType = filterType === "all" || item.type === filterType;
+    const matchesType = filterType === "all" || (item.partner_kind || item.type) === filterType;
     return matchesSearch && matchesType;
   });
 
@@ -329,7 +361,11 @@ export default function Associacoes() {
               <Handshake size={32} style={{ color: primaryColor }} weight="fill" />
               {labels.associations}
             </h2>
-            <p className="text-slate-500 font-medium text-sm">Entidades que organizam e apoiam os(as) {labels.producers.toLowerCase()}.</p>
+            <p className="text-slate-500 font-medium text-sm">
+              {labels.isMarcaColetiva
+                ? "Cadastre cooperativas principais/singulares e parceiros do ecossistema."
+                : `Entidades que organizam e apoiam os(as) ${labels.producers.toLowerCase()}.`}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline" className="rounded-xl font-bold gap-2 text-slate-600 border-slate-200">
@@ -369,10 +405,15 @@ export default function Associacoes() {
                   </div>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl border-slate-100 shadow-xl">
-                  <SelectItem value="all" className="font-bold">Todos os Tipos</SelectItem>
-                  <SelectItem value="associacao" className="font-medium">Associação</SelectItem>
-                  <SelectItem value="cooperativa" className="font-medium">Cooperativa</SelectItem>
-                  <SelectItem value="outros" className="font-medium">Outros</SelectItem>
+                  <SelectItem value="all" className="font-bold">Todos os Papéis</SelectItem>
+                  {!labels.isMarcaColetiva && (
+                    <>
+                      <SelectItem value="cooperativa_principal" className="font-medium">Cooperativa Principal</SelectItem>
+                      <SelectItem value="cooperativa_singular" className="font-medium">Cooperativa Singular</SelectItem>
+                    </>
+                  )}
+                  <SelectItem value="empresa_participante" className="font-medium">Empresa Participante</SelectItem>
+                  <SelectItem value="parceiro" className="font-medium">Parceiro</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -405,13 +446,15 @@ export default function Associacoes() {
                       <div>
                         <h4 className="text-lg font-black text-slate-900 line-clamp-1">{item.name}</h4>
                         <Badge className={`${
-                          item.type === 'cooperativa' 
+                          item.partner_kind === 'cooperativa_principal' 
                             ? 'bg-purple-50 text-purple-600' 
-                            : item.type === 'associacao'
-                            ? 'bg-emerald-50 text-emerald-600'
+                            : item.partner_kind === 'cooperativa_singular'
+                            ? 'bg-blue-50 text-blue-600'
+                            : item.partner_kind === 'empresa_participante'
+                            ? 'bg-amber-50 text-amber-600'
                             : 'bg-slate-100 text-slate-600'
                         } border-0 font-black text-[10px] uppercase rounded-md mt-1`}>
-                          {item.type}
+                          {partnerKindLabel(item.partner_kind || item.type)}
                         </Badge>
                       </div>
                     </div>
@@ -475,7 +518,7 @@ export default function Associacoes() {
                         {editing ? "Editar Entidade" : "Nova Entidade"}
                       </SheetTitle>
                       <SheetDescription className="text-slate-500 font-bold text-base">
-                        {editing ? `Gestão de ${editing.name}` : "Configure os dados da associação ou cooperativa."}
+                        {editing ? `Gestão de ${editing.name}` : "Configure os dados do parceiro."}
                       </SheetDescription>
                     </div>
                   </div>
@@ -530,9 +573,9 @@ export default function Associacoes() {
                       </div>
                       <div className="space-y-2">
                         <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                          <Tag size={16} style={{ color: primaryColor }} /> Tipo de Entidade
+                          <Tag size={16} style={{ color: primaryColor }} /> Papel do Parceiro
                         </Label>
-                        <Select value={form.type} onValueChange={v => setForm((prev: any) => ({...prev, type: v}))}>
+                        <Select value={form.partner_kind} onValueChange={v => setForm((prev: any) => ({...prev, partner_kind: v}))}>
                           <SelectTrigger 
                             className="rounded-xl bg-slate-50 border-0 h-12 focus:ring-primary"
                             style={{ '--primary': primaryColor } as any}
@@ -540,12 +583,51 @@ export default function Associacoes() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="rounded-xl">
-                            <SelectItem value="associacao">Associação</SelectItem>
-                            <SelectItem value="cooperativa">Cooperativa</SelectItem>
-                            <SelectItem value="outros">Outros</SelectItem>
+                            {!labels.isMarcaColetiva && (
+                              <>
+                                <SelectItem value="cooperativa_principal">Cooperativa Principal</SelectItem>
+                                <SelectItem value="cooperativa_singular">Cooperativa Singular</SelectItem>
+                              </>
+                            )}
+                            <SelectItem value="empresa_participante">Empresa Participante</SelectItem>
+                            <SelectItem value="parceiro">{labels.isMarcaColetiva ? "Outros Parceiros" : "Parceiro"}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                          <Tag size={16} style={{ color: primaryColor }} /> Chave do Grupo
+                        </Label>
+                        <Input
+                          value={form.partner_group_key || ""}
+                          onChange={e => setForm((prev: any) => ({ ...prev, partner_group_key: e.target.value }))}
+                          placeholder="Ex: cooperacre"
+                          className="focus-visible:ring-primary h-12"
+                          style={{ '--primary': primaryColor } as any}
+                        />
+                      </div>
+                      {!labels.isMarcaColetiva && ["cooperativa_singular", "empresa_participante"].includes(form.partner_kind) && (
+                        <div className="space-y-2 lg:col-span-3">
+                          <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                            <Tag size={16} style={{ color: primaryColor }} /> Cooperativa Principal *
+                          </Label>
+                          <Select
+                            value={form.parent_association_id || ""}
+                            onValueChange={v => setForm((prev: any) => ({ ...prev, parent_association_id: v }))}
+                          >
+                            <SelectTrigger className="rounded-xl bg-slate-50 border-0 h-12 focus:ring-primary" style={{ '--primary': primaryColor } as any}>
+                              <SelectValue placeholder="Selecione a cooperativa principal" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              {(items || [])
+                                .filter((assoc: any) => assoc.partner_kind === "cooperativa_principal")
+                                .map((assoc: any) => (
+                                  <SelectItem key={assoc.id} value={assoc.id}>{assoc.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                       <div className="space-y-2 lg:col-span-3">
                         <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
                           <ChatCircleText size={16} style={{ color: primaryColor }} /> Sobre a Organização

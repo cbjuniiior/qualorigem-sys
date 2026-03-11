@@ -70,4 +70,14 @@ export interface ProductLot {
       name: string;
     };
   }>;
+  participating_producers?: Array<{
+    id?: string;
+    producer_id?: string;
+    name?: string;
+    family_members?: number;
+    city?: string;
+    state?: string;
+    is_primary?: boolean;
+    role?: string | null;
+  }>;
 }

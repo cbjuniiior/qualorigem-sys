@@ -127,6 +127,9 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          parent_association_id: string | null
+          partner_group_key: string | null
+          partner_kind: string | null
           state: string | null
           type: string | null
           updated_at: string | null
@@ -140,6 +143,9 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          parent_association_id?: string | null
+          partner_group_key?: string | null
+          partner_kind?: string | null
           state?: string | null
           type?: string | null
           updated_at?: string | null
@@ -153,12 +159,22 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          parent_association_id?: string | null
+          partner_group_key?: string | null
+          partner_kind?: string | null
           state?: string | null
           type?: string | null
           updated_at?: string | null
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "associations_parent_association_id_fkey"
+            columns: ["parent_association_id"]
+            isOneToOne: false
+            referencedRelation: "associations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "associations_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -465,15 +481,20 @@ export type Database = {
           city: string
           created_at: string | null
           custom_prefix: string | null
+          coop_group_key: string | null
+          coop_role: string | null
           document_number: string | null
           email: string | null
+          family_members: number
           id: string
           latitude: number | null
           longitude: number | null
           lot_prefix_mode: string | null
           name: string
+          parent_producer_id: string | null
           phone: string | null
           photos: string[] | null
+          primary_association_id: string | null
           profile_picture_url: string | null
           property_description: string | null
           property_name: string
@@ -491,15 +512,20 @@ export type Database = {
           city: string
           created_at?: string | null
           custom_prefix?: string | null
+          coop_group_key?: string | null
+          coop_role?: string | null
           document_number?: string | null
           email?: string | null
+          family_members?: number
           id?: string
           latitude?: number | null
           longitude?: number | null
           lot_prefix_mode?: string | null
           name: string
+          parent_producer_id?: string | null
           phone?: string | null
           photos?: string[] | null
+          primary_association_id?: string | null
           profile_picture_url?: string | null
           property_description?: string | null
           property_name: string
@@ -517,15 +543,20 @@ export type Database = {
           city?: string
           created_at?: string | null
           custom_prefix?: string | null
+          coop_group_key?: string | null
+          coop_role?: string | null
           document_number?: string | null
           email?: string | null
+          family_members?: number
           id?: string
           latitude?: number | null
           longitude?: number | null
           lot_prefix_mode?: string | null
           name?: string
+          parent_producer_id?: string | null
           phone?: string | null
           photos?: string[] | null
+          primary_association_id?: string | null
           profile_picture_url?: string | null
           property_description?: string | null
           property_name?: string
@@ -535,6 +566,20 @@ export type Database = {
           tenant_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "producers_primary_association_id_fkey"
+            columns: ["primary_association_id"]
+            isOneToOne: false
+            referencedRelation: "associations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "producers_parent_producer_id_fkey"
+            columns: ["parent_producer_id"]
+            isOneToOne: false
+            referencedRelation: "producers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "producers_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -1221,6 +1266,7 @@ export type Database = {
         cooperativa_id: string | null
         name: string
         document: string | null
+        family_members: number
         city: string | null
         state: string | null
         created_at: string | null
@@ -1232,6 +1278,7 @@ export type Database = {
         cooperativa_id?: string | null
         name: string
         document?: string | null
+        family_members?: number
         city?: string | null
         state?: string | null
         created_at?: string | null
@@ -1243,6 +1290,7 @@ export type Database = {
         cooperativa_id?: string | null
         name?: string
         document?: string | null
+        family_members?: number
         city?: string | null
         state?: string | null
         created_at?: string | null
@@ -1338,6 +1386,55 @@ export type Database = {
         },
         {
           foreignKeyName: "pli_tenant_id_fkey"
+          columns: ["tenant_id"]
+          isOneToOne: false
+          referencedRelation: "tenants"
+          referencedColumns: ["id"]
+        }
+      ]
+    }
+    product_lot_participating_producers: {
+      Row: {
+        lot_id: string
+        producer_id: string
+        tenant_id: string
+        is_primary: boolean
+        role: string | null
+        created_at: string | null
+      }
+      Insert: {
+        lot_id: string
+        producer_id: string
+        tenant_id: string
+        is_primary?: boolean
+        role?: string | null
+        created_at?: string | null
+      }
+      Update: {
+        lot_id?: string
+        producer_id?: string
+        tenant_id?: string
+        is_primary?: boolean
+        role?: string | null
+        created_at?: string | null
+      }
+      Relationships: [
+        {
+          foreignKeyName: "product_lot_participating_producers_lot_id_fkey"
+          columns: ["lot_id"]
+          isOneToOne: false
+          referencedRelation: "product_lots"
+          referencedColumns: ["id"]
+        },
+        {
+          foreignKeyName: "product_lot_participating_producers_producer_id_fkey"
+          columns: ["producer_id"]
+          isOneToOne: false
+          referencedRelation: "producers"
+          referencedColumns: ["id"]
+        },
+        {
+          foreignKeyName: "product_lot_participating_producers_tenant_id_fkey"
           columns: ["tenant_id"]
           isOneToOne: false
           referencedRelation: "tenants"

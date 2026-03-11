@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Plus, 
   MagnifyingGlass, 
@@ -30,6 +30,7 @@ import { producersApi, associationsApi, systemConfigApi, brandsApi } from "@/ser
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useForm, FormProvider } from "react-hook-form";
@@ -56,6 +57,9 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useTenant } from "@/hooks/use-tenant";
 import { useTenantLabels } from "@/hooks/use-tenant-labels";
+import { LocationPicker } from "@/components/ui/location-picker";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import axios from "axios";
 
 interface Producer {
   id: string;
@@ -76,12 +80,21 @@ interface Producer {
   longitude: string | null;
   profile_picture_url: string | null;
   address_internal_only: boolean;
+  family_members?: number;
+  primary_association_id?: string | null;
+  coop_role?: "principal" | "singular" | null;
+  parent_producer_id?: string | null;
+  coop_group_key?: string | null;
 }
 
 const PRODUCER_STEPS = [
   { id: 1, title: "Responsável" },
   { id: 2, title: "Vínculos" },
   { id: 3, title: "Marcas" },
+];
+
+const BRAZILIAN_STATES = [
+  "AC","AL","AM","AP","BA","CE","DF","ES","GO","MA","MG","MS","MT","PA","PB","PE","PI","PR","RJ","RN","RO","RR","RS","SC","SE","SP","TO"
 ];
 
 const FormSection = ({ title, icon: Icon, children, description, active, primaryColor }: any) => {
@@ -184,6 +197,15 @@ const Produtores = () => {
     p.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.phone?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  const principalNamesById = useMemo(() => {
+    const map = new Map<string, string>();
+    producers.forEach((item) => {
+      if (item?.id) {
+        map.set(item.id, item.name);
+      }
+    });
+    return map;
+  }, [producers]);
 
   const primaryColor = branding?.primaryColor || '#16a34a';
 
@@ -219,9 +241,13 @@ const Produtores = () => {
           <div className="space-y-1">
             <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
               <Users size={32} style={{ color: primaryColor }} weight="fill" />
-              {labels.producers} Parceiros
+              {labels.isMarcaColetiva ? labels.producers : `${labels.producers} Parceiros`}
             </h2>
-            <p className="text-slate-500 font-medium text-sm">Gerencie as propriedades e responsáveis pela produção.</p>
+            <p className="text-slate-500 font-medium text-sm">
+              {labels.isMarcaColetiva
+                ? "Gerencie cooperativas, vínculos institucionais e marcas."
+                : "Gerencie as propriedades e responsáveis pela produção."}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline" className="rounded-xl font-bold gap-2 text-slate-600 border-slate-200">
@@ -242,7 +268,7 @@ const Produtores = () => {
             <div className="relative">
               <MagnifyingGlass className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
               <Input
-                placeholder="Buscar por nome, e-mail ou telefone..."
+                placeholder={labels.isMarcaColetiva ? "Buscar por nome ou telefone..." : "Buscar por nome, e-mail ou telefone..."}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-12 h-12 bg-slate-50 border-0 rounded-xl focus-visible:ring-primary font-medium"
@@ -311,6 +337,28 @@ const Produtores = () => {
                           </DropdownMenu>
                         </div>
                         <div className="space-y-2 mt-3">
+                          {labels.isMarcaColetiva && prod.coop_role && (
+                            <div className="flex items-center gap-2 text-xs font-black">
+                              <Badge
+                                className={`border-0 ${
+                                  prod.coop_role === "principal"
+                                    ? "bg-purple-50 text-purple-700"
+                                    : "bg-blue-50 text-blue-700"
+                                }`}
+                              >
+                                {prod.coop_role === "principal" ? "Cooperativa Principal" : "Cooperativa Singular"}
+                              </Badge>
+                            </div>
+                          )}
+                          {labels.isMarcaColetiva && prod.coop_role === "singular" && prod.parent_producer_id && (
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-violet-50 border border-violet-100 text-[10px] font-medium text-violet-700 w-fit">
+                              <Buildings size={12} weight="fill" />
+                              <span className="uppercase tracking-wide text-violet-500">Principal</span>
+                              <span className="text-violet-700 normal-case tracking-normal">
+                                {principalNamesById.get(prod.parent_producer_id) || "Não informada"}
+                              </span>
+                            </div>
+                          )}
                           {prod.email && (
                             <div className="flex items-center gap-2 text-xs font-bold text-slate-400">
                               <Envelope size={14} weight="fill" className="text-slate-300" /> {prod.email}
@@ -373,7 +421,11 @@ const Produtores = () => {
                         {editingProducer ? `Editar ${labels.producer}` : `Novo ${labels.producer}`}
                       </SheetTitle>
                       <SheetDescription className="text-slate-500 font-bold text-base">
-                        {editingProducer ? `Perfil de ${editingProducer.name}` : `Cadastre as informações do ${labels.producer.toLowerCase()} e sua propriedade.`}
+                        {editingProducer
+                          ? `Perfil de ${editingProducer.name}`
+                          : labels.isMarcaColetiva
+                            ? "Cadastre as informações da cooperativa e seus vínculos."
+                            : `Cadastre as informações do ${labels.producer.toLowerCase()} e sua propriedade.`}
                       </SheetDescription>
                     </div>
                   </div>
@@ -427,6 +479,10 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
   const [editingBrand, setEditingBrand] = useState<any | null>(null);
   const [brandForm, setBrandForm] = useState({ name: "", logo_url: "" });
   const [producerId, setProducerId] = useState<string | null>(initialData?.id || null);
+  const [showBrandForm, setShowBrandForm] = useState(false);
+  const [cities, setCities] = useState<any[]>([]);
+  const [loadingCities, setLoadingCities] = useState(false);
+  const [principalCooperatives, setPrincipalCooperatives] = useState<any[]>([]);
   const { tenant } = useTenant();
   const labels = useTenantLabels();
 
@@ -439,6 +495,19 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
       email: "",
       phone: "",
       profile_picture_url: "",
+      city: "",
+      state: "",
+      address: "",
+      latitude: "",
+      longitude: "",
+      property_name: "",
+      property_description: "",
+      photos: [],
+      family_members: 1,
+      primary_association_id: "",
+      coop_role: "principal",
+      parent_producer_id: "",
+      coop_group_key: "",
       associations: [],
     },
   });
@@ -458,6 +527,51 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
       brandsApi.getByProducer(id, tenant.id).then(setBrands);
     }
   }, [producerId, initialData, setValue, tenant]);
+
+  useEffect(() => {
+    const loadPrincipals = async () => {
+      if (!tenant?.id || !labels.isMarcaColetiva) return;
+      try {
+        const principals = await producersApi.getPrincipals(tenant.id);
+        setPrincipalCooperatives(
+          (principals || []).filter((item: any) => item.id !== (producerId || initialData?.id))
+        );
+      } catch {
+        setPrincipalCooperatives([]);
+      }
+    };
+    loadPrincipals();
+  }, [tenant?.id, labels.isMarcaColetiva, producerId, initialData?.id]);
+
+  const selectedState = watch("state");
+  const selectedCity = watch("city");
+  const partnerAssociations = labels.isMarcaColetiva
+    ? allAssociations.filter(
+        (assoc: any) => !["cooperativa_principal", "cooperativa_singular"].includes(assoc.partner_kind)
+      )
+    : allAssociations;
+
+  useEffect(() => {
+    const loadCities = async () => {
+      if (!selectedState) {
+        setCities([]);
+        return;
+      }
+
+      setLoadingCities(true);
+      try {
+        const response = await axios.get(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${selectedState}/municipios`);
+        const sortedCities = (response.data || []).sort((a: any, b: any) => a.nome.localeCompare(b.nome));
+        setCities(sortedCities);
+      } catch (error) {
+        setCities([]);
+      } finally {
+        setLoadingCities(false);
+      }
+    };
+
+    loadCities();
+  }, [selectedState]);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: "profile" | "property") => {
     const files = Array.from(e.target.files || []);
@@ -549,6 +663,7 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
 
   const handleEditBrand = (brand: any) => {
     setEditingBrand(brand);
+    setShowBrandForm(true);
     setBrandForm({ name: brand.name, logo_url: brand.logo_url || "" });
   };
 
@@ -560,18 +675,31 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
     
     setLoading(true);
     try {
-      const associations = selectedAssociations.length > 0 ? selectedAssociations : (data.associations || []);
       const { associations: _, ...rest } = data;
+      const associations = selectedAssociations.length > 0 ? [...selectedAssociations] : [...(data.associations || [])];
+      if (rest.primary_association_id && !associations.includes(rest.primary_association_id)) {
+        associations.push(rest.primary_association_id);
+      }
       
       const producerData: any = {
         name: rest.name,
-        document_number: rest.document_number || null,
+        document_number: labels.isMarcaColetiva ? null : rest.document_number || null,
         email: rest.email || null,
         phone: rest.phone || null,
         profile_picture_url: rest.profile_picture_url || null,
-        city: "N/A", 
-        state: "N/A", 
-        property_name: "N/A", 
+        city: rest.city || "N/A",
+        state: rest.state || "N/A",
+        address: rest.address || null,
+        latitude: rest.latitude || null,
+        longitude: rest.longitude || null,
+        property_name: rest.property_name || "N/A",
+        property_description: rest.property_description || null,
+        photos: rest.photos || [],
+        family_members: labels.isMarcaColetiva ? 1 : Number(rest.family_members || 1),
+        primary_association_id: rest.primary_association_id || associations[0] || null,
+        coop_role: labels.isMarcaColetiva ? (rest.coop_role || "principal") : null,
+        parent_producer_id: labels.isMarcaColetiva && rest.coop_role === "singular" ? (rest.parent_producer_id || null) : null,
+        coop_group_key: labels.isMarcaColetiva ? (rest.coop_group_key || null) : null,
         tenant_id: tenant.id
       };
       
@@ -615,8 +743,12 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
     if (currentStep === 1) {
       const name = watch("name");
       const email = watch("email");
-      if (!name || !email) {
-        toast.error("Preencha nome e e-mail");
+      if (!name || (!labels.isMarcaColetiva && !email)) {
+        toast.error(labels.isMarcaColetiva ? "Preencha ao menos o nome" : "Preencha nome e e-mail");
+        return false;
+      }
+      if (labels.isMarcaColetiva && watch("coop_role") === "singular" && !watch("parent_producer_id")) {
+        toast.error("Selecione a cooperativa principal para cooperativa singular");
         return false;
       }
     }
@@ -636,9 +768,9 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
       >
         <div className="flex-1 overflow-y-auto p-8 space-y-12 pb-10">
           <FormSection 
-            title="Dados do Responsável" 
+            title={labels.isMarcaColetiva ? "Dados da Cooperativa" : "Dados do Responsável"} 
             icon={IdentificationCard} 
-            description="Informações de contato e identificação"
+            description={labels.isMarcaColetiva ? "Informações principais da cooperativa" : "Informações de contato e identificação"}
             active={currentStep === 1}
             primaryColor={primaryColor}
           >
@@ -667,32 +799,34 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
               <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                    <IdentificationCard size={16} style={{ color: primaryColor }} /> Nome Completo *
+                    <IdentificationCard size={16} style={{ color: primaryColor }} /> {labels.isMarcaColetiva ? "Nome da Cooperativa *" : "Nome Completo *"}
                   </Label>
-                  <Input {...register("name")} placeholder="Ex: João da Silva" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
+                  <Input {...register("name")} placeholder={labels.isMarcaColetiva ? "Ex: Cooperativa Exemplo" : "Ex: João da Silva"} className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
                 </div>
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                    <At size={16} style={{ color: primaryColor }} /> E-mail de Contato *
+                    <At size={16} style={{ color: primaryColor }} /> E-mail de Contato {!labels.isMarcaColetiva ? "*" : "(opcional)"}
                   </Label>
-                  <Input {...register("email")} placeholder="joao@fazenda.com" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
+                  <Input {...register("email")} placeholder="contato@cooperativa.com" className="h-12 focus-visible:ring-primary" style={{ '--primary': primaryColor } as any} />
                 </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
-                    <IdentificationCard size={16} style={{ color: primaryColor }} /> CPF/CNPJ
-                  </Label>
-                  <Input 
-                    {...register("document_number")} 
-                    onChange={(e) => {
-                      const masked = maskCPFCNPJ(e.target.value);
-                      setValue("document_number", masked);
-                    }}
-                    placeholder="000.000.000-00" 
-                    maxLength={18}
-                    className="h-12 focus-visible:ring-primary" 
-                    style={{ '--primary': primaryColor } as any} 
-                  />
-                </div>
+                {!labels.isMarcaColetiva && (
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                      <IdentificationCard size={16} style={{ color: primaryColor }} /> CPF/CNPJ
+                    </Label>
+                    <Input 
+                      {...register("document_number")} 
+                      onChange={(e) => {
+                        const masked = maskCPFCNPJ(e.target.value);
+                        setValue("document_number", masked);
+                      }}
+                      placeholder="000.000.000-00" 
+                      maxLength={18}
+                      className="h-12 focus-visible:ring-primary" 
+                      style={{ '--primary': primaryColor } as any} 
+                    />
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
                     <Phone size={16} style={{ color: primaryColor }} /> Telefone/WhatsApp
@@ -709,6 +843,66 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
                     style={{ '--primary': primaryColor } as any} 
                   />
                 </div>
+                {!labels.isMarcaColetiva && (
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                      <Users size={16} style={{ color: primaryColor }} /> Pessoas da família
+                    </Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      {...register("family_members", { valueAsNumber: true })}
+                      placeholder="1"
+                      className="h-12 focus-visible:ring-primary"
+                      style={{ '--primary': primaryColor } as any}
+                    />
+                  </div>
+                )}
+                {labels.isMarcaColetiva && (
+                  <>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                        <Tag size={16} style={{ color: primaryColor }} /> Papel da Cooperativa *
+                      </Label>
+                      <select
+                        className="w-full h-12 rounded-xl bg-slate-50 border border-slate-200 px-3 text-sm font-bold text-slate-700"
+                        value={watch("coop_role") || "principal"}
+                        onChange={(e) => setValue("coop_role", e.target.value)}
+                      >
+                        <option value="principal">Cooperativa Principal</option>
+                        <option value="singular">Cooperativa Singular</option>
+                      </select>
+                    </div>
+                    {watch("coop_role") === "singular" && (
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                          <Buildings size={16} style={{ color: primaryColor }} /> Cooperativa Principal *
+                        </Label>
+                        <select
+                          className="w-full h-12 rounded-xl bg-slate-50 border border-slate-200 px-3 text-sm font-bold text-slate-700"
+                          value={watch("parent_producer_id") || ""}
+                          onChange={(e) => setValue("parent_producer_id", e.target.value)}
+                        >
+                          <option value="">Selecionar principal</option>
+                          {principalCooperatives.map((principal: any) => (
+                            <option key={principal.id} value={principal.id}>{principal.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2 font-black text-slate-700 ml-1 mb-1">
+                        <Tag size={16} style={{ color: primaryColor }} /> Chave do Grupo
+                      </Label>
+                      <Input
+                        {...register("coop_group_key")}
+                        placeholder="Ex: cooperacre"
+                        className="h-12 focus-visible:ring-primary"
+                        style={{ '--primary': primaryColor } as any}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -717,12 +911,12 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
           <FormSection 
             title="Vínculos Institucionais" 
             icon={Users} 
-            description="Associações e cooperativas parceiras"
+            description="Associações, localização e história da cooperativa"
             active={currentStep === 2}
             primaryColor={primaryColor}
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
-              {allAssociations.map(assoc => {
+              {partnerAssociations.map(assoc => {
                 const isSelected = selectedAssociations.includes(assoc.id);
                 return (
                   <div 
@@ -768,14 +962,126 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
                   </div>
                 );
               })}
-              {allAssociations.length === 0 && (
+              {partnerAssociations.length === 0 && (
                 <div className="col-span-full py-20 text-center space-y-4">
                   <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
                     <WarningCircle size={40} className="text-slate-200" />
                   </div>
-                  <p className="text-slate-400 font-bold">Nenhuma associação cadastrada no sistema.</p>
+                  <p className="text-slate-400 font-bold">Nenhum parceiro institucional cadastrado no sistema.</p>
                 </div>
               )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-slate-100">
+              <div className="space-y-2">
+                <Label className="font-black text-slate-700 ml-1 mb-1">Estado (UF)</Label>
+                <Select
+                  value={selectedState || ""}
+                  onValueChange={(value) => {
+                    setValue("state", value, { shouldDirty: true });
+                    setValue("city", "", { shouldDirty: true });
+                  }}
+                >
+                  <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200">
+                    <SelectValue placeholder="Selecione o estado" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    {BRAZILIAN_STATES.map((uf) => (
+                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="font-black text-slate-700 ml-1 mb-1">Cidade</Label>
+                <Select
+                  value={selectedCity || ""}
+                  onValueChange={(value) => setValue("city", value, { shouldDirty: true })}
+                  disabled={!selectedState || loadingCities}
+                >
+                  <SelectTrigger className="h-12 rounded-xl bg-slate-50 border border-slate-200">
+                    <SelectValue placeholder={loadingCities ? "Carregando cidades..." : "Selecione a cidade"} />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl max-h-64">
+                    {(cities || []).map((city: any) => (
+                      <SelectItem key={city.id} value={city.nome}>{city.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label className="font-black text-slate-700 ml-1 mb-1">Endereço</Label>
+                <Input
+                  {...register("address")}
+                  placeholder="Ex: Estrada da comunidade, km 5"
+                  className="h-12 rounded-xl bg-slate-50 border border-slate-200"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label className="font-black text-slate-700 ml-1 mb-1">História / Descrição da Cooperativa</Label>
+                <Textarea
+                  {...register("property_description")}
+                  placeholder="Conte a história, missão e contexto da cooperativa..."
+                  className="min-h-[120px] rounded-xl bg-slate-50 border border-slate-200"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-6 border-t border-slate-100">
+              <Label className="font-black text-slate-700 ml-1 mb-1">Localização no mapa</Label>
+              <LocationPicker
+                value={
+                  watch("latitude") && watch("longitude")
+                    ? { lat: Number(watch("latitude")), lng: Number(watch("longitude")) }
+                    : null
+                }
+                onChange={(coords) => {
+                  setValue("latitude", coords.lat.toString());
+                  setValue("longitude", coords.lng.toString());
+                }}
+                primaryColor={primaryColor}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  {...register("latitude")}
+                  placeholder="Latitude"
+                  className="h-10 rounded-xl bg-slate-50 border border-slate-200"
+                />
+                <Input
+                  {...register("longitude")}
+                  placeholder="Longitude"
+                  className="h-10 rounded-xl bg-slate-50 border border-slate-200"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-6 border-t border-slate-100">
+              <Label className="font-black text-slate-700 ml-1 mb-1">Galeria de fotos da cooperativa</Label>
+              <div className="grid grid-cols-3 gap-3">
+                {(watch("photos") || []).map((photo: string, idx: number) => (
+                  <div key={idx} className="relative rounded-xl overflow-hidden border border-slate-200 group">
+                    <img src={photo} alt={`Foto ${idx + 1}`} className="w-full h-24 object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentPhotos = watch("photos") || [];
+                        setValue("photos", currentPhotos.filter((_: string, i: number) => i !== idx));
+                      }}
+                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 text-white text-xs font-bold"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('property-up')?.click()}
+                  className="h-24 rounded-xl border-2 border-dashed border-slate-200 flex items-center justify-center text-slate-500 font-bold"
+                >
+                  + Foto
+                </button>
+                <input id="property-up" type="file" multiple className="hidden" accept="image/*" onChange={e => handlePhotoUpload(e, "property")} />
+              </div>
             </div>
           </FormSection>
 
@@ -795,150 +1101,168 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Formulário de Marca */}
-                <div className="bg-slate-50 rounded-2xl p-6 space-y-4 border border-slate-100">
-                  <h4 className="font-black text-slate-900 text-lg">{editingBrand ? "Editar Marca" : "Nova Marca"}</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="font-black text-slate-700">Nome da Marca *</Label>
-                      {editingBrand ? (
-                        <div className="space-y-2">
-                          <Input
-                            value={brandForm.name}
-                            disabled
-                            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-                            className="h-12 bg-slate-100 text-slate-600 cursor-not-allowed"
-                          />
-                          <p className="text-xs text-slate-400 font-bold">O nome não pode ser alterado após a criação</p>
-                          <div className="space-y-1">
-                            <Label className="text-xs font-bold text-slate-500">Slug (URL)</Label>
-                            <Input
-                              value={editingBrand.slug}
-                              disabled
-                              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-                              className="h-10 bg-slate-100 text-slate-500 text-xs font-mono cursor-not-allowed"
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <Input
-                          value={brandForm.name}
-                          onChange={(e) => setBrandForm((prev) => ({ ...prev, name: e.target.value }))}
-                          onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
-                          placeholder="Ex: Café Premium"
-                          className="h-12"
-                        />
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="font-black text-slate-700">Logo da Marca</Label>
-                      <div className="flex items-center gap-3">
-                        {brandForm.logo_url && (
-                          <img src={brandForm.logo_url} alt="Logo" className="w-16 h-16 rounded-lg object-cover border border-slate-200 shadow-sm" />
-                        )}
-                        <label className="flex-1">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleBrandLogoUpload}
-                            className="hidden"
-                            id="brand-logo-input"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="w-full h-12 rounded-xl font-bold border-slate-200"
-                            onClick={() => {
-                              const input = document.getElementById('brand-logo-input') as HTMLInputElement;
-                              input?.click();
-                            }}
-                          >
-                            <Camera size={18} className="mr-2" /> {brandForm.logo_url ? "Alterar Logo" : "Enviar Logo"}
-                          </Button>
-                        </label>
-                      </div>
-                      {editingBrand && !brandForm.logo_url && (
-                        <p className="text-xs text-slate-400 font-bold">Nenhuma logo cadastrada</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-black text-slate-900 text-lg">Marcas Cadastradas</h4>
+                  {!showBrandForm && (
                     <Button
                       type="button"
-                      onClick={handleSaveBrand}
-                      className="flex-1 rounded-xl h-12 font-black text-white"
-                      style={{ backgroundColor: primaryColor }}
+                      variant="outline"
+                      onClick={() => {
+                        setEditingBrand(null);
+                        setBrandForm({ name: "", logo_url: "" });
+                        setShowBrandForm(true);
+                      }}
+                      className="rounded-xl h-10 font-black border-slate-200"
                     >
-                      {editingBrand ? "Atualizar Logo" : "Adicionar Marca"}
+                      Cadastrar nova marca
                     </Button>
-                    {editingBrand && (
+                  )}
+                </div>
+
+                {showBrandForm && (
+                  <div className="bg-slate-50 rounded-2xl p-6 space-y-4 border border-slate-100">
+                    <h4 className="font-black text-slate-900 text-lg">{editingBrand ? "Editar Marca" : "Nova Marca"}</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="font-black text-slate-700">Nome da Marca *</Label>
+                        {editingBrand ? (
+                          <div className="space-y-2">
+                            <Input
+                              value={brandForm.name}
+                              disabled
+                              onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                              className="h-12 bg-slate-100 text-slate-600 cursor-not-allowed"
+                            />
+                            <p className="text-xs text-slate-400 font-bold">O nome não pode ser alterado após a criação</p>
+                            <div className="space-y-1">
+                              <Label className="text-xs font-bold text-slate-500">Slug (URL)</Label>
+                              <Input
+                                value={editingBrand.slug}
+                                disabled
+                                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                                className="h-10 bg-slate-100 text-slate-500 text-xs font-mono cursor-not-allowed"
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <Input
+                            value={brandForm.name}
+                            onChange={(e) => setBrandForm((prev) => ({ ...prev, name: e.target.value }))}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
+                            placeholder="Ex: Café Premium"
+                            className="h-12"
+                          />
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="font-black text-slate-700">Logo da Marca</Label>
+                        <div className="flex items-center gap-3">
+                          {brandForm.logo_url && (
+                            <img src={brandForm.logo_url} alt="Logo" className="w-16 h-16 rounded-lg object-cover border border-slate-200 shadow-sm" />
+                          )}
+                          <label className="flex-1">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleBrandLogoUpload}
+                              className="hidden"
+                              id="brand-logo-input"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full h-12 rounded-xl font-bold border-slate-200"
+                              onClick={() => {
+                                const input = document.getElementById('brand-logo-input') as HTMLInputElement;
+                                input?.click();
+                              }}
+                            >
+                              <Camera size={18} className="mr-2" /> {brandForm.logo_url ? "Alterar Logo" : "Enviar Logo"}
+                            </Button>
+                          </label>
+                        </div>
+                        {editingBrand && !brandForm.logo_url && (
+                          <p className="text-xs text-slate-400 font-bold">Nenhuma logo cadastrada</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex gap-3">
+                      <Button
+                        type="button"
+                        onClick={async () => {
+                          await handleSaveBrand();
+                          setShowBrandForm(false);
+                        }}
+                        className="flex-1 rounded-xl h-12 font-black text-white"
+                        style={{ backgroundColor: primaryColor }}
+                      >
+                        {editingBrand ? "Atualizar Logo" : "Adicionar Marca"}
+                      </Button>
                       <Button
                         type="button"
                         variant="outline"
                         onClick={() => {
                           setEditingBrand(null);
                           setBrandForm({ name: "", logo_url: "" });
+                          setShowBrandForm(false);
                         }}
                         className="rounded-xl h-12 font-black border-slate-200"
                       >
                         Cancelar
                       </Button>
-                    )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Lista de Marcas */}
-                <div className="space-y-3">
-                  <h4 className="font-black text-slate-900 text-lg">Marcas Cadastradas</h4>
-                  {brands.length === 0 ? (
-                    <div className="py-12 text-center bg-slate-50 rounded-2xl border border-slate-100">
-                      <Tag size={32} className="text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-400 font-bold">Nenhuma marca cadastrada</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {brands.map((brand) => (
-                        <div
-                          key={brand.id}
-                          className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-100 hover:border-slate-200 transition-all"
-                        >
-                          {brand.logo_url ? (
-                            <img src={brand.logo_url} alt={brand.name} className="w-12 h-12 rounded-lg object-cover border border-slate-200" />
-                          ) : (
-                            <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center">
-                              <Tag size={20} className="text-slate-400" />
-                            </div>
-                          )}
-                          <div className="flex-1">
-                            <p className="font-black text-slate-900">{brand.name}</p>
-                            <p className="text-xs text-slate-400 font-bold">{brand.slug}</p>
+                {brands.length === 0 ? (
+                  <div className="py-12 text-center bg-slate-50 rounded-2xl border border-slate-100">
+                    <Tag size={32} className="text-slate-300 mx-auto mb-3" />
+                    <p className="text-slate-400 font-bold">Nenhuma marca cadastrada</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {brands.map((brand) => (
+                      <div
+                        key={brand.id}
+                        className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-100 hover:border-slate-200 transition-all"
+                      >
+                        {brand.logo_url ? (
+                          <img src={brand.logo_url} alt={brand.name} className="w-12 h-12 rounded-lg object-cover border border-slate-200" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center">
+                            <Tag size={20} className="text-slate-400" />
                           </div>
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEditBrand(brand)}
-                              className="h-8 w-8 rounded-lg text-slate-400 hover:text-primary"
-                              style={{ '--primary': primaryColor } as any}
-                            >
-                              <PencilSimple size={16} />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteBrand(brand.id)}
-                              className="h-8 w-8 rounded-lg text-slate-400 hover:text-rose-600"
-                            >
-                              <Trash size={16} />
-                            </Button>
-                          </div>
+                        )}
+                        <div className="flex-1">
+                          <p className="font-black text-slate-900">{brand.name}</p>
+                          <p className="text-xs text-slate-400 font-bold">{brand.slug}</p>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditBrand(brand)}
+                            className="h-8 w-8 rounded-lg text-slate-400 hover:text-primary"
+                            style={{ '--primary': primaryColor } as any}
+                          >
+                            <PencilSimple size={16} />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteBrand(brand.id)}
+                            className="h-8 w-8 rounded-lg text-slate-400 hover:text-rose-600"
+                          >
+                            <Trash size={16} />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </FormSection>
@@ -966,18 +1290,31 @@ const ProducerForm = ({ initialData, onSubmit, onCancel, branding, currentStep, 
                       try {
                         setLoading(true);
                         const formData = watch();
-                        const associations = selectedAssociations;
                         const { associations: _, ...rest } = formData;
+                        const associations = [...selectedAssociations];
+                        if (rest.primary_association_id && !associations.includes(rest.primary_association_id)) {
+                          associations.push(rest.primary_association_id);
+                        }
                         
                         const producerData: any = {
                           name: rest.name,
-                          document_number: rest.document_number || null,
+                          document_number: labels.isMarcaColetiva ? null : rest.document_number || null,
                           email: rest.email || null,
                           phone: rest.phone || null,
                           profile_picture_url: rest.profile_picture_url || null,
-                          city: "N/A",
-                          state: "N/A",
-                          property_name: "N/A",
+                          city: rest.city || "N/A",
+                          state: rest.state || "N/A",
+                          address: rest.address || null,
+                          latitude: rest.latitude || null,
+                          longitude: rest.longitude || null,
+                          property_name: rest.property_name || "N/A",
+                          property_description: rest.property_description || null,
+                          photos: rest.photos || [],
+                          family_members: labels.isMarcaColetiva ? 1 : Number(rest.family_members || 1),
+                          primary_association_id: rest.primary_association_id || associations[0] || null,
+                          coop_role: labels.isMarcaColetiva ? (rest.coop_role || "principal") : null,
+                          parent_producer_id: labels.isMarcaColetiva && rest.coop_role === "singular" ? (rest.parent_producer_id || null) : null,
+                          coop_group_key: labels.isMarcaColetiva ? (rest.coop_group_key || null) : null,
                           tenant_id: tenant.id
                         };
                         

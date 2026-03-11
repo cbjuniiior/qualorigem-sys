@@ -14,7 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { producersApi, productLotsApi, associationsApi, industriesApi, productLotCharacteristicsApi } from "@/services/api";
+import { producersApi, productLotsApi, associationsApi, industriesApi, productLotCharacteristicsApi, lotIndustriesApi, lotAssociationsApi, certificationsApi, internalProducersApi, lotParticipatingProducersApi } from "@/services/api";
 import { useBranding } from "@/hooks/use-branding";
 import { useAuth } from "@/hooks/use-auth";
 import { useTenant } from "@/hooks/use-tenant";
@@ -71,6 +71,11 @@ const Dashboard = () => {
     brand_id: "",
     industry_id: "",
     association_id: "",
+    industry_ids: [] as string[],
+    association_ids: [] as string[],
+    certification_ids: [] as string[],
+    internal_producer_ids: [] as string[],
+    participating_producer_ids: [] as string[],
     sensory_type: "nota",
     fragrance_score: 5,
     flavor_score: 5,
@@ -190,7 +195,11 @@ const Dashboard = () => {
         tenant_id: tenant.id
       };
 
-      const { components, characteristics, ...cleanLotData } = lotData;
+      const { 
+        components, characteristics, industry_ids, association_ids,
+        certification_ids, internal_producer_ids, participating_producer_ids,
+        ...cleanLotData 
+      } = lotData as any;
       const sanitizedLotData = sanitizeUuidFields(cleanLotData as Record<string, unknown>, ["producer_id", "brand_id", "association_id", "industry_id"]);
       const newLot = await productLotsApi.create(sanitizedLotData as any);
       
@@ -201,6 +210,12 @@ const Dashboard = () => {
       if (characteristics && characteristics.length > 0) {
         await Promise.all(characteristics.map(c => productLotCharacteristicsApi.create({ ...c, lot_id: newLot.id, tenant_id: tenant.id })));
       }
+
+      await lotIndustriesApi.syncLotIndustries(newLot.id, industry_ids || [], tenant.id);
+      await lotAssociationsApi.syncLotAssociations(newLot.id, association_ids || [], tenant.id);
+      await certificationsApi.syncLotCertifications(newLot.id, certification_ids || [], tenant.id);
+      await internalProducersApi.syncLotProducers(newLot.id, internal_producer_ids || [], tenant.id);
+      await lotParticipatingProducersApi.syncLotProducers(newLot.id, participating_producer_ids || [], tenant.id);
 
       toast.success("Lote criado com sucesso!");
       setShowLotSheet(false);
@@ -377,7 +392,12 @@ const Dashboard = () => {
                 </div>
               ) : (
                 <div className="divide-y divide-slate-50">
-                  {stats.recentLots.map((lot) => (
+                  {stats.recentLots.map((lot) => {
+                    const benefitedFamilies = (lot.participating_producers || []).reduce(
+                      (acc: number, producer: any) => acc + Number(producer.family_members || 1),
+                      0
+                    );
+                    return (
                     <div key={lot.id} className="group p-6 hover:bg-slate-50/50 transition-all flex items-center justify-between gap-4">
                       <div className="flex items-center gap-5">
                         <div className="relative">
@@ -397,10 +417,16 @@ const Dashboard = () => {
                         </div>
                         <div>
                           <h4 className="font-bold text-slate-900 group-hover:text-primary transition-colors">{lot.name}</h4>
-                          <div className="flex items-center gap-3 mt-1 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                            <span className="flex items-center gap-1"><MapPin size={14} weight="fill" className="text-slate-300" /> {lot.city && lot.state ? `${lot.city}, ${lot.state}` : lot.city || lot.state || "Local não inf."}</span>
+                          <div className="flex items-center gap-3 mt-1 text-xs font-bold text-slate-400 uppercase tracking-wider flex-wrap">
+                            <span className="flex items-center gap-1"><MapPin size={14} weight="fill" className="text-slate-300" /> {labels.isMarcaColetiva && (lot as any).associations?.[0] ? `${(lot as any).associations[0].city || "N/A"}, ${(lot as any).associations[0].state || "N/A"}` : lot.city && lot.state ? `${lot.city}, ${lot.state}` : lot.city || lot.state || "Local não inf."}</span>
                             <span className="h-1 w-1 bg-slate-300 rounded-full" />
                             <span className="flex items-center gap-1"><Calendar size={14} weight="fill" className="text-slate-300" /> Safra {lot.harvest_year}</span>
+                            {benefitedFamilies > 0 && (
+                              <>
+                                <span className="h-1 w-1 bg-slate-300 rounded-full" />
+                                <span className="text-emerald-600">Beneficiadas {benefitedFamilies} famílias</span>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -411,7 +437,7 @@ const Dashboard = () => {
                         <span className="font-mono text-[10px] text-slate-300 font-black tracking-tighter">#{lot.code}</span>
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
             </CardContent>

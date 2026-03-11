@@ -76,6 +76,7 @@ const LoteDetails = () => {
   const [loteData, setLoteData] = useState<LoteData | null>(null);
   const [loading, setLoading] = useState(true);
   const [producer, setProducer] = useState<any | null>(null);
+  const [principalProducer, setPrincipalProducer] = useState<any | null>(null);
   const [industries, setIndustries] = useState<any[]>([]);
   const [associations, setAssociations] = useState<any[]>([]);
   const [lotCertifications, setLotCertifications] = useState<any[]>([]);
@@ -215,7 +216,16 @@ const LoteDetails = () => {
         // Tentar obter dados do produtor do relacionamento
         if (data.producers) {
           const producerData = Array.isArray(data.producers) ? data.producers[0] : data.producers;
-          if (producerData) setProducer(producerData);
+          if (producerData) {
+            setProducer(producerData);
+            if (labels.isMarcaColetiva && producerData.id) {
+              producersApi.getById(producerData.id, tenant.id)
+                .then((fullProducer) => {
+                  if (fullProducer) setProducer(fullProducer);
+                })
+                .catch(() => {});
+            }
+          }
         } else if (data.producer_id) {
           try {
             const producerData = await producersApi.getById(data.producer_id, tenant.id);
@@ -291,7 +301,7 @@ const LoteDetails = () => {
     };
 
     fetchLoteData();
-  }, [codigo, tenant]);
+  }, [codigo, tenant, labels.isMarcaColetiva]);
 
   // Resetar countdown quando o vídeo é carregado
   useEffect(() => {
@@ -529,6 +539,30 @@ const LoteDetails = () => {
     }
   }, [producer]);
 
+  useEffect(() => {
+    const loadPrincipalProducer = async () => {
+      if (!tenant?.id || !labels.isMarcaColetiva) {
+        setPrincipalProducer(null);
+        return;
+      }
+
+      const currentProducer = producer || loteData?.producers;
+      if (!currentProducer || currentProducer.coop_role !== "singular" || !currentProducer.parent_producer_id) {
+        setPrincipalProducer(null);
+        return;
+      }
+
+      try {
+        const principal = await producersApi.getById(currentProducer.parent_producer_id, tenant.id);
+        setPrincipalProducer(principal || null);
+      } catch {
+        setPrincipalProducer(null);
+      }
+    };
+
+    loadPrincipalProducer();
+  }, [tenant?.id, labels.isMarcaColetiva, producer, loteData?.producers]);
+
   // Controlar scroll do body - desabilitar enquanto aguarda os 10s
   useEffect(() => {
     if (loteData?.youtube_video_url && !showInfoMessage) {
@@ -735,9 +769,41 @@ const LoteDetails = () => {
   // Detectar se é um blend (precisa estar antes de qualquer return)
   const isBlend = loteData && ((loteData.components && loteData.components.length > 0) || (loteData.lot_components && loteData.lot_components.length > 0));
   const blendComponents = loteData ? (loteData.components || loteData.lot_components || []) : [];
+  const currentProducer = producer || loteData?.producers;
+  const participatingProducers = ((loteData as any)?.participating_producers || []) as any[];
+  const singularAssociation = associations.find((assoc: any) => assoc.partner_kind === "cooperativa_singular");
+  const principalAssociation = associations.find((assoc: any) => assoc.partner_kind === "cooperativa_principal");
+  const legacyOriginAssociation = singularAssociation || principalAssociation || associations[0] || null;
+  const originAssociation = labels.isMarcaColetiva
+    ? (
+      currentProducer?.coop_role === "singular"
+        ? {
+            id: currentProducer.id,
+            name: currentProducer.name,
+            city: currentProducer.city,
+            state: currentProducer.state,
+            description: currentProducer.property_description,
+            logo_url: currentProducer.profile_picture_url,
+            partner_kind: "cooperativa_singular",
+          }
+        : currentProducer?.coop_role === "principal"
+          ? {
+              id: currentProducer.id,
+              name: currentProducer.name,
+              city: currentProducer.city,
+              state: currentProducer.state,
+              description: currentProducer.property_description,
+              logo_url: currentProducer.profile_picture_url,
+              partner_kind: "cooperativa_principal",
+            }
+          : legacyOriginAssociation
+    )
+    : null;
+  const benefitedFamilies = participatingProducers.length > 0
+    ? participatingProducers.reduce((acc: number, producer: any) => acc + Number(producer.family_members || 1), 0)
+    : (isBlend ? new Set(blendComponents.map((component: any) => component.producer_id).filter(Boolean)).size : 0);
   
   // Garantir que temos o produtor correto (prioridade para o estado carregado ou do lote)
-  const currentProducer = producer || loteData?.producers;
   const producerName = currentProducer?.name || `${labels.producer} não informado(a)`;
 
   if (loading) {
@@ -948,6 +1014,7 @@ const LoteDetails = () => {
           loteData={loteData}
           isBlend={isBlend}
           blendComponentsCount={blendComponents.length}
+          benefitedFamilies={benefitedFamilies}
           producerName={producerName}
           onScrollToContent={showLotInfo}
           branding={branding ? {
@@ -1060,6 +1127,7 @@ const LoteDetails = () => {
               blendComponents={blendComponents}
               producer={currentProducer}
               loteData={loteData}
+              associationOrigin={originAssociation}
               branding={branding || undefined}
             />
 
@@ -1083,9 +1151,9 @@ const LoteDetails = () => {
                   </div>
                   <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Certificações do Lote</h2>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
+                <div className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto">
                   {lotCertifications.map((cert: any) => (
-                    <div key={cert.id} className="bg-white rounded-2xl border border-slate-100 p-5 flex items-start gap-3 shadow-sm">
+                    <div key={cert.id} className="w-full sm:w-[320px] bg-white rounded-2xl border border-slate-100 p-5 flex items-start gap-3 shadow-sm">
                       <div className="p-2 bg-emerald-50 rounded-xl shrink-0">
                         <FileText size={20} className="text-emerald-600" weight="fill" />
                       </div>
@@ -1116,10 +1184,10 @@ const LoteDetails = () => {
 
             {/* Produtores internos (marca coletiva) */}
             {internalProducerCount > 0 && (
-              <div className="flex items-center justify-center gap-3 py-6 px-8 bg-blue-50 rounded-2xl max-w-md mx-auto mt-8">
+              <div className="flex items-center justify-center gap-3 py-6 px-8 bg-blue-50 rounded-2xl max-w-xl mx-auto mt-8">
                 <Users size={24} className="text-blue-600" weight="fill" />
-                <p className="text-sm font-bold text-blue-800">
-                  Este lote envolve <span className="text-lg">{internalProducerCount}</span> produtores associados
+                <p className="text-sm font-semibold text-blue-800 text-center break-words">
+                  Este lote envolve <span className="text-lg font-bold">{internalProducerCount}</span> produtores associados.
                 </p>
               </div>
             )}
@@ -1134,7 +1202,7 @@ const LoteDetails = () => {
             {(loteData.seals_quantity || (associations && associations.length > 0) || (industries && industries.length > 0)) && (
               <div className="pt-16 sm:pt-24 border-t border-slate-100">
                 <div className="text-center mb-12 sm:mb-16">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 text-slate-400 text-[10px] font-black uppercase tracking-widest mb-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-50 text-slate-500 text-xs font-semibold tracking-[0.04em] mb-4">
                     Garantia de Qualidade
                   </div>
                   <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight mb-3">Procedência e Certificação</h2>
@@ -1144,10 +1212,10 @@ const LoteDetails = () => {
                 </div>
 
                 <div className="max-w-6xl mx-auto px-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  <div className={`grid grid-cols-1 ${loteData.seals_quantity ? "md:grid-cols-2 lg:grid-cols-3" : "md:grid-cols-2"} gap-8`}>
                     {/* Selos de Rastreabilidade */}
                     {loteData.seals_quantity && (
-                      <div className="lg:col-span-1">
+                      <div className={`${associations.length === 0 && industries.length === 0 ? "md:col-span-2 lg:col-span-3 max-w-md mx-auto w-full" : "lg:col-span-1"}`}>
                         <div className="h-full bg-slate-950 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center relative overflow-hidden group shadow-2xl">
                           <div 
                             className="absolute inset-0 opacity-20 pointer-events-none transition-opacity duration-700 group-hover:opacity-30"
@@ -1162,12 +1230,12 @@ const LoteDetails = () => {
                           </div>
                           
                           <div className="relative z-10">
-                            <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.3em] mb-2">Selos Gerados</p>
+                            <p className="text-xs font-semibold text-white/60 tracking-[0.04em] mb-2">Selos gerados</p>
                             <div className="flex items-baseline gap-2 justify-center mb-2">
                               <span className="text-5xl font-black text-white tracking-tighter">{loteData.seals_quantity}</span>
-                              <span className="text-sm font-bold text-white/60 uppercase tracking-widest">Unidades</span>
+                              <span className="text-sm font-semibold text-white/70">unidades</span>
                             </div>
-                            <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Rastreabilidade Garantida</p>
+                            <p className="text-white/60 text-xs font-medium">Rastreabilidade garantida</p>
                           </div>
                         </div>
                       </div>
@@ -1186,13 +1254,18 @@ const LoteDetails = () => {
                             )}
                           </div>
                           <div className="text-left">
-                            <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-50 text-slate-400 text-[8px] font-black uppercase tracking-widest mb-1.5">
-                              {assoc.type || 'Associação'}
+                            <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-50 text-slate-500 text-[10px] font-semibold tracking-[0.04em] mb-1.5">
+                              {assoc.partner_kind || assoc.type || 'Associação'}
                             </div>
-                            <h4 className="text-lg font-black text-slate-900 leading-tight group-hover:text-primary transition-colors" style={{ '--primary': branding?.primaryColor || '#16a34a' } as any}>
+                            <h4 className="text-lg font-black text-slate-900 leading-tight break-words group-hover:text-primary transition-colors" style={{ '--primary': branding?.primaryColor || '#16a34a' } as any}>
                               {assoc.name}
                             </h4>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Parceiro Certificador</p>
+                            {assoc.parent_association_id && (
+                              <p className="text-xs text-slate-500 font-medium mt-1">
+                                Vinculada a uma cooperativa principal
+                              </p>
+                            )}
+                            <p className="text-xs text-slate-500 font-medium mt-1">Parceiro certificador</p>
                           </div>
                         </div>
                       ))}
@@ -1208,13 +1281,13 @@ const LoteDetails = () => {
                             )}
                           </div>
                           <div className="text-left">
-                            <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-50 text-slate-400 text-[8px] font-black uppercase tracking-widest mb-1.5">
-                              Indústria Parceira
+                            <div className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-50 text-slate-500 text-[10px] font-semibold tracking-[0.04em] mb-1.5">
+                              {labels.isIG ? "Processamento" : "Indústria Parceira"}
                             </div>
-                            <h4 className="text-lg font-black text-slate-900 leading-tight group-hover:text-primary transition-colors" style={{ '--primary': branding?.primaryColor || '#16a34a' } as any}>
+                            <h4 className="text-lg font-black text-slate-900 leading-tight break-words group-hover:text-primary transition-colors" style={{ '--primary': branding?.primaryColor || '#16a34a' } as any}>
                               {ind.name}
                             </h4>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">
+                            <p className="text-xs text-slate-500 font-medium mt-1 break-words">
                               {ind.city}, {ind.state}
                             </p>
                           </div>

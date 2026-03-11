@@ -11,6 +11,7 @@ interface HeroSectionProps {
   };
   isBlend: boolean;
   blendComponentsCount: number;
+  benefitedFamilies?: number;
   producerName?: string;
   onScrollToContent?: () => void;
   branding?: {
@@ -22,7 +23,7 @@ interface HeroSectionProps {
   };
 }
 
-export const HeroSection = ({ loteData, isBlend, blendComponentsCount, producerName, onScrollToContent, branding }: HeroSectionProps) => {
+export const HeroSection = ({ loteData, isBlend, blendComponentsCount, benefitedFamilies = 0, producerName, onScrollToContent, branding }: HeroSectionProps) => {
   const primaryColor = branding?.primaryColor || '#16a34a';
   const secondaryColor = branding?.secondaryColor || '#22c55e';
   const accentColor = branding?.accentColor || '#2563eb';
@@ -90,15 +91,15 @@ export const HeroSection = ({ loteData, isBlend, blendComponentsCount, producerN
                     <Fingerprint size={12} className="text-white" />
                   </div>
                 </div>
-                <span className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.3em] text-white/90">
-                  {isBlend ? 'Composição Blend' : 'Origem Controlada'}
+                <span className="text-[11px] md:text-xs font-semibold tracking-[0.08em] text-white/90">
+                  {isBlend ? 'Blend rastreado' : 'Origem rastreada'}
                 </span>
               </div>
             </div>
             
             {/* Título Principal Imponente */}
             <div className="relative mb-8 opacity-0 animate-[fadeInUp_1.2s_ease-out_0.5s_forwards]">
-              <h1 className="text-3xl sm:text-5xl md:text-7xl font-black text-white leading-tight tracking-tighter mb-4 drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+              <h1 className="text-3xl sm:text-5xl md:text-7xl font-black text-white leading-tight tracking-tight mb-4 drop-shadow-[0_20px_50px_rgba(0,0,0,0.5)] break-words">
                 {loteData?.name}
               </h1>
               
@@ -107,8 +108,8 @@ export const HeroSection = ({ loteData, isBlend, blendComponentsCount, producerN
                 
                 <div className="flex flex-col sm:flex-row justify-center items-center gap-6 sm:gap-8">
                   <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40 mb-1">Responsável</span>
-                    <span className="text-lg md:text-2xl font-bold text-white tracking-tight">
+                    <span className="text-[10px] font-semibold tracking-[0.08em] text-white/60 mb-1">Responsável</span>
+                    <span className="text-lg md:text-2xl font-bold text-white tracking-tight break-words text-center max-w-[240px] sm:max-w-none">
                       {isBlend ? `${blendComponentsCount} Produtores` : producerName}
                     </span>
                   </div>
@@ -116,11 +117,23 @@ export const HeroSection = ({ loteData, isBlend, blendComponentsCount, producerN
                   <div className="w-12 h-px bg-white/10 sm:w-px sm:h-10"></div>
                   
                   <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-black uppercase tracking-[0.25em] text-white/40 mb-1">Temporada</span>
+                    <span className="text-[10px] font-semibold tracking-[0.08em] text-white/60 mb-1">Safra</span>
                     <span className="text-lg md:text-2xl font-bold text-white tracking-tight">
                       Safra {loteData.harvest_year}
                     </span>
                   </div>
+
+                  {benefitedFamilies > 0 && (
+                    <>
+                      <div className="w-12 h-px bg-white/10 sm:w-px sm:h-10"></div>
+                      <div className="flex flex-col items-center">
+                        <span className="text-[10px] font-semibold tracking-[0.08em] text-white/60 mb-1">Impacto social</span>
+                        <span className="text-lg md:text-2xl font-bold text-white tracking-tight">
+                          {benefitedFamilies} famílias
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -141,8 +154,8 @@ export const HeroSection = ({ loteData, isBlend, blendComponentsCount, producerN
                 <CaretDown size={24} className="text-white/60 group-hover:text-white transition-all duration-500" />
               </div>
             </div>
-            <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/40 group-hover:text-white/70 transition-colors">
-              Explorar Origem
+            <span className="text-[10px] font-semibold tracking-[0.08em] text-white/50 group-hover:text-white/80 transition-colors">
+              Ver detalhes do lote
             </span>
           </button>
 
@@ -151,8 +164,8 @@ export const HeroSection = ({ loteData, isBlend, blendComponentsCount, producerN
             <div className="absolute inset-0 bg-white/5 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
             <div className="relative flex items-center gap-4 bg-white/[0.03] backdrop-blur-3xl rounded-2xl px-6 py-3 border border-white/5 shadow-2xl transition-all duration-500 hover:border-white/20">
               <div className="flex flex-col items-start">
-                <span className="text-[8px] font-black uppercase tracking-[0.3em] text-white/30 mb-0.5">Autenticidade</span>
-                <span className="text-xs md:text-sm text-white font-mono font-bold tracking-[0.2em] uppercase">
+                <span className="text-[10px] font-semibold tracking-[0.08em] text-white/50 mb-0.5">Código do lote</span>
+                <span className="text-xs md:text-sm text-white font-mono font-bold tracking-[0.08em] uppercase break-all">
                   #{loteData?.code}
                 </span>
               </div>

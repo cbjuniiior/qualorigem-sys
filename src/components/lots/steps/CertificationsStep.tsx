@@ -6,6 +6,7 @@ import { certificationsApi } from "@/services/api";
 import { useTenant } from "@/hooks/use-tenant";
 import { useTenantLabels } from "@/hooks/use-tenant-labels";
 import { Certificate, CheckCircle, FileText, Info } from "@phosphor-icons/react";
+import { toast } from "sonner";
 import type { Certification } from "@/services/api";
 
 interface CertificationsStepProps {
@@ -42,6 +43,10 @@ const CertificationsStep = ({ formData, setFormData, primaryColor = "#16a34a" }:
     setFormData((prev: any) => {
       const current: string[] = prev.certification_ids || [];
       const isSelected = current.includes(certId);
+      if (!isSelected && current.length >= 2) {
+        toast.warning("Selecione no máximo 2 certificações por lote.");
+        return prev;
+      }
       return {
         ...prev,
         certification_ids: isSelected

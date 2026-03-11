@@ -37,6 +37,15 @@ interface ProducersSectionProps {
   blendComponents: BlendComponent[];
   producer?: Producer;
   loteData?: PropertyInfo;
+  associationOrigin?: {
+    id: string;
+    name: string;
+    city?: string | null;
+    state?: string | null;
+    description?: string | null;
+    logo_url?: string | null;
+    partner_kind?: string | null;
+  } | null;
   branding?: {
     primaryColor: string;
     secondaryColor: string;
@@ -44,8 +53,9 @@ interface ProducersSectionProps {
   };
 }
 
-export const ProducersSection = ({ isBlend, blendComponents, producer, loteData, branding }: ProducersSectionProps) => {
+export const ProducersSection = ({ isBlend, blendComponents, producer, loteData, associationOrigin, branding }: ProducersSectionProps) => {
   const [activeTab, setActiveTab] = useState("0");
+  const labels = useTenantLabels();
   const primaryColor = branding?.primaryColor || '#16a34a';
   const secondaryColor = branding?.secondaryColor || '#22c55e';
   const accentColor = branding?.accentColor || '#10b981';
@@ -117,17 +127,33 @@ export const ProducersSection = ({ isBlend, blendComponents, producer, loteData,
             <div className="p-2 rounded-lg bg-gray-50">
               <User className="h-6 w-6 text-gray-700" weight="duotone" />
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Sobre a Origem</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+              {labels.isMarcaColetiva ? "Origem da Cooperativa" : "Sobre a Origem"}
+            </h2>
           </div>
           <p className="text-gray-500 ml-12 max-w-2xl text-sm sm:text-base">
-            Explore a propriedade onde este lote foi cultivado com dedicação e cuidado.
+            {labels.isMarcaColetiva
+              ? "Conheça a cooperativa de origem responsável por este lote."
+              : "Explore a propriedade onde este lote foi cultivado com dedicação e cuidado."}
           </p>
         </div>
         
         <div className="p-4 sm:p-8 bg-gray-50/30">
           <ProducerDetailsContent 
             data={loteData || producer} 
-            producer={producer}
+            producer={
+              associationOrigin
+                ? {
+                    ...(producer || ({} as Producer)),
+                    id: associationOrigin.id,
+                    name: associationOrigin.name,
+                    profile_picture_url: associationOrigin.logo_url || producer?.profile_picture_url || null,
+                    city: associationOrigin.city || producer?.city || null,
+                    state: associationOrigin.state || producer?.state || null,
+                    property_description: associationOrigin.description || producer?.property_description || null,
+                  }
+                : producer
+            }
             primaryColor={primaryColor} 
             secondaryColor={secondaryColor} 
             accentColor={accentColor}
@@ -258,7 +284,7 @@ const ProducerDetailsContent = ({ data, producer, primaryColor, secondaryColor, 
             <div className="inline-flex items-center gap-2 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full bg-slate-50 text-slate-400 text-[8px] sm:text-[10px] font-black uppercase tracking-widest mb-2 sm:mb-3">
               {labels.producerDescription}
             </div>
-            <h3 className="text-2xl sm:text-4xl font-black text-slate-900 leading-tight mb-3 sm:mb-6 tracking-tight">
+            <h3 className="text-2xl sm:text-4xl font-black text-slate-900 leading-tight mb-3 sm:mb-6 tracking-tight break-words">
               {producer?.name || `${labels.producer} não informado`}
             </h3>
             
@@ -284,7 +310,9 @@ const ProducerDetailsContent = ({ data, producer, primaryColor, secondaryColor, 
               <div className="p-2.5 rounded-xl bg-slate-50" style={{ color: primaryColor }}>
                 <MapTrifold size={24} weight="duotone" />
               </div>
-              <h4 className="text-lg font-black text-slate-900 tracking-tight">Sobre a {labels.property}</h4>
+              <h4 className="text-lg font-black text-slate-900 tracking-tight">
+                {labels.isMarcaColetiva ? "Sobre a cooperativa" : `Sobre a ${labels.property}`}
+              </h4>
             </div>
             
             {propertyDescription ? (
@@ -292,8 +320,10 @@ const ProducerDetailsContent = ({ data, producer, primaryColor, secondaryColor, 
                 {propertyDescription}
               </p>
             ) : (
-              <p className="text-slate-400 italic text-xs flex-1">
-                Nenhuma descrição disponível para esta propriedade.
+                <p className="text-slate-400 italic text-sm flex-1">
+                  {labels.isMarcaColetiva
+                    ? "Nenhuma descrição disponível para esta cooperativa."
+                    : "Nenhuma descrição disponível para esta propriedade."}
               </p>
             )}
 
@@ -333,7 +363,7 @@ const ProducerDetailsContent = ({ data, producer, primaryColor, secondaryColor, 
               {!mapCoords && !loadingMap && (
                 <div className="flex flex-col items-center justify-center h-full text-slate-300 p-8 text-center bg-slate-50">
                   <MapPin size={48} weight="thin" className="mb-4" />
-                  <p className="text-sm font-bold uppercase tracking-widest leading-relaxed">Localização exata<br/>não informada</p>
+                  <p className="text-sm font-semibold tracking-[0.04em] leading-relaxed">Localização exata não informada</p>
                 </div>
               )}
 
@@ -365,7 +395,7 @@ const ProducerDetailsContent = ({ data, producer, primaryColor, secondaryColor, 
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2 text-gray-900 font-semibold">
               <Images className="w-5 h-5 text-gray-500" weight="duotone" />
-              <h4>Galeria da {labels.property}</h4>
+                <h4>{labels.isMarcaColetiva ? "Galeria da cooperativa" : `Galeria da ${labels.property}`}</h4>
             </div>
             
             <div className="flex gap-2">
@@ -439,6 +469,6 @@ const InfoBadge = ({ icon, text, color }: { icon: React.ReactNode, text: string,
     }}
   >
     <div className="w-4 h-4">{icon}</div>
-    <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">{text}</span>
+    <span className="text-sm font-semibold text-gray-700 break-words">{text}</span>
   </div>
 );
