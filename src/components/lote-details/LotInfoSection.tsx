@@ -64,10 +64,10 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producer, p
         <p className="text-slate-400 font-bold uppercase text-[10px] tracking-[0.2em]">Detalhamento completo do lote</p>
       </div>
 
-      <div className="flex flex-wrap justify-center gap-6 max-w-6xl mx-auto">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
         {/* Safra */}
         <TechnicalCard 
-          icon={<Calendar size={28} weight="duotone" />} 
+          icon={<Calendar size={24} weight="duotone" />} 
           label="Safra" 
           value={loteData.harvest_year} 
           color={primaryColor} 
@@ -75,7 +75,7 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producer, p
 
         {/* Quantidade */}
         <TechnicalCard 
-          icon={<Scales size={28} weight="duotone" />} 
+          icon={<Scales size={24} weight="duotone" />} 
           label="Volume Total" 
           value={`${loteData.quantity} ${loteData.unit}`} 
           color={secondaryColor} 
@@ -84,7 +84,7 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producer, p
         {/* Variedade */}
         {loteData.variety && (
           <TechnicalCard 
-            icon={<Leaf size={28} weight="duotone" />} 
+            icon={<Leaf size={24} weight="duotone" />} 
             label="Variedade" 
             value={loteData.variety} 
             color={accentColor} 
@@ -95,7 +95,7 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producer, p
         {loteData.characteristics?.map((char) => (
           <TechnicalCard 
             key={char.id}
-            icon={<Info size={28} weight="duotone" />} 
+            icon={<Info size={24} weight="duotone" />} 
             label={char.characteristics.name} 
             value={char.value} 
             color={secondaryColor} 
@@ -107,16 +107,16 @@ export const LotInfoSection = ({ loteData, isBlend, blendComponents, producer, p
 };
 
 const TechnicalCard = ({ icon, label, value, color }: { icon: React.ReactNode, label: string, value: string | number, color: string }) => (
-  <div className="w-full sm:min-w-[200px] sm:max-w-[260px] bg-white p-5 sm:p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group flex flex-col items-center text-center">
+  <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all group">
     <div 
-      className="w-12 h-12 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110 shadow-sm"
+      className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110 shadow-sm"
       style={{ backgroundColor: `${color}10`, color }}
     >
-      {icon}
+      <div className="scale-90">{icon}</div>
     </div>
-    <div>
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-      <p className="text-base font-black text-slate-900 leading-tight">{value}</p>
+    <div className="text-left">
+      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
+      <p className="text-sm font-black text-slate-900 leading-tight">{value}</p>
     </div>
   </div>
 );

@@ -45,8 +45,6 @@ const stateOptions = [
 export const BlendComposition = ({ formData, setFormData, producers, associations, branding }: BlendCompositionProps) => {
   const [expandedComponents, setExpandedComponents] = useState<Set<string>>(new Set());
   const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null);
-  const [citiesByState, setCitiesByState] = useState<Record<string, { id: number; nome: string }[]>>({});
-  const [loadingCitiesByState, setLoadingCitiesByState] = useState<Record<string, boolean>>({});
 
   const primaryColor = branding?.primaryColor || '#16a34a';
   const secondaryColor = branding?.secondaryColor || '#22c55e';
@@ -57,37 +55,14 @@ export const BlendComposition = ({ formData, setFormData, producers, association
     const totalQuantity = formData.components.reduce((sum: any, component: any) => {
       return sum + (parseFloat(component.component_quantity) || 0);
     }, 0);
-
-    setFormData((prev: any) => {
-      const currentTotal = parseFloat(prev.quantity) || 0;
-      if (currentTotal === totalQuantity) return prev;
-      return { ...prev, quantity: totalQuantity.toString() };
-    });
-  }, [formData.components, setFormData]);
-
-  // Carregar cidades do IBGE por estado (cache por UF)
-  useEffect(() => {
-    const statesToFetch = new Set<string>();
-    (formData.components || []).forEach((c: any) => {
-      if (c.state && !citiesByState[c.state] && !loadingCitiesByState[c.state]) {
-        statesToFetch.add(c.state);
-      }
-    });
-    if (statesToFetch.size === 0) return;
-
-    statesToFetch.forEach((state) => {
-      setLoadingCitiesByState((prev) => ({ ...prev, [state]: true }));
-      fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${state}/municipios`)
-        .then((res) => res.json())
-        .then((data: { id: number; nome: string }[]) => {
-          const sorted = (data || []).sort((a, b) => a.nome.localeCompare(b.nome));
-          setCitiesByState((prev) => ({ ...prev, [state]: sorted }));
-        })
-        .catch((err) => console.error("Erro ao buscar cidades:", err))
-        .finally(() => {
-          setLoadingCitiesByState((prev) => ({ ...prev, [state]: false }));
-        });
-    });
+    
+    // Só atualizar se a quantidade calculada for diferente da atual
+    if (parseFloat(formData.quantity) !== totalQuantity) {
+      setFormData({ 
+        ...formData, 
+        quantity: totalQuantity.toString()
+      });
+    }
   }, [formData.components]);
 
   const addComponent = () => {
@@ -110,61 +85,65 @@ export const BlendComposition = ({ formData, setFormData, producers, association
       state: "",
       photos: [] as string[]
     };
-    setFormData((prev: any) => ({
-      ...prev,
-      components: [...(prev.components || []), newComponent]
-    }));
+    setFormData({
+      ...formData,
+      components: [...formData.components, newComponent]
+    });
     setExpandedComponents(new Set([...expandedComponents, newComponent.id]));
   };
 
   const removeComponent = (index: number) => {
-    setFormData((prev: any) => {
-      const newComponents = (prev.components || []).filter((_: any, i: number) => i !== index);
-      const totalQuantity = newComponents.reduce((sum: any, component: any) => {
-        return sum + (parseFloat(component.component_quantity) || 0);
-      }, 0);
-      return {
-        ...prev,
-        components: newComponents,
-        quantity: totalQuantity.toString()
-      };
+    const newComponents = formData.components.filter((_: any, i: number) => i !== index);
+    
+    // Recalcular a quantidade total após remover um componente
+    const totalQuantity = newComponents.reduce((sum: any, component: any) => {
+      return sum + (parseFloat(component.component_quantity) || 0);
+    }, 0);
+    
+    setFormData({ 
+      ...formData, 
+      components: newComponents,
+      quantity: totalQuantity.toString()
     });
   };
 
   const updateComponent = (index: number, field: string, value: any) => {
-    setFormData((prev: any) => {
-      const newComponents = [...(prev.components || [])];
-      newComponents[index] = { ...newComponents[index], [field]: value };
+    const newComponents = [...formData.components];
+    newComponents[index] = { ...newComponents[index], [field]: value };
+    
+    // Se a quantidade de um componente foi alterada, recalcular a quantidade total
+    if (field === 'component_quantity') {
       const totalQuantity = newComponents.reduce((sum: any, component: any) => {
         return sum + (parseFloat(component.component_quantity) || 0);
       }, 0);
-      return {
-        ...prev,
+      
+      setFormData({ 
+        ...formData, 
         components: newComponents,
         quantity: totalQuantity.toString()
-      };
-    });
+      });
+    } else {
+      setFormData({ ...formData, components: newComponents });
+    }
   };
 
   const handleProducerChange = (index: number, producerId: string) => {
     const producer = producers.find(p => p.id === producerId);
     if (producer) {
-      setFormData((prev: any) => {
-        const newComponents = [...(prev.components || [])];
-        newComponents[index] = {
-          ...newComponents[index],
-          producer_id: producerId,
-          property_name: producer.property_name || "",
-          city: producer.city || "",
-          state: producer.state || "",
-          latitude: producer.latitude || undefined,
-          longitude: producer.longitude || undefined,
-          altitude: producer.altitude || undefined,
-          property_description: producer.property_description || "",
-          photos: producer.photos || []
-        };
-        return { ...prev, components: newComponents };
-      });
+      const newComponents = [...formData.components];
+      newComponents[index] = {
+        ...newComponents[index],
+        producer_id: producerId,
+        property_name: producer.property_name || "",
+        city: producer.city || "",
+        state: producer.state || "",
+        latitude: producer.latitude || undefined,
+        longitude: producer.longitude || undefined,
+        altitude: producer.altitude || undefined,
+        property_description: producer.property_description || "",
+        photos: producer.photos || []
+      };
+      setFormData({ ...formData, components: newComponents });
     }
   };
 
@@ -230,7 +209,7 @@ export const BlendComposition = ({ formData, setFormData, producers, association
           
           <div className="space-y-2">
             <Label className="font-black text-slate-700 ml-1 text-xs">Unidade Matéria Prima *</Label>
-            <Select value={formData.unit} onValueChange={value => setFormData((prev: any) => ({ ...prev, unit: value }))}>
+            <Select value={formData.unit} onValueChange={value => setFormData({ ...formData, unit: value })}>
               <SelectTrigger className="h-12 bg-white border-0 rounded-xl font-bold focus:ring-primary" style={{ '--primary': primaryColor } as any}>
                 <SelectValue placeholder="Unidade" />
               </SelectTrigger>
@@ -249,7 +228,7 @@ export const BlendComposition = ({ formData, setFormData, producers, association
               type="number" 
               step="1" 
               value={formData.seals_quantity || ""} 
-              onChange={e => setFormData((prev: any) => ({ ...prev, seals_quantity: e.target.value }))} 
+              onChange={e => setFormData({ ...formData, seals_quantity: e.target.value })} 
               placeholder="Ex: 100" 
               className="h-12 bg-white border-0 rounded-xl font-bold focus-visible:ring-primary"
               style={{ '--primary': primaryColor } as any}
@@ -404,18 +383,19 @@ export const BlendComposition = ({ formData, setFormData, producers, association
                       </div>
 
                       <div className="space-y-2">
+                        <Label className="font-black text-slate-700 ml-1 text-xs">Cidade Origem</Label>
+                        <Input 
+                          value={component.city} 
+                          onChange={e => updateComponent(index, 'city', e.target.value)} 
+                          placeholder="Cidade" 
+                          className="h-12 bg-slate-50 border-0 rounded-xl font-bold focus-visible:ring-primary"
+                          style={{ '--primary': primaryColor } as any}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
                         <Label className="font-black text-slate-700 ml-1 text-xs">Estado</Label>
-                        <Select
-                          value={component.state || ""}
-                          onValueChange={(v) => {
-                            setFormData((prev: any) => {
-                              const newComponents = [...(prev.components || [])];
-                              newComponents[index] = { ...newComponents[index], state: v, city: '' };
-                              const totalQuantity = newComponents.reduce((sum: any, c: any) => sum + (parseFloat(c.component_quantity) || 0), 0);
-                              return { ...prev, components: newComponents, quantity: totalQuantity.toString() };
-                            });
-                          }}
-                        >
+                        <Select value={component.state} onValueChange={v => updateComponent(index, 'state', v)}>
                           <SelectTrigger className="h-12 bg-slate-50 border-0 rounded-xl font-bold focus:ring-primary" style={{ '--primary': primaryColor } as any}>
                             <SelectValue placeholder="UF" />
                           </SelectTrigger>
@@ -423,27 +403,6 @@ export const BlendComposition = ({ formData, setFormData, producers, association
                             {stateOptions.map(uf => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
                           </SelectContent>
                         </Select>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="font-black text-slate-700 ml-1 text-xs">Cidade Origem</Label>
-                        <Select
-                          value={component.city || ""}
-                          onValueChange={(cityName) => updateComponent(index, 'city', cityName)}
-                          disabled={!component.state || loadingCitiesByState[component.state]}
-                        >
-                          <SelectTrigger className="h-12 bg-slate-50 border-0 rounded-xl font-bold focus:ring-primary" style={{ '--primary': primaryColor } as any}>
-                            <SelectValue placeholder={loadingCitiesByState[component.state] ? "Carregando cidades..." : "Selecione a cidade"} />
-                          </SelectTrigger>
-                          <SelectContent className="rounded-xl font-bold max-h-[300px]">
-                            {(citiesByState[component.state] || []).map((city) => (
-                              <SelectItem key={city.id} value={city.nome} className="font-bold">
-                                {city.nome}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase ml-1">Selecione o estado e em seguida a cidade.</p>
                       </div>
 
                       <div className="space-y-2">
@@ -519,14 +478,9 @@ export const BlendComposition = ({ formData, setFormData, producers, association
                         <LocationPicker 
                           value={component.latitude && component.longitude ? { lat: parseFloat(component.latitude), lng: parseFloat(component.longitude) } : null}
                           onChange={(coords) => {
-                            setFormData((prev: any) => ({
-                              ...prev,
-                              components: (prev.components || []).map((c: any, i: number) =>
-                                i === index
-                                  ? { ...c, latitude: coords.lat.toString(), longitude: coords.lng.toString() }
-                                  : c
-                              )
-                            }));
+                            const newComponents = [...formData.components];
+                            newComponents[index] = { ...newComponents[index], latitude: coords.lat.toString(), longitude: coords.lng.toString() };
+                            setFormData({ ...formData, components: newComponents });
                           }}
                           primaryColor={primaryColor}
                         />

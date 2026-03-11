@@ -23,7 +23,6 @@ import { Separator } from "@/components/ui/separator";
 import { QRCodeSVG } from "qrcode.react";
 import { productLotsApi } from "@/services/api";
 import { useTenant } from "@/hooks/use-tenant";
-import { getComponentLocationDisplay } from "@/lib/lot-location";
 import { toast } from "sonner";
 import { ProductLot } from "@/types/lot";
 
@@ -49,7 +48,6 @@ interface ProductLot {
   youtube_video_url: string | null;
   video_delay_seconds: number | null;
   created_at: string;
-  is_blend?: boolean;
   producers: {
     id: string;
     name: string;
@@ -82,26 +80,6 @@ interface ProductLot {
       city: string;
       state: string;
     };
-  }>;
-  lot_components?: Array<{
-    id: string;
-    component_name: string;
-    component_variety?: string;
-    component_percentage: number;
-    component_quantity?: number;
-    component_unit?: string;
-    component_origin?: string;
-    producer_id: string;
-    component_harvest_year?: string;
-    association_id?: string;
-    producers?: {
-      id: string;
-      name: string;
-      property_name?: string;
-      city?: string;
-      state?: string;
-    };
-    associations?: { id: string; name: string; type?: string; city?: string; state?: string };
   }>;
 }
 
@@ -145,17 +123,19 @@ export const LotDetailsModal = ({
   }, [lotDetails]);
 
   useEffect(() => {
-    if (lot && isOpen && tenant?.id) {
+    if (lot && isOpen) {
       fetchLotDetails();
     }
-  }, [lot, isOpen, tenant?.id]);
+  }, [lot, isOpen]);
 
   const fetchLotDetails = async () => {
-    if (!lot || !tenant?.id) return;
+    if (!lot) return;
     
     try {
       setLoading(true);
-      const details = await productLotsApi.getById(lot.id, tenant.id);
+      const details = await productLotsApi.getById(lot.id);
+      console.log("Detalhes do lote carregados:", details);
+      console.log("Componentes encontrados:", details?.components);
       setLotDetails(details);
     } catch (error) {
       console.error("Erro ao buscar detalhes do lote:", error);
@@ -199,7 +179,7 @@ export const LotDetailsModal = ({
     (lotDetails.body_score || 0)
   ) / 5 : 0;
 
-  const isBlend = (lotDetails?.is_blend === true) || (lotDetails?.components?.length ?? 0) > 0 || (lotDetails?.lot_components?.length ?? 0) > 0;
+  const isBlend = lotDetails?.components && lotDetails.components.length > 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -349,12 +329,12 @@ export const LotDetailsModal = ({
                         <>
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-gray-600">Componentes:</span>
-                            <span className="text-sm font-semibold">{(lotDetails?.components || lotDetails?.lot_components || []).length} ingredientes</span>
+                            <span className="text-sm font-semibold">{lotDetails?.components?.length || 0} ingredientes</span>
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-gray-600">Produtores:</span>
                             <span className="text-sm font-semibold">
-                              {new Set((lotDetails?.components || lotDetails?.lot_components || []).map((c: any) => c.producer_id).filter(Boolean)).size} únicos
+                              {new Set(lotDetails?.components?.map(c => c.producer_id)).size || 0} únicos
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
@@ -375,12 +355,7 @@ export const LotDetailsModal = ({
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-gray-600">Local:</span>
                             <span className="text-sm font-semibold">
-                              {getComponentLocationDisplay(
-                                lotDetails?.producers
-                                  ? { producer: lotDetails.producers, producers: lotDetails.producers, city: (lotDetails as any)?.city, state: (lotDetails as any)?.state }
-                                  : { city: (lotDetails as any)?.city, state: (lotDetails as any)?.state },
-                                "N/A"
-                              )}
+                              {lotDetails?.producers?.city || 'N/A'}, {lotDetails?.producers?.state || 'N/A'}
                             </span>
                           </div>
                         </>
@@ -495,7 +470,7 @@ export const LotDetailsModal = ({
                         <span className="text-sm font-medium text-blue-900">Produtores</span>
                       </div>
                       <p className="text-2xl font-bold text-blue-900">
-                        {new Set((lotDetails?.components || lotDetails?.lot_components || []).map((c: any) => c.producer_id).filter(Boolean)).size}
+                        {new Set(lotDetails?.components?.map(c => c.producer_id)).size || 0}
                       </p>
                       <p className="text-xs text-blue-600">Produtores únicos</p>
                     </div>
@@ -505,7 +480,7 @@ export const LotDetailsModal = ({
                         <span className="text-sm font-medium text-green-900">Componentes</span>
                       </div>
                       <p className="text-2xl font-bold text-green-900">
-                        {(lotDetails?.components || lotDetails?.lot_components || []).length}
+                        {lotDetails?.components?.length || 0}
                       </p>
                       <p className="text-xs text-green-600">Ingredientes</p>
                     </div>
@@ -515,7 +490,7 @@ export const LotDetailsModal = ({
                         <span className="text-sm font-medium text-purple-900">Associações</span>
                       </div>
                       <p className="text-2xl font-bold text-purple-900">
-                        {new Set((lotDetails?.components || lotDetails?.lot_components || []).map((c: any) => c.association_id).filter(Boolean)).size}
+                        {new Set(lotDetails?.components?.map(c => c.association_id).filter(Boolean)).size || 0}
                       </p>
                       <p className="text-xs text-purple-600">Organizações</p>
                     </div>
@@ -534,13 +509,8 @@ export const LotDetailsModal = ({
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
-                  {(lotDetails?.components || lotDetails?.lot_components || []).length === 0 ? (
-                    <p className="text-sm text-slate-500 italic">
-                      Nenhum componente cadastrado. Edite o lote para adicionar os produtores do blend.
-                    </p>
-                  ) : (
                   <div className="space-y-4">
-                    {(lotDetails?.components || lotDetails?.lot_components || []).map((component, index) => (
+                    {lotDetails?.components?.map((component, index) => (
                       <div key={component.id} className="border border-gray-200 rounded-xl p-5 bg-gradient-to-r from-gray-50 to-white hover:shadow-md transition-all duration-200">
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex items-center gap-4">
@@ -556,10 +526,10 @@ export const LotDetailsModal = ({
                           </div>
                           <div className="flex items-center gap-2">
                             <Badge className="bg-blue-100 text-blue-700 px-3 py-1 text-sm font-medium">
-                              {(component.component_percentage ?? component.percentage ?? 0)}%
+                              {component.component_percentage}%
                             </Badge>
                             <Badge className="bg-green-100 text-green-700 px-3 py-1 text-sm font-medium">
-                              {component.component_quantity ?? 0} {component.component_unit || 'Kg'}
+                              {component.component_quantity} {component.component_unit}
                             </Badge>
                           </div>
                         </div>
@@ -584,14 +554,12 @@ export const LotDetailsModal = ({
                                   </div>
                                 </div>
                               )}
-                              {getComponentLocationDisplay(component, "") && (
+                              {component.producers?.city && component.producers?.state && (
                                 <div className="flex items-center gap-3">
                                   <MapPin className="w-4 h-4 text-gray-500" />
                                   <div>
                                     <span className="text-sm text-gray-600">Local:</span>
-                                    <p className="text-sm font-medium">
-                                      {getComponentLocationDisplay(component, "N/A")}
-                                    </p>
+                                    <p className="text-sm font-medium">{component.producers.city}, {component.producers.state}</p>
                                   </div>
                                 </div>
                               )}
@@ -633,7 +601,6 @@ export const LotDetailsModal = ({
                       </div>
                     ))}
                   </div>
-                  )}
                 </CardContent>
               </Card>
             )}

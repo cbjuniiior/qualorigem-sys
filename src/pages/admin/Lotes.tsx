@@ -43,7 +43,7 @@ import 'leaflet/dist/leaflet.css';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { LotForm, LOT_STEPS, LOT_STEPS_BLEND } from "@/components/lots/LotForm";
+import { LotForm, LOT_STEPS } from "@/components/lots/LotForm";
 import { ProductLot } from "@/types/lot";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -65,7 +65,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { sanitizeUuidFields } from "@/lib/sanitize-uuid";
-import { getLotLocationDisplay, getComponentLocationDisplay } from "@/lib/lot-location";
 
 interface Producer {
   id: string;
@@ -219,7 +218,6 @@ const Lotes = () => {
   const [isBlendMode, setIsBlendMode] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [isDuplicating, setIsDuplicating] = useState(false);
-  const [saveErrorField, setSaveErrorField] = useState<{ step: number; field: string } | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -234,10 +232,6 @@ const Lotes = () => {
     };
     loadData();
   }, [tenant]);
-
-  useEffect(() => {
-    setSaveErrorField(null);
-  }, [formData.code]);
 
   const fetchData = async () => {
     if (!tenant) return;
@@ -308,7 +302,6 @@ const Lotes = () => {
     setCurrentStep(1);
     setEditingLot(null);
     setIsDuplicating(false);
-    setSaveErrorField(null);
   };
 
   const handleOpenSheet = async () => {
@@ -386,7 +379,7 @@ const Lotes = () => {
       category: lot.category || "",
       harvest_year: lot.harvest_year || "",
       quantity: lot.quantity?.toString() || "",
-      unit: lot.unit || "Kg",
+      unit: lot.unit || "",
       seals_quantity: (lot as any).seals_quantity?.toString() || "",
       producer_id: lot.producer_id || "",
       brand_id: (lot as any).brand_id || "",
@@ -445,13 +438,12 @@ const Lotes = () => {
         property_description: c.property_description,
         photos: c.photos || [],
         address: c.address,
-        city: c.city ?? c.producers?.city ?? "",
-        state: c.state ?? c.producers?.state ?? "",
+        city: c.city,
+        state: c.state,
         cep: c.cep
       })),
     });
     setIsBlendMode(rawComponents.length > 0);
-    setSaveErrorField(null);
     setCurrentStep(1);
     setIsSheetOpen(true);
   };
@@ -492,7 +484,7 @@ const Lotes = () => {
       category: lot.category || "",
       harvest_year: lot.harvest_year || "",
       quantity: lot.quantity?.toString() || "",
-      unit: lot.unit || "Kg",
+      unit: lot.unit || "",
       seals_quantity: (lot as any).seals_quantity?.toString() || "",
       producer_id: lot.producer_id || "",
       brand_id: (lot as any).brand_id || "",
@@ -544,13 +536,12 @@ const Lotes = () => {
         property_description: c.property_description,
         photos: c.photos || [],
         address: c.address,
-        city: c.city ?? c.producers?.city ?? "",
-        state: c.state ?? c.producers?.state ?? "",
+        city: c.city,
+        state: c.state,
         cep: c.cep
       })),
     });
     setIsBlendMode(rawComponents.length > 0);
-    setSaveErrorField(null);
     setCurrentStep(1);
     setIsSheetOpen(true);
   };
@@ -586,9 +577,7 @@ const Lotes = () => {
         harvest_year: formData.harvest_year || null,
         unit: formData.unit || null,
         variety: formData.variety || null,
-        tenant_id: tenant.id,
-        is_blend: isBlendMode && (formData.components?.length ?? 0) > 0,
-        video_delay_seconds: Number(formData.video_delay_seconds) || 10
+        tenant_id: tenant.id
       };
 
       // Remover campos que não existem na tabela product_lots
@@ -629,10 +618,6 @@ const Lotes = () => {
       if (cleanLotData.average_temperature !== null && cleanLotData.average_temperature !== undefined && isNaN(Number(cleanLotData.average_temperature))) {
         cleanLotData.average_temperature = null;
       }
-      if (cleanLotData.video_delay_seconds !== null && cleanLotData.video_delay_seconds !== undefined && 
-          (isNaN(Number(cleanLotData.video_delay_seconds)) || cleanLotData.video_delay_seconds === "")) {
-        cleanLotData.video_delay_seconds = 10;
-      }
 
       const sanitizedLotData = sanitizeUuidFields(cleanLotData as Record<string, unknown>, ["producer_id", "brand_id", "association_id", "industry_id"]);
 
@@ -642,15 +627,7 @@ const Lotes = () => {
           // Atualizar componentes
           await productLotsApi.deleteComponentsByLot(editingLot.id, tenant.id);
           if (isBlendMode && components.length > 0) {
-            const totalQty = components.reduce((s: number, c: any) => s + (parseFloat(c.component_quantity) || 0), 0);
-            const preparedComponents = components.map((c: any) => ({
-              ...c,
-              component_percentage: totalQty > 0 ? Math.round(((parseFloat(c.component_quantity) || 0) / totalQty) * 1000) / 10 : 0,
-              component_harvest_year: c.component_harvest_year || formData.harvest_year || null,
-              city: c.city ?? c.producers?.city ?? null,
-              state: c.state ?? c.producers?.state ?? null
-            }));
-            await Promise.all(preparedComponents.map((c: any) => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: editingLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
+            await Promise.all(components.map(c => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: editingLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
           }
 
           // Atualizar características
@@ -722,15 +699,7 @@ const Lotes = () => {
         const newLot = await productLotsApi.create({ ...sanitizedLotData, code: finalCode } as any);
         // Criar componentes
         if (isBlendMode && components.length > 0) {
-          const totalQty = components.reduce((s: number, c: any) => s + (parseFloat(c.component_quantity) || 0), 0);
-          const preparedComponents = components.map((c: any) => ({
-            ...c,
-            component_percentage: totalQty > 0 ? Math.round(((parseFloat(c.component_quantity) || 0) / totalQty) * 1000) / 10 : 0,
-            component_harvest_year: c.component_harvest_year || formData.harvest_year || null,
-            city: c.city ?? c.producers?.city ?? null,
-            state: c.state ?? c.producers?.state ?? null
-          }));
-          await Promise.all(preparedComponents.map((c: any) => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: newLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
+          await Promise.all(components.map(c => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: newLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
         }
         // Criar características
         if (characteristics && characteristics.length > 0) {
@@ -761,22 +730,8 @@ const Lotes = () => {
       fetchData();
     } catch (error: any) {
       console.error("Erro ao salvar lote:", error);
-      const msg = typeof error?.message === "string" ? error.message : "";
-      const errMsg = typeof error?.error?.message === "string" ? error.error.message : "";
-      const fullMsg = `${msg} ${errMsg}`.toLowerCase();
-      const isDuplicateCode =
-        error?.code === "23505" ||
-        (error?.status !== undefined && Number(error.status) === 409) ||
-        fullMsg.includes("idx_product_lots_tenant_code") ||
-        fullMsg.includes("duplicate key");
-      if (isDuplicateCode) {
-        toast.error("Este código do lote já está em uso. Escolha outro código.");
-        setCurrentStep(1);
-        setSaveErrorField({ step: 1, field: "code" });
-      } else {
-        const errorMessage = error?.message || error?.error?.message || "Erro desconhecido ao salvar lote";
-        toast.error(`Erro ao salvar lote: ${errorMessage}`);
-      }
+      const errorMessage = error?.message || error?.error?.message || "Erro desconhecido ao salvar lote";
+      toast.error(`Erro ao salvar lote: ${errorMessage}`);
     }
   };
 
@@ -1087,9 +1042,9 @@ const Lotes = () => {
                           </div>
                           <div 
                             className="absolute -top-2 -left-2 text-white text-[10px] font-black px-2 py-1 rounded-lg shadow-lg uppercase tracking-tighter"
-                            style={{ backgroundColor: ((lot as any).is_blend === true || (lot as any).lot_components?.length > 0) ? '#7c3aed' : primaryColor }}
+                            style={{ backgroundColor: (lot as any).lot_components?.length > 0 ? '#7c3aed' : primaryColor }}
                           >
-                            {((lot as any).is_blend === true || (lot as any).lot_components?.length > 0) ? 'BLEND' : 'UNICO'}
+                            {(lot as any).lot_components?.length > 0 ? 'BLEND' : 'UNICO'}
                           </div>
                         </div>
                         <div className="space-y-1">
@@ -1104,27 +1059,7 @@ const Lotes = () => {
                           </div>
                           <p className="text-slate-400 text-sm font-bold flex items-center gap-1.5">
                             <Users size={16} weight="fill" className="text-slate-300" />
-                            {((lot as any).is_blend === true || (lot as any).lot_components?.length > 0) ? (
-                              (() => {
-                                const comps = (lot as any).lot_components || [];
-                                const n = comps.length;
-                                if (n === 0) return 'Blend — edite para cadastrar componentes';
-                                const names = comps.slice(0, 2).map((c: any) => c.producers?.name).filter(Boolean);
-                                const rest = n - names.length;
-                                return (
-                                  <>
-                                    {n} produtor{n !== 1 ? 'es' : ''}
-                                    {names.length > 0 && (
-                                      <span className="text-slate-500 font-normal">
-                                        {' — '}{names.join(', ')}{rest > 0 ? ` +${rest} mais` : ''}
-                                      </span>
-                                    )}
-                                  </>
-                                );
-                              })()
-                            ) : (
-                              lot.producers?.name || `${labels.producer} não vinculado(a)`
-                            )}
+                            {lot.producers?.name || `${labels.producer} não vinculado(a)`}
                           </p>
                           <div className="flex items-center gap-4 pt-1 flex-wrap">
                             <span className="bg-slate-50 text-slate-500 text-[10px] font-black px-2 py-1 rounded-md border border-slate-100 uppercase tracking-widest font-mono">
@@ -1132,7 +1067,7 @@ const Lotes = () => {
                             </span>
                             <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
                               <MapPin size={14} weight="fill" className="text-slate-300" />
-                              {getLotLocationDisplay(lot as any)}
+                              {lot.city && lot.state ? `${lot.city}, ${lot.state}` : lot.city || lot.state || "Local não inf."}
                             </span>
                             {lot.created_at && (
                               <span className="flex items-center gap-1 text-xs font-bold text-slate-400">
@@ -1243,7 +1178,7 @@ const Lotes = () => {
                     </div>
                   </div>
 
-                  <FormStepIndicator steps={isBlendMode ? LOT_STEPS_BLEND : LOT_STEPS} currentStep={currentStep} primaryColor={primaryColor} />
+                  <FormStepIndicator steps={LOT_STEPS} currentStep={currentStep} primaryColor={primaryColor} />
                 </div>
               </SheetHeader>
               <div className="flex-1 relative flex flex-col min-h-0">
@@ -1260,11 +1195,9 @@ const Lotes = () => {
                   setCurrentStep={setCurrentStep}
                   totalSteps={6}
                   onSubmit={handleSubmit}
-                  onCancel={() => { setSaveErrorField(null); setIsSheetOpen(false); }}
+                  onCancel={() => setIsSheetOpen(false)}
                   isEditing={!!editingLot}
                   branding={branding}
-                  saveErrorField={saveErrorField}
-                  onClearSaveError={() => setSaveErrorField(null)}
                 />
               </div>
             </div>
@@ -1354,14 +1287,14 @@ const Lotes = () => {
                               <Eye size={14} weight="fill" />
                               {lotDetails.views || 0} visualizações
                             </Badge>
-                            {(lotDetails.is_blend === true || (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0)) ? (
+                            {(lotDetails.components || lotDetails.lot_components) && (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0) && (
                               <Badge 
                                 className="text-white border-0 font-black px-4 py-1.5 rounded-full shadow-sm"
                                 style={{ backgroundColor: hexToRgba(primaryColor, 0.9) }}
                               >
                                 BLEND
                               </Badge>
-                            ) : null}
+                            )}
                           </div>
                         </div>
                         
@@ -1680,7 +1613,7 @@ const Lotes = () => {
                           )}
 
                           {/* Composição do Blend */}
-                          {(lotDetails.is_blend === true || (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0)) && (
+                          {(lotDetails.components || lotDetails.lot_components) && (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0) && (
                             <div className="p-8 rounded-[2.5rem] bg-slate-50 border border-slate-100 space-y-6">
                               <div className="flex items-center gap-3">
                                 <div 
@@ -1691,11 +1624,6 @@ const Lotes = () => {
                                 </div>
                                 <h3 className="text-xl font-black text-slate-900">Composição (Blend)</h3>
                               </div>
-                              {(lotDetails.components || lotDetails.lot_components || []).length === 0 ? (
-                                <p className="text-sm text-slate-500 italic">
-                                  Nenhum componente cadastrado. Edite o lote para adicionar os produtores do blend.
-                                </p>
-                              ) : (
                               <div className="grid grid-cols-1 gap-4">
                                 {(lotDetails.components || lotDetails.lot_components || []).map((component: any, index: number) => (
                                   <div key={component.id || index} className="p-6 bg-white rounded-3xl border border-slate-100 hover:border-slate-200 transition-all hover:shadow-md group">
@@ -1718,24 +1646,21 @@ const Lotes = () => {
                                       </div>
                                     </div>
                                     
-                                    {(component.producers || component.producer_id) && (
+                                    {component.producers && (
                                       <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                           <Users size={20} className="text-slate-300" />
-                                          <span className="text-xs font-black text-slate-600 truncate max-w-[150px]">{component.producers?.name || "Produtor vinculado"}</span>
+                                          <span className="text-xs font-black text-slate-600 truncate max-w-[150px]">{component.producers.name}</span>
                                         </div>
                                         <div className="flex items-center gap-1 text-slate-400">
                                           <MapPin size={14} />
-                                          <span className="text-[10px] font-bold">
-                                            {getComponentLocationDisplay(component, "Região não inf.")}
-                                          </span>
+                                          <span className="text-[10px] font-bold">{component.producers.city || "Região não inf."}</span>
                                         </div>
                                       </div>
                                     )}
                                   </div>
                                 ))}
                               </div>
-                              )}
                             </div>
                           )}
 

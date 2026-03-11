@@ -49,9 +49,6 @@ RUN if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then \
     exit 1; \
     fi
 
-# Aumentar heap do Node no build (evita OOM / CANCELED em ambientes com pouca RAM)
-ENV NODE_OPTIONS="--max-old-space-size=2048"
-
 RUN npm run build
 
 # Production stage: serve via Node (injeta meta OG para crawlers)

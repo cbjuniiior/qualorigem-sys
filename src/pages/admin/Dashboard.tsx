@@ -27,7 +27,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { FormStepIndicator } from "@/components/ui/step-indicator";
 import { sanitizeUuidFields } from "@/lib/sanitize-uuid";
-import { getLotLocationDisplay } from "@/lib/lot-location";
 
 interface DashboardStats {
   totalProducers: number;
@@ -399,7 +398,7 @@ const Dashboard = () => {
                         <div>
                           <h4 className="font-bold text-slate-900 group-hover:text-primary transition-colors">{lot.name}</h4>
                           <div className="flex items-center gap-3 mt-1 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                            <span className="flex items-center gap-1"><MapPin size={14} weight="fill" className="text-slate-300" /> {getLotLocationDisplay(lot as any)}</span>
+                            <span className="flex items-center gap-1"><MapPin size={14} weight="fill" className="text-slate-300" /> {lot.city && lot.state ? `${lot.city}, ${lot.state}` : lot.city || lot.state || "Local não inf."}</span>
                             <span className="h-1 w-1 bg-slate-300 rounded-full" />
                             <span className="flex items-center gap-1"><Calendar size={14} weight="fill" className="text-slate-300" /> Safra {lot.harvest_year}</span>
                           </div>

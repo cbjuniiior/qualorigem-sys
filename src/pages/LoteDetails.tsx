@@ -35,7 +35,6 @@ interface LoteData {
   video_delay_seconds?: number | null;
   components?: LotComponent[];
   lot_components?: LotComponent[];
-  is_blend?: boolean;
   producers?: {
     id: string;
     name: string;
@@ -734,8 +733,8 @@ const LoteDetails = () => {
   };
 
   // Detectar se é um blend (precisa estar antes de qualquer return)
+  const isBlend = loteData && ((loteData.components && loteData.components.length > 0) || (loteData.lot_components && loteData.lot_components.length > 0));
   const blendComponents = loteData ? (loteData.components || loteData.lot_components || []) : [];
-  const isBlend = loteData && (loteData.is_blend === true || blendComponents.length > 0) && blendComponents.length > 0;
   
   // Garantir que temos o produtor correto (prioridade para o estado carregado ou do lote)
   const currentProducer = producer || loteData?.producers;
@@ -773,7 +772,7 @@ const LoteDetails = () => {
       {loteData.youtube_video_url && videoConfig?.enabled && (
         <div 
           ref={videoSectionRef}
-          className={`w-full min-h-svh h-svh max-h-svh relative flex flex-col overflow-hidden transition-all duration-700 ${
+          className={`w-full h-screen max-h-screen relative flex flex-col overflow-hidden transition-all duration-700 ${
             !showInfoMessage ? 'fixed inset-0 z-50' : 'relative z-10'
           }`}
           style={{ 
@@ -799,7 +798,7 @@ const LoteDetails = () => {
           </div>
 
           {/* Container de Conteúdo - Mobile First */}
-          <div className="flex-1 min-h-0 flex flex-col items-center relative z-10 py-6 px-4 sm:px-6 sm:py-8 md:py-16 sm:px-10 h-full w-full overflow-y-auto overflow-x-hidden">
+          <div className="flex-1 flex flex-col items-center relative z-10 py-8 px-4 sm:px-6 sm:py-16 sm:px-10 h-full w-full overflow-hidden">
             {/* Topo - Logo ou Identificação sutil */}
             <div className="w-full flex justify-center opacity-80 mb-auto">
               {branding?.logoUrl && (
@@ -818,7 +817,7 @@ const LoteDetails = () => {
             </div>
 
             {/* Centro - Bloco de Conteúdo Centralizado */}
-            <div className="w-full max-w-4xl flex flex-col items-center gap-6 sm:gap-8 md:gap-12 flex-grow justify-center">
+            <div className="w-full max-w-4xl flex flex-col items-center gap-8 sm:gap-12 flex-grow justify-center">
               {/* Texto Dinâmico do Lote */}
               <div className="text-center space-y-4 px-4 max-w-2xl mx-auto animate-fade-in">
                 <h2 className="text-white text-3xl sm:text-5xl font-black tracking-tight leading-tight drop-shadow-2xl">
@@ -1055,29 +1054,22 @@ const LoteDetails = () => {
         <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-12 max-w-7xl">
           {/* Referência para scroll - Seção de informações do produto */}
           <div ref={productDetailsRef} className="scroll-mt-20 sm:scroll-mt-24 space-y-8 sm:space-y-12">
-            {isBlend ? (
-              <>
-                <BlendComposition 
-                  blendComponents={blendComponents}
-                  harvestYear={loteData.harvest_year}
-                  quantity={loteData.quantity}
-                  unit={loteData.unit}
-                  branding={branding || undefined}
-                />
-                <ProducersSection 
-                  isBlend={isBlend}
-                  blendComponents={blendComponents}
-                  producer={currentProducer}
-                  loteData={loteData}
-                  branding={branding || undefined}
-                />
-              </>
-            ) : (
-              <ProducersSection 
-                isBlend={isBlend}
+            {/* 1. De onde veio / Quem plantou - Seção de Produtores */}
+            <ProducersSection 
+              isBlend={isBlend}
+              blendComponents={blendComponents}
+              producer={currentProducer}
+              loteData={loteData}
+              branding={branding || undefined}
+            />
+
+            {/* 2. Composição do Blend (se houver) */}
+            {isBlend && (
+              <BlendComposition 
                 blendComponents={blendComponents}
-                producer={currentProducer}
-                loteData={loteData}
+                harvestYear={loteData.harvest_year}
+                quantity={loteData.quantity}
+                unit={loteData.unit}
                 branding={branding || undefined}
               />
             )}
@@ -1091,9 +1083,9 @@ const LoteDetails = () => {
                   </div>
                   <h2 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">Certificações do Lote</h2>
                 </div>
-                <div className="flex flex-wrap justify-center gap-4 max-w-4xl mx-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
                   {lotCertifications.map((cert: any) => (
-                    <div key={cert.id} className="w-full sm:min-w-[240px] sm:max-w-[320px] bg-white rounded-2xl border border-slate-100 p-5 flex items-start gap-3 shadow-sm">
+                    <div key={cert.id} className="bg-white rounded-2xl border border-slate-100 p-5 flex items-start gap-3 shadow-sm">
                       <div className="p-2 bg-emerald-50 rounded-xl shrink-0">
                         <FileText size={20} className="text-emerald-600" weight="fill" />
                       </div>
@@ -1152,11 +1144,11 @@ const LoteDetails = () => {
                 </div>
 
                 <div className="max-w-6xl mx-auto px-4">
-                  <div className="flex flex-wrap justify-center gap-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {/* Selos de Rastreabilidade */}
                     {loteData.seals_quantity && (
-                      <div className="w-full sm:min-w-[280px] sm:max-w-[340px]">
-                        <div className="h-full min-h-[200px] bg-slate-950 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center relative overflow-hidden group shadow-2xl">
+                      <div className="lg:col-span-1">
+                        <div className="h-full bg-slate-950 rounded-[2rem] p-8 flex flex-col items-center justify-center text-center relative overflow-hidden group shadow-2xl">
                           <div 
                             className="absolute inset-0 opacity-20 pointer-events-none transition-opacity duration-700 group-hover:opacity-30"
                             style={{ background: `radial-gradient(circle at center, ${branding?.primaryColor || '#16a34a'} 0%, transparent 70%)` }}
@@ -1182,10 +1174,10 @@ const LoteDetails = () => {
                     )}
 
                     {/* Associações e Indústria */}
-                    <>
+                    <div className={`${loteData.seals_quantity ? 'lg:col-span-2' : 'lg:col-span-3'} grid grid-cols-1 sm:grid-cols-2 gap-6`}>
                       {/* Associações */}
                       {associations.map((assoc: any) => (
-                        <div key={assoc.id} className="w-full sm:min-w-[280px] sm:max-w-[340px] bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-6 group">
+                        <div key={assoc.id} className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-6 group">
                           <div className="w-20 h-20 flex-shrink-0 rounded-2xl bg-slate-50 border border-slate-50 flex items-center justify-center p-3 transition-transform duration-500 group-hover:scale-105">
                             {assoc.logo_url ? (
                               <img src={assoc.logo_url} alt={assoc.name} className="w-full h-full object-contain filter grayscale group-hover:grayscale-0 transition-all duration-500" />
@@ -1207,7 +1199,7 @@ const LoteDetails = () => {
 
                       {/* Indústrias */}
                       {industries.map((ind: any) => (
-                        <div key={ind.id} className="w-full sm:min-w-[280px] sm:max-w-[340px] bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-6 group">
+                        <div key={ind.id} className="bg-white rounded-[2rem] p-6 border border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-6 group">
                           <div className="w-20 h-20 flex-shrink-0 rounded-2xl bg-slate-50 border border-slate-50 flex items-center justify-center p-3 transition-transform duration-500 group-hover:scale-105">
                             {ind.logo_url ? (
                               <img src={ind.logo_url} alt={ind.name} className="w-full h-full object-contain filter grayscale group-hover:grayscale-0 transition-all duration-500" />
@@ -1228,7 +1220,7 @@ const LoteDetails = () => {
                           </div>
                         </div>
                       ))}
-                    </>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -34,7 +34,7 @@ import { ProducerLayout } from "@/components/layout/ProducerLayout";
 import { useAuth } from "@/hooks/use-auth";
 import { productLotsApi, producersApi, associationsApi, industriesApi, systemConfigApi, productLotCharacteristicsApi, productLotSensoryApi, brandsApi, lotIndustriesApi, lotAssociationsApi, certificationsApi, internalProducersApi } from "@/services/api";
 import { toast } from "sonner";
-import { LotForm, LOT_STEPS, LOT_STEPS_BLEND } from "@/components/lots/LotForm";
+import { LotForm, LOT_STEPS } from "@/components/lots/LotForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FormStepIndicator } from "@/components/ui/step-indicator";
 import {
@@ -122,7 +122,6 @@ export const ProducerLotes = () => {
   const [isBlendMode, setIsBlendMode] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [isDuplicating, setIsDuplicating] = useState(false);
-  const [saveErrorField, setSaveErrorField] = useState<{ step: number; field: string } | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -148,10 +147,6 @@ export const ProducerLotes = () => {
     };
     loadData();
   }, [user, tenant]);
-
-  useEffect(() => {
-    setSaveErrorField(null);
-  }, [formData.code]);
 
   const fetchLotes = async () => {
     if (!tenant || !user) return;
@@ -268,7 +263,6 @@ export const ProducerLotes = () => {
     }
     setFormData({
       ...lot,
-      unit: lot.unit || "Kg",
       quantity: lot.quantity?.toString() || "",
       seals_quantity: lot.seals_quantity?.toString() || "",
       video_description: (lot as any).video_description || "",
@@ -320,7 +314,6 @@ export const ProducerLotes = () => {
       })),
     });
     setIsBlendMode((lot.lot_components?.length || 0) > 0);
-    setSaveErrorField(null);
     setCurrentStep(1);
     setIsSheetOpen(true);
   };
@@ -356,7 +349,6 @@ export const ProducerLotes = () => {
     setFormData({
       ...lot,
       code: `${lot.code}-copia`,
-      unit: lot.unit || "Kg",
       quantity: lot.quantity?.toString() || "",
       seals_quantity: lot.seals_quantity?.toString() || "",
       latitude: lot.latitude?.toString() || "",
@@ -392,7 +384,6 @@ export const ProducerLotes = () => {
       })),
     });
     setIsBlendMode(rawComponents.length > 0);
-    setSaveErrorField(null);
     setCurrentStep(1);
     setIsSheetOpen(true);
   };
@@ -414,9 +405,7 @@ export const ProducerLotes = () => {
         altitude: formData.altitude ? parseInt(formData.altitude) : null,
         average_temperature: formData.average_temperature ? parseFloat(formData.average_temperature) : null,
         producer_id: user?.id,
-        tenant_id: tenant.id,
-        is_blend: isBlendMode && (formData.components?.length ?? 0) > 0,
-        video_delay_seconds: Number(formData.video_delay_seconds) || 10
+        tenant_id: tenant.id
       };
 
       const { 
@@ -426,11 +415,6 @@ export const ProducerLotes = () => {
         ...cleanLotData 
       } = lotData;
 
-      if (cleanLotData.video_delay_seconds !== null && cleanLotData.video_delay_seconds !== undefined && 
-          (isNaN(Number(cleanLotData.video_delay_seconds)) || cleanLotData.video_delay_seconds === "")) {
-        cleanLotData.video_delay_seconds = 10;
-      }
-
       const sanitizedLotData = sanitizeUuidFields(cleanLotData as Record<string, unknown>, ["producer_id", "brand_id", "association_id", "industry_id"]);
 
       if (editingLot) {
@@ -439,15 +423,7 @@ export const ProducerLotes = () => {
           // Atualizar componentes
           await productLotsApi.deleteComponentsByLot(editingLot.id, tenant.id);
           if (isBlendMode && components.length > 0) {
-            const totalQty = components.reduce((s: number, c: any) => s + (parseFloat(c.component_quantity) || 0), 0);
-            const preparedComponents = components.map((c: any) => ({
-              ...c,
-              component_percentage: totalQty > 0 ? Math.round(((parseFloat(c.component_quantity) || 0) / totalQty) * 1000) / 10 : 0,
-              component_harvest_year: c.component_harvest_year || formData.harvest_year || null,
-              city: c.city ?? c.producers?.city ?? null,
-              state: c.state ?? c.producers?.state ?? null
-            }));
-            await Promise.all(preparedComponents.map((c: any) => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: editingLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
+            await Promise.all(components.map(c => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: editingLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
           }
 
           // Atualizar características
@@ -497,15 +473,7 @@ export const ProducerLotes = () => {
         const newLot = await productLotsApi.create({ ...sanitizedLotData, code: finalCode } as any);
         // Criar componentes
         if (isBlendMode && components.length > 0) {
-          const totalQty = components.reduce((s: number, c: any) => s + (parseFloat(c.component_quantity) || 0), 0);
-          const preparedComponents = components.map((c: any) => ({
-            ...c,
-            component_percentage: totalQty > 0 ? Math.round(((parseFloat(c.component_quantity) || 0) / totalQty) * 1000) / 10 : 0,
-            component_harvest_year: c.component_harvest_year || formData.harvest_year || null,
-            city: c.city ?? c.producers?.city ?? null,
-            state: c.state ?? c.producers?.state ?? null
-          }));
-          await Promise.all(preparedComponents.map((c: any) => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: newLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
+          await Promise.all(components.map(c => productLotsApi.createComponent(sanitizeUuidFields({ ...c, lot_id: newLot.id, tenant_id: tenant.id } as Record<string, unknown>, ["producer_id", "association_id"]) as any)));
         }
         // Criar características
         if (characteristics && characteristics.length > 0) {
@@ -530,22 +498,8 @@ export const ProducerLotes = () => {
 
       setIsSheetOpen(false);
       fetchLotes();
-    } catch (error: any) {
-      const msg = typeof error?.message === "string" ? error.message : "";
-      const errMsg = typeof error?.error?.message === "string" ? error.error.message : "";
-      const fullMsg = `${msg} ${errMsg}`.toLowerCase();
-      const isDuplicateCode =
-        error?.code === "23505" ||
-        (error?.status !== undefined && Number(error.status) === 409) ||
-        fullMsg.includes("idx_product_lots_tenant_code") ||
-        fullMsg.includes("duplicate key");
-      if (isDuplicateCode) {
-        toast.error("Este código do lote já está em uso. Escolha outro código.");
-        setCurrentStep(1);
-        setSaveErrorField({ step: 1, field: "code" });
-      } else {
-        toast.error("Erro ao salvar lote");
-      }
+    } catch (error) {
+      toast.error("Erro ao salvar lote");
     }
   };
 
@@ -669,9 +623,9 @@ export const ProducerLotes = () => {
                           <img src={lote.image_url || "/placeholder.svg"} className="h-16 w-16 rounded-2xl object-cover shadow-sm group-hover:scale-105 transition-transform" />
                           <div 
                             className="absolute -top-2 -left-2 text-white text-[8px] font-black px-1.5 py-0.5 rounded-md shadow-lg uppercase"
-                            style={{ backgroundColor: ((lote as any).is_blend === true || (lote.lot_components?.length || 0) > 0) ? '#7c3aed' : primaryColor }}
+                            style={{ backgroundColor: (lote.lot_components?.length || 0) > 0 ? '#7c3aed' : primaryColor }}
                           >
-                            {((lote as any).is_blend === true || (lote.lot_components?.length || 0) > 0) ? 'BLEND' : 'UNICO'}
+                            {(lote.lot_components?.length || 0) > 0 ? 'BLEND' : 'UNICO'}
                           </div>
                         </div>
                         <div className="space-y-1">
@@ -743,7 +697,7 @@ export const ProducerLotes = () => {
                     </div>
                   </div>
 
-                  <FormStepIndicator steps={isBlendMode ? LOT_STEPS_BLEND : LOT_STEPS} currentStep={currentStep} primaryColor={primaryColor} />
+                  <FormStepIndicator steps={LOT_STEPS} currentStep={currentStep} primaryColor={primaryColor} />
                 </div>
               </SheetHeader>
               <div className="flex-1 relative flex flex-col min-h-0">
@@ -760,11 +714,9 @@ export const ProducerLotes = () => {
                   setCurrentStep={setCurrentStep}
                   totalSteps={6}
                   onSubmit={handleSubmit}
-                  onCancel={() => { setSaveErrorField(null); setIsSheetOpen(false); }}
+                  onCancel={() => setIsSheetOpen(false)}
                   isEditing={!!editingLot}
                   branding={branding}
-                  saveErrorField={saveErrorField}
-                  onClearSaveError={() => setSaveErrorField(null)}
                 />
               </div>
             </div>

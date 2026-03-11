@@ -477,19 +477,6 @@ export const producersApi = {
   }
 };
 
-/** Normaliza city/state do componente a partir de producer/producers ou colunas do componente (para exibição em blend). */
-function normalizeComponentLocation(c: Record<string, unknown>): Record<string, unknown> {
-  try {
-    if (c == null || typeof c !== "object") return c ?? {};
-    const prod = (c.producer as any) ?? (Array.isArray((c as any).producers) ? (c as any).producers[0] : (c.producers as any));
-    const city = (c.city ?? prod?.city ?? null) as string | null;
-    const state = (c.state ?? prod?.state ?? null) as string | null;
-    return { ...c, city: city ?? null, state: state ?? null };
-  } catch {
-    return { ...c, city: null, state: null };
-  }
-}
-
 // Serviços para Lotes de Produtos
 export const productLotsApi = {
   async getAll(tenantId: string) {
@@ -532,12 +519,10 @@ export const productLotsApi = {
 
     if (error) throw error;
 
-    const lots = data ?? [];
-
     // Buscar componentes separadamente (mantendo lógica antiga, mas filtrando por tenant se possível, 
     // embora lot_id já filtre implicitamente)
     const lotsWithComponents = await Promise.all(
-      lots.map(async (lot) => {
+      data.map(async (lot) => {
         const { data: components } = await supabase
           .from("lot_components")
           .select(`
@@ -581,10 +566,9 @@ export const productLotsApi = {
           .eq("lot_id", lot.id)
           .eq("tenant_id", tenantId); // Garantia extra
 
-        const normalized = (components || []).map((c: Record<string, unknown>) => normalizeComponentLocation(c));
         return {
           ...lot,
-          lot_components: normalized,
+          lot_components: components || [],
           characteristics: lot.product_lot_characteristics || [],
           sensory_analysis: lot.product_lot_sensory || []
         };
@@ -647,11 +631,9 @@ export const productLotsApi = {
       .eq("tenant_id", tenantId)
       .order("created_at");
 
-    const normalized = (components || []).map((c: Record<string, unknown>) => normalizeComponentLocation(c));
     return {
       ...data,
-      components: normalized,
-      lot_components: normalized,
+      components: components || [],
       characteristics: data.product_lot_characteristics || [],
       sensory_analysis: data.product_lot_sensory || []
     };
@@ -708,11 +690,9 @@ export const productLotsApi = {
       .eq("lot_id", id)
       .eq("tenant_id", tenantId);
 
-    const normalized = (components || []).map((c: Record<string, unknown>) => normalizeComponentLocation(c));
     return {
       ...data,
-      components: normalized,
-      lot_components: normalized,
+      components: components || [],
       characteristics: data.product_lot_characteristics || [],
       sensory_analysis: data.product_lot_sensory || []
     };
@@ -737,7 +717,7 @@ export const productLotsApi = {
           photos,
           profile_picture_url
         ),
-        lot_components (*, producers:producers(id, name, property_name, city, state))
+        lot_components (*)
       `)
       .eq("producer_id", producerId)
       .eq("tenant_id", tenantId)
@@ -814,32 +794,9 @@ export const productLotsApi = {
   },
 
   async createComponent(component: LotComponentInsert) {
-    // Apenas colunas existentes em lot_components (temperatura/altitude do produtor não existem na tabela)
-    const lotComponentInsertKeys = [
-      "address", "altitude", "association_id", "cep", "city", "component_harvest_year",
-      "component_name", "component_origin", "component_percentage", "component_quantity",
-      "component_unit", "component_variety", "created_at", "id", "latitude", "longitude",
-      "lot_id", "photos", "producer_id", "property_description", "property_name",
-      "state", "updated_at", "tenant_id"
-    ] as const;
-    const numericKeys = new Set(["altitude", "component_percentage", "component_quantity", "latitude", "longitude"]);
-    const payload = lotComponentInsertKeys.reduce((acc, key) => {
-      if (key in component && (component as Record<string, unknown>)[key] !== undefined) {
-        let val = (component as Record<string, unknown>)[key];
-        if (numericKeys.has(key) && (val === "" || val === null || (typeof val === "string" && val.trim() === ""))) {
-          val = null;
-        } else if (numericKeys.has(key) && typeof val !== "number") {
-          const n = Number(val);
-          val = isNaN(n) ? null : n;
-        }
-        (acc as Record<string, unknown>)[key] = val;
-      }
-      return acc;
-    }, {} as Record<string, unknown>) as LotComponentInsert;
-
     const { data, error } = await supabase
       .from("lot_components")
-      .insert(payload)
+      .insert(component)
       .select()
       .single();
 

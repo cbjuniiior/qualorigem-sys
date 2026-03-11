@@ -32,7 +32,6 @@ import {
   CheckCircle
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { getComponentLocationDisplay } from "@/lib/lot-location";
 import { ProducerForm } from "./Produtores";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
@@ -758,14 +757,14 @@ export default function ProducerDetails() {
                               <Eye size={14} weight="fill" />
                               {lotDetails.views || 0} visualizações
                             </Badge>
-                            {(lotDetails as any).is_blend === true || (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0) ? (
+                            {(lotDetails.components || lotDetails.lot_components) && (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0) && (
                               <Badge 
                                 className="text-white border-0 font-black px-4 py-1.5 rounded-full shadow-sm"
                                 style={{ backgroundColor: hexToRgba(primaryColor, 0.9) }}
                               >
                                 BLEND
                               </Badge>
-                            ) : null}
+                            )}
                           </div>
                         </div>
                         
@@ -1084,7 +1083,7 @@ export default function ProducerDetails() {
                           )}
 
                           {/* Composição do Blend */}
-                          {((lotDetails as any).is_blend === true || (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0)) && (
+                          {(lotDetails.components || lotDetails.lot_components) && (lotDetails.components?.length > 0 || lotDetails.lot_components?.length > 0) && (
                             <div className="p-8 rounded-[2.5rem] bg-slate-50 border border-slate-100 space-y-6">
                               <div className="flex items-center gap-3">
                                 <div 
@@ -1117,17 +1116,15 @@ export default function ProducerDetails() {
                                       </div>
                                     </div>
                                     
-                                    {(component.producers || component.producer_id) && (
+                                    {component.producers && (
                                       <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                           <UserCircle size={20} className="text-slate-300" />
-                                          <span className="text-xs font-black text-slate-600 truncate max-w-[150px]">{component.producers?.name || "Produtor vinculado"}</span>
+                                          <span className="text-xs font-black text-slate-600 truncate max-w-[150px]">{component.producers.name}</span>
                                         </div>
                                         <div className="flex items-center gap-1 text-slate-400">
                                           <MapPin size={14} />
-                                          <span className="text-[10px] font-bold">
-                                            {getComponentLocationDisplay(component, "Região não inf.")}
-                                          </span>
+                                          <span className="text-[10px] font-bold">{component.producers.city || "Região não inf."}</span>
                                         </div>
                                       </div>
                                     )}

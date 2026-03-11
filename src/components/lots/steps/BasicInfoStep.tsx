@@ -30,7 +30,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { QRCodeSVG } from "qrcode.react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { categoriesApi, characteristicsApi, brandsApi, associationsApi, producersApi, systemConfigApi } from "@/services/api";
 import { generateSlug } from "@/utils/slug-generator";
 import { generateLotCode } from "@/utils/lot-code-generator";
@@ -71,8 +71,6 @@ interface BasicInfoStepProps {
   associations: any[];
   industries: any[];
   isEditing?: boolean;
-  focusField?: string;
-  fieldError?: string;
 }
 
 export const BasicInfoStep = ({
@@ -86,15 +84,12 @@ export const BasicInfoStep = ({
   producers,
   associations,
   industries,
-  isEditing = false,
-  focusField,
-  fieldError
+  isEditing = false
 }: BasicInfoStepProps) => {
   const labels = useTenantLabels();
   const primaryColor = branding?.primaryColor || '#16a34a';
   const secondaryColor = branding?.secondaryColor || '#22c55e';
   const accentColor = branding?.accentColor || '#10b981';
-  const codeInputRef = useRef<HTMLInputElement>(null);
 
   const [categories, setCategories] = useState<any[]>([]);
   const [allCharacteristics, setAllCharacteristics] = useState<any[]>([]);
@@ -242,17 +237,6 @@ export const BasicInfoStep = ({
       setShowChangeUrlWarningModal(false);
     }
   }, [isEditing]);
-
-  useEffect(() => {
-    if (focusField !== "code") return;
-    const el = codeInputRef.current;
-    if (!el) return;
-    const t = setTimeout(() => {
-      el.focus();
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 100);
-    return () => clearTimeout(t);
-  }, [focusField]);
 
   const handleProducerChange = (value: string) => {
     setFormData((prev: any) => ({ 
@@ -523,11 +507,10 @@ export const BasicInfoStep = ({
                       allowCodeEditInEditing ? (
                         <div className="space-y-2">
                           <Input
-                            ref={codeInputRef}
                             value={formData.code}
                             onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                             placeholder="CÓDIGO DO LOTE"
-                            className={`h-14 bg-white rounded-2xl font-mono font-black text-2xl text-slate-800 focus-visible:ring-primary text-center uppercase tracking-widest placeholder:text-slate-200 border ${fieldError ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-200"}`}
+                            className="h-14 bg-white border-slate-200 rounded-2xl font-mono font-black text-2xl text-slate-800 focus-visible:ring-primary text-center uppercase tracking-widest placeholder:text-slate-200"
                             style={{ '--primary': primaryColor } as any}
                           />
                           <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider flex items-center gap-1">
@@ -565,11 +548,10 @@ export const BasicInfoStep = ({
                       </div>
                     ) : lotConfig?.mode === 'manual' ? (
                       <Input 
-                        ref={codeInputRef}
                         value={formData.code}
                         onChange={e => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                         placeholder="DIGITE O CÓDIGO COMPLETO"
-                        className={`h-14 bg-white rounded-2xl font-mono font-black text-2xl text-slate-800 focus-visible:ring-primary text-center uppercase tracking-widest placeholder:text-slate-200 border ${fieldError ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-200"}`}
+                        className="h-14 bg-white border-slate-200 rounded-2xl font-mono font-black text-2xl text-slate-800 focus-visible:ring-primary text-center uppercase tracking-widest placeholder:text-slate-200"
                         style={{ '--primary': primaryColor } as any}
                       />
                     ) : (
@@ -592,7 +574,6 @@ export const BasicInfoStep = ({
                           })()}-
                         </div>
                         <Input 
-                          ref={codeInputRef}
                           value={formData.code?.split('-')[1] || ''}
                           onChange={e => {
                             const prefix = (() => {
@@ -614,17 +595,13 @@ export const BasicInfoStep = ({
                           }}
                           placeholder="0001"
                           maxLength={10}
-                          className={`h-14 bg-white rounded-2xl font-mono font-black text-2xl text-slate-800 focus-visible:ring-primary text-center uppercase tracking-widest placeholder:text-slate-200 flex-1 border ${fieldError ? "border-rose-500 ring-1 ring-rose-500" : "border-slate-200"}`}
+                          className="h-14 bg-white border-slate-200 rounded-2xl font-mono font-black text-2xl text-slate-800 focus-visible:ring-primary text-center uppercase tracking-widest placeholder:text-slate-200 flex-1"
                           style={{ '--primary': primaryColor } as any}
                         />
                       </div>
                     )}
                   </div>
-                  {fieldError && (
-                    <p className="text-rose-600 text-xs font-bold mt-2 px-1 flex items-center gap-1">
-                      <WarningCircle size={14} weight="fill" /> {fieldError}
-                    </p>
-                  )}
+                  
                   <div className="flex items-center gap-2 px-2">
                     <Info size={14} className="text-slate-400" />
                     <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tight leading-relaxed">

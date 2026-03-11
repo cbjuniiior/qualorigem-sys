@@ -27,9 +27,9 @@ export const LotCard = ({ lot, onEdit, onDelete, branding }: LotCardProps) => {
   const secondaryColor = branding?.secondaryColor || '#22c55e';
   const accentColor = branding?.accentColor || '#10b981';
   
-  // Detectar se é um blend - verificar tanto components quanto lot_components quanto is_blend
-  const isBlend = lot.is_blend === true || (lot.components && lot.components.length > 0) || (lot.lot_components && lot.lot_components.length > 0);
-
+  // Detectar se é um blend - verificar tanto components quanto lot_components
+  const isBlend = (lot.components && lot.components.length > 0) || (lot.lot_components && lot.lot_components.length > 0);
+  
   // Usar components ou lot_components dependendo do que estiver disponível
   const blendComponents = lot.components || lot.lot_components || [];
   
